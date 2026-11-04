@@ -7,6 +7,41 @@ mod storage;
 mod session_vault;
 use std::path::PathBuf;
 use tauri::Manager;
+use session_vault::{SessionVault, VaultError, Secret};
+use std::{collections::HashMap, sync::{LazyLock, Mutex}};
+
+// Exclusive Windows file handles also prevent two app processes rotating one refresh token.
+static VAULTS: LazyLock<Mutex<HashMap<PathBuf, (SessionVault, std::fs::File)>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn with_vault<T>(app: &tauri::AppHandle, project_ref: &str, action: impl FnOnce(&SessionVault) -> Result<T, VaultError>) -> Result<T, VaultError> {
+    let root = storage_directory(app).map_err(|_| VaultError::Unavailable)?.join("sessions");
+    let vault = SessionVault::new(&root, project_ref)?;
+    let key = root.join(project_ref);
+    let mut vaults = VAULTS.lock().map_err(|_| VaultError::Unavailable)?;
+    if !vaults.contains_key(&key) {
+        let lock = vault.lock()?;
+        vaults.insert(key.clone(), (vault, lock));
+    }
+    action(&vaults.get(&key).ok_or(VaultError::Unavailable)?.0)
+}
+
+#[tauri::command]
+async fn session_vault_read(app: tauri::AppHandle, project_ref: String) -> Result<Option<String>, VaultError> {
+    tauri::async_runtime::spawn_blocking(move || with_vault(&app, &project_ref, |vault| {
+        vault.load()?.map(|secret| std::str::from_utf8(secret.bytes()).map(str::to_owned).map_err(|_| VaultError::InvalidData)).transpose()
+    })).await.map_err(|_| VaultError::Unavailable)?
+}
+#[tauri::command]
+async fn session_vault_write(app: tauri::AppHandle, project_ref: String, token: String) -> Result<(), VaultError> {
+    let secret = Secret::from_string(token);
+    tauri::async_runtime::spawn_blocking(move || with_vault(&app, &project_ref, |vault| vault.save(secret.bytes())))
+        .await.map_err(|_| VaultError::Unavailable)?
+}
+#[tauri::command]
+async fn session_vault_clear(app: tauri::AppHandle, project_ref: String) -> Result<(), VaultError> {
+    tauri::async_runtime::spawn_blocking(move || with_vault(&app, &project_ref, SessionVault::clear))
+        .await.map_err(|_| VaultError::Unavailable)?
+}
 
 fn storage_directory(app: &tauri::AppHandle) -> Result<PathBuf, storage::StorageError> {
     // Process-level override for isolated QA/portable development. Never supplied by the UI.
@@ -28,7 +63,7 @@ async fn local_storage_status(app: tauri::AppHandle) -> Result<storage::StorageS
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![local_storage_status])
+        .invoke_handler(tauri::generate_handler![local_storage_status, session_vault_read, session_vault_write, session_vault_clear])
         .run(tauri::generate_context!())
         .expect("Metis could not start");
 }

@@ -54,7 +54,8 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => { document.title = `${current.label} · Metis`; }, [current.label]);
   useEffect(() => {
-    const clearSession = () => loginStore.cancel();
+    loginStore.start();
+    const clearSession = () => loginStore.suspend();
     window.addEventListener('focus', loginStore.checkExpiry);
     document.addEventListener('visibilitychange', loginStore.checkExpiry);
     window.addEventListener('pagehide', clearSession);
@@ -87,7 +88,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{name !== 'Dashboard' && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 06 <span>v0.6.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 07 <span>v0.7.0</span></div></div>
       </aside>
 
       <div className="main-layout">

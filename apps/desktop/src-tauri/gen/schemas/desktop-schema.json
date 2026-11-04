@@ -183,10 +183,46 @@
           "markdownDescription": "Enables the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the session_vault_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-session-vault-clear",
+          "markdownDescription": "Enables the session_vault_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the session_vault_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-session-vault-read",
+          "markdownDescription": "Enables the session_vault_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the session_vault_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-session-vault-write",
+          "markdownDescription": "Enables the session_vault_write command without any pre-configured scope."
+        },
+        {
           "description": "Denies the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "deny-local-storage-status",
           "markdownDescription": "Denies the local_storage_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the session_vault_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-session-vault-clear",
+          "markdownDescription": "Denies the session_vault_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the session_vault_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-session-vault-read",
+          "markdownDescription": "Denies the session_vault_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the session_vault_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-session-vault-write",
+          "markdownDescription": "Denies the session_vault_write command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

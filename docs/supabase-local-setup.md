@@ -1,6 +1,6 @@
 # Metis — mevcut Supabase projesini bağlama
 
-M0.5 kodu hazır; kullanıcı isteğiyle gerçek proje ayarları bu dilimde boş bırakıldı. Yeni proje/ücretli servis oluşturulmaz. Aşağıdaki ayarları kendi bilgisayarında yap; parola, token veya secret key'i sohbete gönderme.
+M0.7 kodu hazır; kullanıcı isteğiyle gerçek proje ayarları bu dilimde boş bırakıldı. Yeni proje/ücretli servis oluşturulmaz. Aşağıdaki ayarları kendi bilgisayarında yap; parola, token veya secret key'i sohbete gönderme.
 
 1. Proje kökünde, `apps/desktop/.env.example` dosyasını **`apps/desktop/.env.local`** olarak kopyala. Varsa mevcut `.env.local` dosyanı üzerine yazmadan düzenle.
 2. Supabase panelindeki **Project URL** ve **Publishable key** değerlerini bu dosyaya yaz:
@@ -29,7 +29,7 @@ npm.cmd run desktop
 
 API terminalinde daha önceden `Identity__Provider` veya `Identity__Authority` ayarladıysan bunlar dosyadan türetilen ayara göre önceliklidir. İstenmeyen eski override'ları o terminalde kaldır veya yeni bir terminal aç. `GET http://127.0.0.1:5080/api/v1/auth/status` yanıtında `verificationConfigured` ve doğru public `issuer` görünür; bu tek başına canlı Supabase bağlantı testi değildir.
 
-Metis'teki “Hesap & oturum” kartından e-posta/parolanla giriş yap. Başarı hem sağlayıcıdan token alınmasını hem API'nin doğrulamasını gerektirir. Parola alanı gönderimde temizlenir. “Bu cihazdan çıkış yap” yalnızca mevcut oturumu hedefler. Uygulama kapanınca veya token süresi dolunca tekrar giriş gerekir.
+Metis'teki “Hesap & oturum” kartından e-posta/parolanla giriş yap. Başarı hem sağlayıcıdan token alınmasını hem API'nin doğrulamasını gerektirir. Parola alanı gönderimde temizlenir. “Bu cihazdan çıkış yap” yalnızca mevcut oturumu hedefler. Varsayılan olarak uygulama kapanınca yeniden giriş gerekir. Hatırla seçilirse refresh token şifreli saklanır; açılışta yenilenip API tarafından doğrulanır. Çıkışta cihaz kaydı silinir.
 
 ## EXE ve ayar değişiklikleri
 
@@ -40,7 +40,7 @@ Metis'teki “Hesap & oturum” kartından e-posta/parolanla giriş yap. Başar�
 npm.cmd run build:desktop
 ```
 
-Çıktı: `apps/desktop/src-tauri/target/release/personal-os-desktop.exe`; görünür ürün adı Metis'tir. Public URL/key bu derlemeye dahil olur. `outputs/Metis-M0.5.exe` ayarlar boşken üretilen önizlemedir; canlı giriş için yeniden derleme gerekir. API ayrı terminalde çalışmaya devam etmelidir.
+Çıktı: `apps/desktop/src-tauri/target/release/personal-os-desktop.exe`; görünür ürün adı Metis'tir. Public URL/key bu derlemeye dahil olur. `outputs/Metis-M0.7.exe` ayarlar boşken üretilen önizlemedir; canlı giriş için yeniden derleme gerekir. API ayrı terminalde çalışmaya devam etmelidir.
 
 ## Sık görülen durumlar
 
@@ -49,4 +49,4 @@ npm.cmd run build:desktop
 - **Metis oturumu doğrulayamadı:** API açık mı, signing key asimetrik mi, issuer doğru mu kontrol et.
 - **Çok fazla deneme:** Sağlayıcının bekleme süresi dolmadan tekrar deneme.
 
-Bu dilimde kayıt/sıfırlama, kalıcı oturum, refresh, görev verisi, merkezi PostgreSQL bağlantısı veya sync yoktur.
+Kayıt/sıfırlama, görev verisi, merkezi PostgreSQL veri bağlantısı ve sync sonraki kapsamdır. Kalıcı oturum Windows üzerinde açık seçimle kullanılabilir; canlı hesap testi henüz yapılmadı.

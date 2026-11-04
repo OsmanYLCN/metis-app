@@ -1,5 +1,4 @@
-//! M0.6 storage boundary. Not exposed over IPC or connected to login until the next slice.
-#![allow(dead_code)]
+//! Windows-user-scoped encrypted refresh-token storage.
 
 use sha2::{Digest, Sha256};
 use std::{ffi::c_void, fs::{self, OpenOptions}, io::{Read, Write}, os::windows::ffi::OsStrExt,
@@ -10,12 +9,16 @@ const MAX_FILE: usize = 32768;
 const MAGIC: &[u8] = b"METIS-SESSION-1\0";
 static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum VaultError { InvalidInput, Unavailable, InvalidData }
 
 // Deliberately has no Debug, Serialize, Clone or Display implementation.
 pub struct Secret(Vec<u8>);
-impl Secret { pub fn bytes(&self) -> &[u8] { &self.0 } }
+impl Secret {
+    pub fn bytes(&self) -> &[u8] { &self.0 }
+    pub fn from_string(value: String) -> Self { Self(value.into_bytes()) }
+}
 impl Drop for Secret { fn drop(&mut self) { wipe(&mut self.0); } }
 fn wipe(bytes: &mut [u8]) {
     for byte in bytes { unsafe { ptr::write_volatile(byte, 0); } }
@@ -65,6 +68,12 @@ fn crypt(input: &[u8], context: &[u8], encrypt: bool) -> Result<Secret, VaultErr
 
 pub struct SessionVault { directory: PathBuf, file: PathBuf, context: Vec<u8> }
 impl SessionVault {
+    pub fn lock(&self) -> Result<std::fs::File, VaultError> {
+        use std::os::windows::fs::OpenOptionsExt;
+        fs::create_dir_all(&self.directory).map_err(|_| VaultError::Unavailable)?;
+        OpenOptions::new().read(true).write(true).create(true).truncate(false).share_mode(0)
+            .open(self.file.with_extension("lock")).map_err(|_| VaultError::Unavailable)
+    }
     /// The native host selects the absolute root; never accept an arbitrary frontend path.
     pub fn new(directory: &Path, project_ref: &str) -> Result<Self, VaultError> {
         if !directory.is_absolute() || project_ref.is_empty() || project_ref.len() > 63
@@ -191,6 +200,13 @@ mod tests {
         let encrypted = crypt(b"future-format", &vault.context, true).unwrap();
         fs::write(&vault.file, encrypted.bytes()).unwrap();
         assert!(matches!(vault.load(), Err(VaultError::InvalidData)));
+    }
+    #[test] fn exclusive_lock_blocks_second_owner_until_released() {
+        let fixture = Fixture::new(); let vault = fixture.vault();
+        let lock = vault.lock().unwrap();
+        assert!(fixture.vault().lock().is_err());
+        drop(lock);
+        assert!(fixture.vault().lock().is_ok());
     }
     #[test] fn separate_process_can_reopen_under_same_windows_account() {
         let fixture = Fixture::new(); fixture.vault().save(b"process-test-value").unwrap();

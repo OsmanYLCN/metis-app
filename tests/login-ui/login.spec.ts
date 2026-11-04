@@ -54,3 +54,32 @@ test('API rejection shows a safe error and clears the password', async ({ page }
   await page.setViewportSize({ width: 780, height: 720 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('explicit remember restores after reload through mocked native vault and fresh API verification', async ({ page }) => {
+  let saved: string | null = null;
+  await page.exposeFunction('testVault', (command: string, args: { token?: string }) => {
+    if (command === 'session_vault_write') { saved = args.token!; return; }
+    if (command === 'session_vault_clear') { saved = null; return; }
+    if (command === 'session_vault_read') return saved;
+    return { engine: 'sqlite', schemaVersion: 1, migrationCount: 1, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
+  });
+  await page.addInitScript(() => Object.assign(window, { __TAURI__: { core: {
+    invoke: (command: string, args: unknown) => (window as unknown as { testVault: (command: string, args: unknown) => Promise<unknown> }).testVault(command, args),
+  } } }));
+  await fixtures(page);
+  await page.route('https://test-project.supabase.co/auth/v1/token?grant_type=refresh_token', route => route.fulfill({ json: {
+    access_token: 'renewed-ui-token', refresh_token: 'rotated-ui-refresh', token_type: 'bearer', expires_in: 3600,
+  } }));
+  await page.getByLabel('E-posta', { exact: true }).fill('test@example.test');
+  await page.getByLabel('Parola', { exact: true }).fill('fake-test-password');
+  await page.getByLabel('Bu cihazda oturumumu hatırla').check();
+  await page.getByRole('button', { name: 'Giriş yap', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Oturum açık', exact: true })).toBeVisible();
+  expect(saved).toBe('unused-test-value');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Oturum açık', exact: true })).toBeVisible();
+  expect(saved).toBe('rotated-ui-refresh');
+  await page.getByRole('button', { name: 'Bu cihazdan çıkış yap' }).click();
+  await expect(page.getByRole('heading', { name: 'Metis’e giriş yap' })).toBeVisible();
+  expect(saved).toBeNull();
+});

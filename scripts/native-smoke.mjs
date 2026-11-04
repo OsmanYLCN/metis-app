@@ -53,6 +53,7 @@ async function waitFor(url, child) {
 try {
   const api = launch('dotnet', ['services/api/bin/Release/net10.0/PersonalOS.Api.dll'], {
     ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: 'http://127.0.0.1:5080',
+    Identity__Provider: 'Disabled', Identity__Authority: '',
   });
   await waitFor('http://127.0.0.1:5080/health', api);
   let desktop = launch('apps/desktop/src-tauri/target/release/personal-os-desktop.exe', [], {
@@ -71,6 +72,9 @@ try {
   const first = await page.evaluate(() => window.__TAURI__.core.invoke('local_storage_status'));
   expect(first.schemaVersion).toBe(1);
   expect(first.migrationCount).toBe(1);
+  await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_write', { projectRef: 'native-test', token: 'synthetic-native-refresh' }));
+  expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBe('synthetic-native-refresh');
+  expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'another-test' }))).toBeNull();
   const denied = await page.evaluate(async () => {
     try { await window.__TAURI__.core.invoke('plugin:fs|read_text_file', { path: 'C:/Windows/win.ini' }); return false; }
     catch { return true; }
@@ -80,12 +84,12 @@ try {
   await expect(page.getByRole('heading', { name: 'Görevler için yerimiz hazır.' })).toBeVisible();
   await page.getByRole('button', { name: 'Genel bakışa dön' }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({ path: `${root}docs/screenshots/m0.3-native.png` });
+  await page.screenshot({ path: `${root}test-results/m0.7-native.png` });
 
   // End the actual process, then reopen the same isolated on-disk database.
   await browser.close();
   browser = undefined;
-  if (desktop.exitCode === null) {
+  if (desktop.exitCode === null && desktop.signalCode === null) {
     const stopped = once(desktop, 'exit');
     desktop.kill();
     await stopped;
@@ -109,11 +113,14 @@ try {
   await expect(reopened.getByRole('heading', { name: 'Yerel alan hazır' })).toBeVisible();
   const second = await reopened.evaluate(() => window.__TAURI__.core.invoke('local_storage_status'));
   expect(second).toEqual(first);
-  console.log('PASS: Windows release renders, connects to API, permits only storage status, and preserves SQLite identity across process restarts.');
+  expect(await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBe('synthetic-native-refresh');
+  await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_clear', { projectRef: 'native-test' }));
+  expect(await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBeNull();
+  console.log('PASS: Windows IPC vault save/reopen/delete, project isolation, restricted permissions, and SQLite restart identity.');
 } finally {
   await browser?.close().catch(() => {});
   for (const child of children.reverse()) {
-    if (child.exitCode === null && !child.launchError) {
+    if (child.exitCode === null && child.signalCode === null && !child.launchError) {
       const stopped = once(child, 'exit');
       child.kill();
       await stopped;

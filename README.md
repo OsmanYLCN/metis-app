@@ -1,8 +1,8 @@
 # Metis
 
-**M0 / Foundation — Dilim 06, v0.6.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Varsayılan sağlayıcı kapalıdır; kullanıcının gerçek proje ayarları bu dilimde boş bırakıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 07, v0.7.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Varsayılan sağlayıcı kapalıdır; kullanıcının gerçek proje ayarları bu dilimde boş bırakıldı. Tam ürün veya tamamlanmış M0 değildir.
 
-M0.6 eklemesi: Windows DPAPI ile şifreli oturum kasası adaptörü ve gerçek native testler. Adaptör henüz giriş akışına bağlı değildir; kalıcı giriş/refresh açılmadı. [ADR-0006](docs/adr/0006-windows-session-vault.md), [doğrulama](docs/verification-m0.6.md).
+M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
 ## Bu dilimde çalışanlar
 
@@ -15,13 +15,13 @@ M0.6 eklemesi: Windows DPAPI ile şifreli oturum kasası adaptörü ve gerçek n
 - Yerel depolama durum kartı; tarayıcıda desteklenmediğini, masaüstünde başarı/hata durumunu açıkça gösterir.
 - Hesap/oturum sözleşmesi, başlangıçta doğrulanan sağlayıcı ayarları ve gerçek API'den okunan hesap durum kartı.
 - Supabase yapılandırıldığında public JWKS ile gerçek sunucu token doğrulaması.
-- Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Oturum yalnızca bellekte tutulur; kalıcı saklama ve yenileme yoktur.
+- Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Varsayılan oturum bellektedir; hatırla seçilirse refresh token şifreli kasaya yazılır ve yenilenir.
 
 **Demo sınırı:** İş modülleri yerel önizlemedir; gerçek kayıt içermez. Health ve masaüstündeki SQLite mock değildir. SQLite yalnızca rastgele depolama kimliğini, oluşturulma zamanını ve migration geçmişini saklar. Giriş kodu gerçek sağlayıcı için hazırdır ancak canlı hesapla denenmedi; otomatik giriş testlerinde sağlayıcı yanıtları mock'tur. PostgreSQL veri bağlantısı, R2 ve hosting yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
 
 ## Hazır Windows uygulaması
 
-`outputs/Metis-M0.6.exe` public bağlantı ayarları boşken üretilen Windows önizlemesidir. **SQLite için API'yi veya interneti açmak gerekmez.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.5 doğrulama kaydı](docs/verification-m0.5.md).
+`outputs/Metis-M0.7.exe` public bağlantı ayarları boşken üretilen Windows önizlemesidir. **SQLite için API'yi veya interneti açmak gerekmez.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.5 doğrulama kaydı](docs/verification-m0.5.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. Dosya bu dilimde şifrelenmez ve hassas veri içermez. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 
@@ -122,7 +122,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Öneri: **M0.7 — kullanıcı seçimiyle kalıcı oturum ve yenilemenin ilk entegrasyonu**. Kalıcı token saklama/yenileme kontrollü olarak ele alınacak; görev CRUD'ı ve sync ayrı dilimlerdir. Başlamak için kullanıcının yeni “devam edelim” onayı gerekir. M0.5'te kullanıcı tercihiyle canlı proje ayarları doldurulmadı.
+Öneri: **M0.8 — canlı hesap bağlantısını doğrulama ve sonraki veri dilimini belirleme**. Cihaz oturumu entegrasyonu tamamlandı; görev CRUD'ı ve sync ayrı dilimlerdir. Başlamak için kullanıcının yeni “devam edelim” onayı gerekir. M0.5'te kullanıcı tercihiyle canlı proje ayarları doldurulmadı.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 

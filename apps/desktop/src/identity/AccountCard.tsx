@@ -32,7 +32,7 @@ export function AccountCard() {
     const fields = new FormData(form);
     const passwordField = form.elements.namedItem('password') as HTMLInputElement;
     passwordField.value = '';
-    void loginStore.signIn(String(fields.get('email') ?? ''), String(fields.get('password') ?? ''));
+    void loginStore.signIn(String(fields.get('email') ?? ''), String(fields.get('password') ?? ''), fields.get('remember') === 'on');
   }
 
   const title = state.kind === 'checking' ? 'Hesap durumu kontrol ediliyor'
@@ -43,7 +43,7 @@ export function AccountCard() {
     ? 'Hesap durumu alınamadı. Yerel veri alanı bağımsız çalışır.'
     : state.kind === 'checking' ? 'Yerel API üzerinden hesap durumu okunuyor.'
       : state.value.status === 'verificationConfigured'
-        ? configured ? 'Mevcut hesabınla giriş yap. Oturum yalnızca uygulama açıkken korunur.'
+        ? configured ? 'Mevcut hesabınla giriş yap. Varsayılan olarak oturum uygulama kapanınca sona erer.'
           : 'Bu cihazın giriş ayarları eksik veya hesap servisiyle eşleşmiyor.'
         : 'Oturum açık değil. Gerçek giriş ve cihazlar arası eşitleme sonraki dilimlerde.';
 
@@ -53,7 +53,7 @@ export function AccountCard() {
     <h3 aria-live="polite">{login.phase === 'signedIn' ? 'Oturum açık'
       : login.phase === 'signingIn' ? 'Giriş doğrulanıyor'
         : login.phase === 'signingOut' ? 'Çıkış yapılıyor' : configured ? 'Metis’e giriş yap' : title}</h3>
-    <p>{login.phase === 'signedIn' ? 'Hesabın doğrulandı. Uygulamayı kapattığında yeniden giriş yapman gerekir.'
+    <p>{login.phase === 'signedIn' ? login.remembered ? 'Oturumun bu Windows hesabında şifreli saklanıyor.' : 'Hesabın doğrulandı. Uygulamayı kapattığında yeniden giriş yapman gerekir.'
       : login.phase === 'signingIn' ? 'Hesabın ve Metis bağlantın kontrol ediliyor.'
         : login.phase === 'signingOut' ? 'Bu cihazdaki oturum kapatıldı; sunucuya bildiriliyor.' : description}</p>
     {login.phase === 'signedOut' && login.message && <p role="status" className="account-message">{login.message}</p>}
@@ -62,6 +62,7 @@ export function AccountCard() {
       <input id="account-email" name="email" type="email" autoComplete="username" maxLength={254} required />
       <label htmlFor="account-password">Parola</label>
       <input id="account-password" name="password" type="password" autoComplete="current-password" maxLength={1024} required />
+      {loginStore.canRemember() && <label className="remember-option"><input name="remember" type="checkbox" /> Bu cihazda oturumumu hatırla</label>}
       <button className="primary-button" type="submit">Giriş yap</button>
     </form>}
     {login.phase === 'signedIn' && <button className="text-button" onClick={() => void loginStore.signOut()}>Bu cihazdan çıkış yap</button>}
@@ -69,5 +70,9 @@ export function AccountCard() {
     {login.phase === 'signedOut' && <button className="text-button" onClick={() => void refresh()} disabled={state.kind === 'checking'}>
       <RefreshCw size={14} className={state.kind === 'checking' ? 'spin' : ''} /> Hesap durumunu kontrol et
     </button>}
+    {login.phase === 'signedOut' && loginStore.canRemember() && <div className="saved-session-actions">
+      <button className="text-button" onClick={() => void loginStore.restore()}>Kayıtlı oturumu aç</button>
+      <button className="text-button" onClick={() => void loginStore.signOut()}>Cihazdaki oturumu sil</button>
+    </div>}
   </article>;
 }
