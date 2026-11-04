@@ -1,0 +1,28 @@
+{
+  "name": "personal-os",
+  "version": "0.4.0",
+  "private": true,
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @personal-os/desktop",
+    "desktop": "npm run tauri --workspace @personal-os/desktop -- dev",
+    "build": "npm run build --workspace @personal-os/desktop",
+    "build:desktop": "npm run tauri --workspace @personal-os/desktop -- build --no-bundle",
+    "build:api": "dotnet build services/api/PersonalOS.Api.csproj --configuration Release",
+    "dev:api": "dotnet run --project services/api/PersonalOS.Api.csproj --launch-profile local",
+    "test": "npm run test --workspace @personal-os/desktop",
+    "test:api": "node --test scripts/api-smoke.test.mjs",
+    "test:ui": "playwright test",
+    "test:native": "node scripts/native-smoke.mjs",
+    "test:storage": "cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "test:identity": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}

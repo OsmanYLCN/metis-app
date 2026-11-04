@@ -1,0 +1,1 @@
+{"local-storage":{"identifier":"local-storage","description":"Only the bundled main window may inspect the local storage foundation.","local":true,"windows":["main"],"permissions":["allow-local-storage-status"]}}
