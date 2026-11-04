@@ -4,6 +4,7 @@
 compile_error!("M0.2 desktop storage targets Windows. Other platform adapters are deferred.");
 
 mod storage;
+mod session_vault;
 use std::path::PathBuf;
 use tauri::Manager;
 

@@ -1,6 +1,8 @@
 # Metis
 
-**M0 / Foundation — Dilim 05, v0.5.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Varsayılan sağlayıcı kapalıdır; kullanıcının gerçek proje ayarları bu dilimde boş bırakıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 06, v0.6.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Varsayılan sağlayıcı kapalıdır; kullanıcının gerçek proje ayarları bu dilimde boş bırakıldı. Tam ürün veya tamamlanmış M0 değildir.
+
+M0.6 eklemesi: Windows DPAPI ile şifreli oturum kasası adaptörü ve gerçek native testler. Adaptör henüz giriş akışına bağlı değildir; kalıcı giriş/refresh açılmadı. [ADR-0006](docs/adr/0006-windows-session-vault.md), [doğrulama](docs/verification-m0.6.md).
 
 ## Bu dilimde çalışanlar
 
@@ -19,7 +21,7 @@
 
 ## Hazır Windows uygulaması
 
-`outputs/Metis-M0.5.exe` public bağlantı ayarları boşken üretilen Windows önizlemesidir. **SQLite için API'yi veya interneti açmak gerekmez.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.5 doğrulama kaydı](docs/verification-m0.5.md).
+`outputs/Metis-M0.6.exe` public bağlantı ayarları boşken üretilen Windows önizlemesidir. **SQLite için API'yi veya interneti açmak gerekmez.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.5 doğrulama kaydı](docs/verification-m0.5.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. Dosya bu dilimde şifrelenmez ve hassas veri içermez. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 
@@ -120,7 +122,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Öneri: **M0.6 — gerçek hesapla bağlantı kontrolü ve güvenli cihaz oturumunun ilk dilimi**. Kalıcı token saklama/yenileme kontrollü olarak ele alınacak; görev CRUD'ı ve sync ayrı dilimlerdir. Başlamak için kullanıcının yeni “devam edelim” onayı gerekir. M0.5'te kullanıcı tercihiyle canlı proje ayarları doldurulmadı.
+Öneri: **M0.7 — kullanıcı seçimiyle kalıcı oturum ve yenilemenin ilk entegrasyonu**. Kalıcı token saklama/yenileme kontrollü olarak ele alınacak; görev CRUD'ı ve sync ayrı dilimlerdir. Başlamak için kullanıcının yeni “devam edelim” onayı gerekir. M0.5'te kullanıcı tercihiyle canlı proje ayarları doldurulmadı.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 
