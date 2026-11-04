@@ -4,7 +4,8 @@ public sealed record IdentityStatus(
     string Status,
     string? Provider,
     bool SignInAvailable,
-    string SessionPersistence);
+    string SessionPersistence,
+    string? Issuer = null);
 
 public sealed record SessionUser(string Id, string? DisplayName);
 

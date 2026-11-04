@@ -8,7 +8,7 @@ public sealed class DisabledIdentityProvider : IIdentityProvider
 /// <summary>
 /// Configured verification is not a live provider health check or an available sign-in UI.
 /// </summary>
-public sealed class SupabaseIdentityProvider : IIdentityProvider
+public sealed class SupabaseIdentityProvider(string issuer) : IIdentityProvider
 {
-    public IdentityStatus GetStatus() => new("verificationConfigured", "supabase", false, "none");
+    public IdentityStatus GetStatus() => new("verificationConfigured", "supabase", false, "none", issuer.TrimEnd('/'));
 }

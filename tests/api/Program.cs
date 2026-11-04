@@ -110,7 +110,8 @@ async Task<JsonElement> Request(HttpClient client, string path, HttpStatusCode e
     Check(response.Headers.CacheControl?.NoStore == true, "Account response cached.");
     Check(!response.Headers.Contains("Set-Cookie"), "Unexpected cookie.");
     var body = await response.Content.ReadAsStringAsync();
-    Check(!body.Contains("test-project") && (token is null || !body.Contains(token)), "Config or bearer token leaked.");
+    Check((path.EndsWith("/status", StringComparison.Ordinal) || !body.Contains("test-project"))
+        && (token is null || !body.Contains(token)), "Private config or bearer token leaked.");
     if (expected == HttpStatusCode.Unauthorized) Check(response.Headers.WwwAuthenticate.ToString() == "Bearer", "Missing generic Bearer challenge.");
     var json = JsonDocument.Parse(body).RootElement.Clone();
     if (expected == HttpStatusCode.Unauthorized)
@@ -136,6 +137,7 @@ using (var client = app.GetTestClient())
 {
     var status = await Request(client, "/api/v1/auth/status", HttpStatusCode.OK);
     Check(status.GetProperty("status").GetString() == "verificationConfigured"
+        && status.GetProperty("issuer").GetString() == issuer
         && !status.GetProperty("signInAvailable").GetBoolean()
         && status.GetProperty("sessionPersistence").GetString() == "none", "Status claims sign-in or persistence.");
     await Request(client, "/api/v1/auth/session", HttpStatusCode.Unauthorized);

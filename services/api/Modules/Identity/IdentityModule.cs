@@ -23,7 +23,7 @@ public static class IdentityModule
         {
             var options = provider.GetRequiredService<IOptions<IdentityOptions>>().Value;
             return options.Provider == "Supabase"
-                ? new SupabaseIdentityProvider()
+                ? new SupabaseIdentityProvider(options.Authority!)
                 : new DisabledIdentityProvider();
         });
         return services;

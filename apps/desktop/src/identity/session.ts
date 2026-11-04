@@ -1,9 +1,9 @@
 import { API_URL } from '../api/health';
 
 export type IdentityStatus = {
-  status: 'notConfigured'; provider: null; signInAvailable: false; sessionPersistence: 'none';
+  status: 'notConfigured'; provider: null; signInAvailable: false; sessionPersistence: 'none'; issuer?: null;
 } | {
-  status: 'connectionPending' | 'verificationConfigured'; provider: 'supabase'; signInAvailable: false; sessionPersistence: 'none';
+  status: 'connectionPending' | 'verificationConfigured'; provider: 'supabase'; signInAvailable: false; sessionPersistence: 'none'; issuer?: string;
 };
 
 // This slice stores no access/refresh tokens, cookies or user identity in the browser or SQLite.

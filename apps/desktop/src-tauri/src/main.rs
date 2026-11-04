@@ -29,5 +29,5 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![local_storage_status])
         .run(tauri::generate_context!())
-        .expect("Personal OS could not start");
+        .expect("Metis could not start");
 }
