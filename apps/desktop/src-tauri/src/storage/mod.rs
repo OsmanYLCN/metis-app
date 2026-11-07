@@ -1,4 +1,5 @@
 mod sqlite;
+pub mod tasks;
 #[cfg(test)]
 mod tests;
 
@@ -7,9 +8,10 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
+const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,6 +37,10 @@ pub struct StorageStatus {
 /// Owns no long-lived handles: each blocking operation opens, validates, and closes SQLite.
 /// The path is selected by Rust, never by a frontend argument.
 pub fn open_storage(path: &Path) -> Result<StorageStatus, StorageError> {
+    Ok(connect(path)?.1)
+}
+
+fn connect(path: &Path) -> Result<(Connection, StorageStatus), StorageError> {
     let parent = path.parent().ok_or(StorageError::Unavailable)?;
     fs::create_dir_all(parent).map_err(|_| StorageError::Unavailable)?;
     let connection = Connection::open(path)?;
@@ -47,10 +53,14 @@ pub fn open_storage(path: &Path) -> Result<StorageStatus, StorageError> {
     if connection.scalar("PRAGMA journal_mode=WAL")? != "wal" {
         return Err(StorageError::Unavailable);
     }
-    Ok(status)
+    Ok((connection, status))
 }
 
 fn migrate(connection: &Connection, migration: &str) -> Result<StorageStatus, StorageError> {
+    migrate_with_tasks(connection, migration, TASK_MIGRATION)
+}
+
+fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: &str) -> Result<StorageStatus, StorageError> {
     // Serializes concurrent first launches and keeps schema + journal + version atomic.
     let transaction = Transaction::begin(connection)?;
     let version: u32 = connection.scalar("PRAGMA user_version")?
@@ -69,14 +79,30 @@ fn migrate(connection: &Connection, migration: &str) -> Result<StorageStatus, St
              PRAGMA application_id={APPLICATION_ID}; PRAGMA user_version=1;"
         )).map_err(|_| StorageError::MigrationFailed)?;
     }
-    let status = validate(connection, &checksum)?;
+    // Validate the old journal before applying new DDL. Never adopt a modified v1 database.
+    let old_version = version.max(1);
+    validate(connection, &checksum, old_version)?;
+    let task_checksum = format!("{:x}", Sha256::digest(task_migration.replace("\r\n", "\n").as_bytes()));
+    if old_version == 1 {
+        connection.execute(task_migration).map_err(|_| StorageError::MigrationFailed)?;
+        connection.execute(&format!(
+            "INSERT INTO schema_migrations(version,name,checksum) VALUES (2,'local_tasks','{task_checksum}'); PRAGMA user_version=2;"
+        )).map_err(|_| StorageError::MigrationFailed)?;
+    }
+    if connection.scalar("SELECT name FROM schema_migrations WHERE version=2")? != "local_tasks"
+        || connection.scalar("SELECT checksum FROM schema_migrations WHERE version=2")? != task_checksum {
+        return Err(StorageError::InvalidSchema);
+    }
+    // Preparing the projection also rejects missing/renamed task columns before returning ready.
+    connection.query("SELECT id,project_ref,user_id,title,completed,created_at,updated_at FROM tasks LIMIT 0", &[])?;
+    let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)
 }
 
-fn validate(connection: &Connection, checksum: &str) -> Result<StorageStatus, StorageError> {
+fn validate(connection: &Connection, checksum: &str, version: u32) -> Result<StorageStatus, StorageError> {
     if connection.scalar("PRAGMA application_id")? != APPLICATION_ID
-        || connection.scalar("SELECT count(*) FROM schema_migrations")? != "1"
+        || connection.scalar("SELECT count(*) FROM schema_migrations")? != version.to_string()
         || connection.scalar("SELECT name FROM schema_migrations WHERE version=1")? != "local_foundation"
         || connection.scalar("SELECT checksum FROM schema_migrations WHERE version=1")? != checksum
         || connection.scalar("SELECT count(*) FROM local_metadata")? != "1"
@@ -86,5 +112,5 @@ fn validate(connection: &Connection, checksum: &str) -> Result<StorageStatus, St
     if storage_id.len() != 32 || !storage_id.bytes().all(|byte| byte.is_ascii_hexdigit()) || created_at.is_empty() {
         return Err(StorageError::InvalidSchema);
     }
-    Ok(StorageStatus { engine: "sqlite", schema_version: VERSION, migration_count: 1, storage_id, created_at })
+    Ok(StorageStatus { engine: "sqlite", schema_version: version, migration_count: version, storage_id, created_at })
 }

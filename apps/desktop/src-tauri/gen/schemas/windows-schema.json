@@ -201,6 +201,36 @@
           "markdownDescription": "Enables the session_vault_write command without any pre-configured scope."
         },
         {
+          "description": "Enables the tasks_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-create",
+          "markdownDescription": "Enables the tasks_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tasks_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-delete",
+          "markdownDescription": "Enables the tasks_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tasks_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-list",
+          "markdownDescription": "Enables the tasks_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tasks_rename command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-rename",
+          "markdownDescription": "Enables the tasks_rename command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tasks_set_completed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-set-completed",
+          "markdownDescription": "Enables the tasks_set_completed command without any pre-configured scope."
+        },
+        {
           "description": "Denies the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "deny-local-storage-status",
@@ -223,6 +253,36 @@
           "type": "string",
           "const": "deny-session-vault-write",
           "markdownDescription": "Denies the session_vault_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-create",
+          "markdownDescription": "Denies the tasks_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-delete",
+          "markdownDescription": "Denies the tasks_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-list",
+          "markdownDescription": "Denies the tasks_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_rename command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-rename",
+          "markdownDescription": "Denies the tasks_rename command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_set_completed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-set-completed",
+          "markdownDescription": "Denies the tasks_set_completed command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

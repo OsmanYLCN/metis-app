@@ -14,7 +14,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: [
-    { command: 'npm run dev', url: 'http://127.0.0.1:1420', reuseExistingServer: false },
-    { command: 'npm run dev:api', url: 'http://127.0.0.1:5080/health', reuseExistingServer: false, timeout: 60000 },
+    { command: 'npm run dev', url: 'http://127.0.0.1:1420', reuseExistingServer: false,
+      env: { VITE_SUPABASE_URL: '', VITE_SUPABASE_PUBLISHABLE_KEY: '' } },
+    { command: 'npm run dev:api', url: 'http://127.0.0.1:5080/health', reuseExistingServer: false, timeout: 60000,
+      env: { Identity__Provider: 'Disabled', Identity__Authority: '' } },
   ],
 });

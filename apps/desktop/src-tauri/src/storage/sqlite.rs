@@ -26,6 +26,8 @@ extern "C" {
     fn sqlite3_column_text(statement: *mut c_void, column: c_int) -> *const u8;
     fn sqlite3_column_bytes(statement: *mut c_void, column: c_int) -> c_int;
     fn sqlite3_finalize(statement: *mut c_void) -> c_int;
+    fn sqlite3_bind_text(statement: *mut c_void, index: c_int, value: *const c_char,
+        bytes: c_int, destructor: Option<unsafe extern "C" fn(*mut c_void)>) -> c_int;
 }
 
 fn checked(code: c_int) -> Result<(), StorageError> {
@@ -44,6 +46,42 @@ pub(super) struct Connection {
 }
 
 impl Connection {
+    /// All caller values are bound as text. Buffers outlive the statement (SQLITE_STATIC).
+    pub(super) fn query(&self, sql: &str, values: &[&str]) -> Result<Vec<Vec<String>>, StorageError> {
+        let buffers: Vec<CString> = values.iter().map(|value| CString::new(*value)
+            .map_err(|_| StorageError::InvalidSchema)).collect::<Result<_, _>>()?;
+        let sql = CString::new(sql).map_err(|_| StorageError::InvalidSchema)?;
+        let mut raw = ptr::null_mut();
+        // SAFETY: SQL, connection and out-pointer are valid for this call.
+        let result = unsafe { sqlite3_prepare_v2(self.handle.as_ptr(), sql.as_ptr(), -1, &mut raw, ptr::null_mut()) };
+        let statement = NonNull::new(raw).map(|handle| Statement { handle, _connection: PhantomData::<&Connection> });
+        checked(result)?;
+        let statement = statement.ok_or(StorageError::InvalidSchema)?;
+        for (index, value) in buffers.iter().enumerate() {
+            let length = c_int::try_from(value.as_bytes().len()).map_err(|_| StorageError::InvalidSchema)?;
+            // SAFETY: buffers were declared before statement, so remain live until it is finalized.
+            checked(unsafe { sqlite3_bind_text(statement.handle.as_ptr(), (index + 1) as c_int, value.as_ptr(), length, None) })?;
+        }
+        let mut rows = Vec::new();
+        loop {
+            // SAFETY: The statement is uniquely owned and live.
+            let step = unsafe { sqlite3_step(statement.handle.as_ptr()) };
+            if step == 101 { break; }
+            if step != 100 { checked(step)?; return Err(StorageError::InvalidSchema); }
+            let mut row = Vec::new();
+            // SAFETY: Current row exists; each column is copied before the next step.
+            for column in 0..unsafe { sqlite3_column_count(statement.handle.as_ptr()) } {
+                let value = unsafe { sqlite3_column_text(statement.handle.as_ptr(), column) };
+                let length = unsafe { sqlite3_column_bytes(statement.handle.as_ptr(), column) };
+                if value.is_null() || length < 0 { return Err(StorageError::InvalidSchema); }
+                let bytes = unsafe { std::slice::from_raw_parts(value, length as usize) };
+                row.push(String::from_utf8(bytes.to_vec()).map_err(|_| StorageError::InvalidSchema)?);
+            }
+            rows.push(row);
+        }
+        Ok(rows)
+    }
+
     pub(super) fn open(path: &Path) -> Result<Self, StorageError> {
         let path = CString::new(path.to_str().ok_or(StorageError::Unavailable)?)
             .map_err(|_| StorageError::Unavailable)?;

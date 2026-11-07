@@ -1,3 +1,98 @@
-:root { color-scheme: light; --page: #f7f8fa; --surface: #fff; --text: #25312f; --muted: #727d7a; --border: #e8ecea; --border-strong: #ccd4d0; --accent: #49856b; --accent-text: #386b55; --accent-soft: #edf5f0; --hero: #f0f5ef; --hero-border: #e0e9dd; --orbit: #d6e1d2; --art-core: #e0ecdd; --button: #304d3c; --button-text: #fff; --lilac: #f0eef9; --lilac-text: #8072a2; --sand: #faf2e5; --sand-text: #a17e48; }
-:root[data-theme='dark'] { color-scheme: dark; --page: #161c1b; --surface: #1d2523; --text: #e0e9e4; --muted: #a0afa7; --border: #303b36; --border-strong: #495a50; --accent: #83bd9d; --accent-text: #9dc6ac; --accent-soft: #2b3d32; --hero: #25372b; --hero-border: #3a5040; --orbit: #4b6551; --art-core: #354f3b; --button: #acd4b6; --button-text: #203327; --lilac: #363242; --lilac-text: #c1afd9; --sand: #403a2f; --sand-text: #d6bd91; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme='light']):not([data-theme='dark']) { color-scheme: dark; --page: #161c1b; --surface: #1d2523; --text: #e0e9e4; --muted: #a0afa7; --border: #303b36; --border-strong: #495a50; --accent: #83bd9d; --accent-text: #9dc6ac; --accent-soft: #2b3d32; --hero: #25372b; --hero-border: #3a5040; --orbit: #4b6551; --art-core: #354f3b; --button: #acd4b6; --button-text: #203327; --lilac: #363242; --lilac-text: #c1afd9; --sand: #403a2f; --sand-text: #d6bd91; } }
+:root {
+  color-scheme: light;
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --page: #f7f8fa;
+  --surface: #fff;
+  --sidebar: var(--surface);
+  --topbar: var(--surface);
+  --text: #25312f;
+  --muted: #727d7a;
+  --border: #e8ecea;
+  --border-strong: #ccd4d0;
+  --scrollbar-thumb: #8a8f8d;
+  --accent: #49856b;
+  --accent-text: #386b55;
+  --accent-soft: #edf5f0;
+  --hero: #f0f5ef;
+  --hero-border: #e0e9dd;
+  --orbit: #d6e1d2;
+  --art-core: #e0ecdd;
+  --button: #304d3c;
+  --button-hover: #3c604b;
+  --button-text: #fff;
+  --lilac: #f0eef9;
+  --lilac-text: #8072a2;
+  --sand: #faf2e5;
+  --sand-text: #a17e48;
+
+  /* Shared by explicit dark mode and the operating-system preference. */
+  --dark-page: #212121;
+  --dark-surface: #262626;
+  --dark-sidebar: #171717;
+  --dark-text: #ececec;
+  --dark-muted: #b4b4b4;
+  --dark-border: #363636;
+  --dark-border-strong: #666666;
+  --dark-accent: #d4d4d4;
+  --dark-accent-soft: #323232;
+  --dark-hero: #252525;
+  --dark-orbit: #444444;
+  --dark-art-core: #303030;
+  --dark-button-hover: #d4d4d4;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: var(--dark-page);
+  --surface: var(--dark-surface);
+  --sidebar: var(--dark-sidebar);
+  --topbar: var(--dark-page);
+  --text: var(--dark-text);
+  --muted: var(--dark-muted);
+  --border: var(--dark-border);
+  --border-strong: var(--dark-border-strong);
+  --scrollbar-thumb: var(--dark-border-strong);
+  --accent: var(--dark-accent);
+  --accent-text: var(--dark-text);
+  --accent-soft: var(--dark-accent-soft);
+  --hero: var(--dark-hero);
+  --hero-border: var(--dark-border);
+  --orbit: var(--dark-orbit);
+  --art-core: var(--dark-art-core);
+  --button: var(--dark-text);
+  --button-hover: var(--dark-button-hover);
+  --button-text: var(--dark-sidebar);
+  --lilac: var(--dark-accent-soft);
+  --lilac-text: var(--dark-accent);
+  --sand: var(--dark-accent-soft);
+  --sand-text: var(--dark-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    color-scheme: dark;
+    --page: var(--dark-page);
+    --surface: var(--dark-surface);
+    --sidebar: var(--dark-sidebar);
+    --topbar: var(--dark-page);
+    --text: var(--dark-text);
+    --muted: var(--dark-muted);
+    --border: var(--dark-border);
+    --border-strong: var(--dark-border-strong);
+    --scrollbar-thumb: var(--dark-border-strong);
+    --accent: var(--dark-accent);
+    --accent-text: var(--dark-text);
+    --accent-soft: var(--dark-accent-soft);
+    --hero: var(--dark-hero);
+    --hero-border: var(--dark-border);
+    --orbit: var(--dark-orbit);
+    --art-core: var(--dark-art-core);
+    --button: var(--dark-text);
+    --button-hover: var(--dark-button-hover);
+    --button-text: var(--dark-sidebar);
+    --lilac: var(--dark-accent-soft);
+    --lilac-text: var(--dark-accent);
+    --sand: var(--dark-accent-soft);
+    --sand-text: var(--dark-accent);
+  }
+}

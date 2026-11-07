@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tasks-set-completed"
+description = "Enables the tasks_set_completed command without any pre-configured scope."
+commands.allow = ["tasks_set_completed"]
+
+[[permission]]
+identifier = "deny-tasks-set-completed"
+description = "Denies the tasks_set_completed command without any pre-configured scope."
+commands.deny = ["tasks_set_completed"]

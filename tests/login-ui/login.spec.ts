@@ -26,7 +26,7 @@ test('Metis login persists across navigation, clears on logout and never persist
   await page.getByLabel('Parola', { exact: true }).fill('fake-test-password');
   await page.getByRole('button', { name: 'Giriş yap', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Oturum açık', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Görevler Planlandı' }).click();
+  await page.getByRole('button', { name: 'Görevler' }).click();
   await page.getByRole('button', { name: 'Genel bakışa dön' }).click();
   await expect(page.getByRole('heading', { name: 'Oturum açık', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Bu cihazdan çıkış yap' }).click();
@@ -61,7 +61,7 @@ test('explicit remember restores after reload through mocked native vault and fr
     if (command === 'session_vault_write') { saved = args.token!; return; }
     if (command === 'session_vault_clear') { saved = null; return; }
     if (command === 'session_vault_read') return saved;
-    return { engine: 'sqlite', schemaVersion: 1, migrationCount: 1, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
+    return { engine: 'sqlite', schemaVersion: 2, migrationCount: 2, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
   });
   await page.addInitScript(() => Object.assign(window, { __TAURI__: { core: {
     invoke: (command: string, args: unknown) => (window as unknown as { testVault: (command: string, args: unknown) => Promise<unknown> }).testVault(command, args),

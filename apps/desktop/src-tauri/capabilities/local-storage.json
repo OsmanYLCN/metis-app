@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "local-storage",
-  "description": "Only the local main window may inspect SQLite and manage encrypted session records; no arbitrary paths or remote origins.",
+  "description": "Only the local main window may inspect SQLite, manage local task records and encrypted session records; no arbitrary paths or remote origins.",
   "windows": ["main"],
   "local": true,
-  "permissions": ["allow-local-storage-status", "allow-session-vault-read", "allow-session-vault-write", "allow-session-vault-clear"]
+  "permissions": ["allow-local-storage-status", "allow-session-vault-read", "allow-session-vault-write", "allow-session-vault-clear", "allow-tasks-list", "allow-tasks-create", "allow-tasks-set-completed", "allow-tasks-rename", "allow-tasks-delete"]
 }

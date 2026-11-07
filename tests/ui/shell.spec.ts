@@ -9,7 +9,7 @@ test('connects to the real local API and renders the foundation', async ({ page 
   await expect(page.getByRole('heading', { name: 'Hesap bağlantısı kurulmadı' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Masaüstünde kullanılabilir' })).toBeVisible();
   await expect(page.getByText('Bu önizlemede veri kaydedilmiyor')).toBeVisible();
-  await page.screenshot({ path: 'docs/screenshots/m0.3-browser-light.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/m0.8-browser-light.png', fullPage: true });
   expect(errors).toEqual([]);
 });
 
@@ -24,14 +24,14 @@ test('shows failure honestly and recovers on retry', async ({ page }) => {
 
 test('module navigation and dark appearance work without fake records', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Görevler Planlandı' }).click();
-  await expect(page.getByRole('heading', { name: 'Görevler için yerimiz hazır.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Görevler' }).click();
+  await expect(page.getByRole('heading', { name: 'Görevlerin Windows uygulamasında.' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Görevler', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Genel bakışa dön' }).click();
   await page.getByLabel('Görünüm', { exact: true }).selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.getByRole('heading', { name: 'Yerel API bağlı' })).toBeVisible();
-  await page.screenshot({ path: 'docs/screenshots/m0.3-browser-dark.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/m0.8-browser-dark.png', fullPage: true });
 });
 
 test('native storage failure is visible and a manual retry recovers (mock bridge)', async ({ page }) => {
@@ -39,7 +39,7 @@ test('native storage failure is visible and a manual retry recovers (mock bridge
     let count = 0;
     Object.assign(window, { __TAURI__: { core: { invoke: async () => {
       if (++count <= 2) throw 'newerSchema'; // React StrictMode's two initial effect calls.
-      return { engine: 'sqlite', schemaVersion: 1, migrationCount: 1,
+      return { engine: 'sqlite', schemaVersion: 2, migrationCount: 2,
         storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
     } } } });
   });

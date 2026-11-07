@@ -11,7 +11,7 @@ export type StorageState =
   | { kind: 'ready'; info: StorageInfo }
   | { kind: 'failed'; code: string };
 
-type Invoke = (command: string) => Promise<unknown>;
+type Invoke = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 declare global {
   interface Window {
     __TAURI__?: { core: { invoke: Invoke } };
@@ -22,8 +22,8 @@ function validInfo(value: unknown): value is StorageInfo {
   if (typeof value !== 'object' || value === null) return false;
   const item = value as Partial<StorageInfo>;
   return item.engine === 'sqlite'
-    && Number.isInteger(item.schemaVersion) && item.schemaVersion === 1
-    && item.migrationCount === 1
+    && Number.isInteger(item.schemaVersion) && item.schemaVersion === 2
+    && item.migrationCount === 2
     && typeof item.storageId === 'string' && /^[a-f0-9]{32}$/.test(item.storageId)
     && typeof item.createdAt === 'string' && !Number.isNaN(Date.parse(item.createdAt));
 }

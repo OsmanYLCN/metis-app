@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tasks-rename"
+description = "Enables the tasks_rename command without any pre-configured scope."
+commands.allow = ["tasks_rename"]
+
+[[permission]]
+identifier = "deny-tasks-rename"
+description = "Denies the tasks_rename command without any pre-configured scope."
+commands.deny = ["tasks_rename"]
