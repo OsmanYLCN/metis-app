@@ -1,25 +1,30 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace PersonalOS.Api.Modules.Tasks;
 
 public static class TasksModule
 {
-    public static IServiceCollection AddTasksFoundation(this IServiceCollection services)
+    public static IServiceCollection AddTasksFoundation(this IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton<ITaskReader, UnconfiguredTaskReader>();
+        services.AddSingleton<IValidateOptions<CentralTaskOptions>, CentralTaskOptionsValidator>();
+        services.AddOptions<CentralTaskOptions>()
+            .Bind(configuration.GetSection("CentralTasks"), options => options.ErrorOnUnknownConfiguration = true).ValidateOnStart();
+        services.TryAddSingleton<ITaskReader>(provider => provider.GetRequiredService<IOptions<CentralTaskOptions>>().Value.Provider == "PostgreSql"
+            ? new PostgresTaskReader(provider.GetRequiredService<IOptions<CentralTaskOptions>>()) : new UnconfiguredTaskReader());
         return services;
     }
 
     public static IEndpointRouteBuilder MapTasksFoundation(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/v1/tasks").AddEndpointFilter<TaskAccountFilter>();
-        group.MapGet("/status", (ITaskReader reader) => Results.Ok(new
+        group.MapGet("/status", async (HttpContext context, ITaskReader reader) =>
         {
-            storage = reader.IsConfigured ? "configured" : "notConfigured",
-            readAvailable = reader.IsConfigured,
-            syncAvailable = false,
-        }));
+            var ready = await reader.CanReadAsync(context.Features.Get<VerifiedTaskAccount>()!.Id, context.RequestAborted);
+            return Results.Ok(new { storage = !reader.IsConfigured ? "notConfigured" : ready ? "ready" : "unavailable",
+                readAvailable = ready, syncAvailable = false });
+        });
         group.MapGet("", List);
         group.MapGet("/{id}", Find);
         return endpoints;

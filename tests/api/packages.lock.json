@@ -68,6 +68,11 @@
           "Microsoft.IdentityModel.Logging": "8.19.2"
         }
       },
+      "Npgsql": {
+        "type": "Transitive",
+        "resolved": "10.0.3",
+        "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w=="
+      },
       "System.IdentityModel.Tokens.Jwt": {
         "type": "Transitive",
         "resolved": "8.19.2",
@@ -80,7 +85,8 @@
       "personalos.api": {
         "type": "Project",
         "dependencies": {
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )"
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )",
+          "Npgsql": "[10.0.3, )"
         }
       }
     }

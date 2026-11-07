@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddIdentityFoundation(builder.Configuration);
-builder.Services.AddTasksFoundation();
+builder.Services.AddTasksFoundation(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy());
 

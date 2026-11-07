@@ -97,6 +97,7 @@ internal static class TaskFoundationChecks
     private sealed class FixtureReader : ITaskReader
     {
         public bool IsConfigured => true;
+        public ValueTask<bool> CanReadAsync(Guid account, CancellationToken cancellationToken) => ValueTask.FromResult(!Unavailable);
         public int Calls { get; private set; }
         public int LastTake { get; private set; }
         public Guid LastAccount { get; private set; }

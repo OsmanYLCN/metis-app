@@ -16,16 +16,18 @@ public sealed record TaskPage(IReadOnlyList<TaskSnapshot> Items, string? NextCur
 public interface ITaskReader
 {
     bool IsConfigured { get; }
+    ValueTask<bool> CanReadAsync(Guid account, CancellationToken cancellationToken);
     ValueTask<IReadOnlyList<TaskRecord>> ListAsync(Guid account, Guid? after, int take, CancellationToken cancellationToken);
     ValueTask<TaskRecord?> FindAsync(Guid account, Guid id, CancellationToken cancellationToken);
 }
 
 public sealed class TaskStoreUnavailableException : Exception { }
 
-// Production has no fake/in-memory fallback. The PostgreSQL adapter is a later slice.
+// Disabled configuration has no fake/in-memory fallback.
 internal sealed class UnconfiguredTaskReader : ITaskReader
 {
     public bool IsConfigured => false;
+    public ValueTask<bool> CanReadAsync(Guid account, CancellationToken cancellationToken) => ValueTask.FromResult(false);
     public ValueTask<IReadOnlyList<TaskRecord>> ListAsync(Guid account, Guid? after, int take, CancellationToken cancellationToken)
         => ValueTask.FromException<IReadOnlyList<TaskRecord>>(new TaskStoreUnavailableException());
     public ValueTask<TaskRecord?> FindAsync(Guid account, Guid id, CancellationToken cancellationToken)
