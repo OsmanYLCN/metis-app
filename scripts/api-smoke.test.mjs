@@ -32,7 +32,7 @@ test('real API health, routing and development CORS', { timeout: 30000 }, async 
   child.stdout.on('data', (data) => { logs += data; });
   child.stderr.on('data', (data) => { logs += data; });
   t.after(async () => {
-    if (child.exitCode === null && !launchError) {
+    if (child.exitCode === null && child.signalCode === null && !launchError) {
       const stopped = once(child, 'exit');
       child.kill();
       await stopped;
@@ -68,8 +68,12 @@ test('real API health, routing and development CORS', { timeout: 30000 }, async 
     const response = await fetch(`${base}/health`, { headers: { Origin: 'https://untrusted.example' } });
     assert.equal(response.headers.get('access-control-allow-origin'), null);
   });
-  await t.test('does not expose business endpoints or mutations', async () => {
-    assert.equal((await fetch(`${base}/api/v1/tasks`)).status, 404);
+  await t.test('protects central task reads and does not enable mutations', async () => {
+    const tasks = await fetch(`${base}/api/v1/tasks`);
+    assert.equal(tasks.status, 401);
+    assert.equal(tasks.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await tasks.json(), { code: 'authentication_required' });
+    assert.equal((await fetch(`${base}/api/v1/tasks`, { method: 'POST' })).status, 405);
     assert.equal((await fetch(`${base}/health`, { method: 'POST' })).status, 405);
   });
   await t.test('exposes disconnected identity status without creating a session', async () => {
@@ -77,7 +81,7 @@ test('real API health, routing and development CORS', { timeout: 30000 }, async 
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await response.json(), {
-      status: 'notConfigured', provider: null, signInAvailable: false, sessionPersistence: 'none',
+      status: 'notConfigured', provider: null, signInAvailable: false, sessionPersistence: 'none', issuer: null,
     });
     const session = await fetch(`${base}/api/v1/auth/session`, {
       headers: { Authorization: 'Bearer unverified-test-token' },

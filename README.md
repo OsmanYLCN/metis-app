@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 09, v0.9.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 10, v0.10.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve geçici masaüstü giriş akışı. Ürünün yeni adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -9,6 +9,8 @@ Görünüm güncellemesi (2026-11-07): koyu temada antrasit/nötr gri palet ve S
 M0.8: Hesaba göre ayrılan gerçek yerel görev oluşturma, listeleme, tamamlama ve yeniden açma. [ADR-0008](docs/adr/0008-local-tasks.md), [doğrulama ve kullanım](docs/verification-m0.8.md).
 
 M0.9: Görev başlığını düzenleme, iptal/klavye odağı ve görev adıyla kalıcı silme onayı. [Doğrulama ve kullanım](docs/verification-m0.9.md).
+
+M0.10: Merkezi görev veri modeli, doğrulanmış hesaba göre salt okunur API sözleşmesi ve PostgreSQL RLS hazırlığı. Gerçek merkezi bağlantı henüz yoktur; API bu durumda 503 döner. [ADR-0009](docs/adr/0009-central-task-foundation.md), [doğrulama](docs/verification-m0.10.md).
 
 ## Bu dilimde çalışanlar
 
@@ -27,7 +29,7 @@ M0.9: Görev başlığını düzenleme, iptal/klavye odağı ve görev adıyla k
 
 ## Hazır Windows uygulaması
 
-`outputs/Metis-M0.9.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş ve oturum geri yükleme için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.9 doğrulama kaydı](docs/verification-m0.9.md).
+`outputs/Metis-M0.10.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş ve oturum geri yükleme için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.10 doğrulama kaydı](docs/verification-m0.10.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. SQLite dosyası şifrelenmez; kullanıcının yazdığı görev başlıklarını içerir. Hesaba göre liste ayrımı aynı Windows kullanıcısına karşı bir güvenlik sınırı değildir. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 
@@ -82,6 +84,7 @@ npm.cmd run build           # TypeScript + Vite üretim çıktısı
 npm.cmd test                # health, storage bridge ve hesap durumu testleri
 npm.cmd run build:api       # .NET Release, uyarılar hata sayılır
 npm.cmd run test:api        # ayrı geçici portta gerçek API smoke testleri
+npm.cmd run test:tasks-schema # yerel PostgreSQL motorunda şema ve RLS; canlı bağlantı yok
 npm.cmd run test:ui         # yüklü Microsoft Edge ile arayüz + gerçek API
 npm.cmd run test:login-ui   # giriş ve görev UI; sağlayıcı/API/IPC yanıtları mock
 npm.cmd run build:desktop   # Rust hazırsa Windows .exe, installer yok
@@ -128,7 +131,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Öneri: **Merkezi görev veri modeli ve sunucuda hesaba göre erişim kuralları.** Oluşturma/listeleme/tamamlama/düzenleme/silme yerelde çalışır. Sync, merkezi PostgreSQL ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan sonraki dilime geçilmez.
+Öneri: **PostgreSQL bağlantı adaptörü ve ayrı test veritabanında gerçek okuma doğrulaması.** Oluşturma/listeleme/tamamlama/düzenleme/silme yerelde çalışır. Sync, merkezi PostgreSQL ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan sonraki dilime geçilmez.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 

@@ -1,5 +1,9 @@
 # Modül sınırları
 
-M0.4'te `Identity`, yapılandırma doğrulaması ve Supabase public JWKS üzerinden sunucu JWT doğrulaması içerir. Varsayılan sağlayıcı `Disabled`; gerçek proje henüz bağlanmadı. Giriş/yenileme/saklama akışı ve iş modülleri uygulanmadı. İş modülleri `Modules/<Name>` alanında endpoint, iş kuralı ve veri erişimini birlikte tutacak. Bir modül başka modülün tablolarına doğrudan yazmayacak; açık uygulama sözleşmeleri kullanılacak. Tek ASP.NET Core süreci, tek dağıtım birimi korunacak. Modüller somut ihtiyaç oluşunca ayrı C# projelerine taşınabilir.
+API tek ASP.NET Core modüler monolit sürecidir. Identity, Supabase public JWKS ve JWT doğrulamasını sağlar. Tasks, merkezi görev modelinin yalnızca okuma erişim sınırını sunar. Her modül kendi endpoint/iş kuralı/veri sözleşmesini tutar; başka modülün tablolarına doğrudan yazmaz.
 
-Planlanan iş endpoint'leri `/api/v1/<module>` altında olacak. `/health` operasyonel ve sürümsüzdür; veritabanı, kimlik sağlayıcısı veya sync sağlığını bildirmez.
+Merkezi Tasks için üretim veri kaynağı henüz yapılandırılmadı. Sahte başarılı store yoktur. `GET /api/v1/tasks/status` oturum gerektirir; `readAvailable=false`, `syncAvailable=false` döner. Liste/detay okuması oturum yoksa 401, doğrulanmış oturumla bağlantı henüz yoksa 503 döner. Merkezi yazma endpoint'i eklenmedi. Masaüstü Tasks hâlâ Windows SQLite komutlarını kullanır.
+
+PostgreSQL modeli `../Database` altındadır ve canlı projeye uygulanmadı. JWT `sub` değeri sunucuda doğrulanır; query/header kullanıcı kimliği yetkilendirme sağlamaz. İleride gerçek reader, zorunlu sahip parametresi ve en az yetkili DB rolüyle uygulanacak.
+
+`/health` yalnızca süreç canlılığıdır; veritabanı veya eşitleme hazırlığını ölçmez. Bağlantı, merkezi yazma ve sync yeni onaylı dilimlerdir.

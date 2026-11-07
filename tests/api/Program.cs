@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using PersonalOS.Api.Modules.Identity;
+using PersonalOS.Api.Modules.Tasks;
 
 // Real authentication + HTTP pipeline in memory. Only the remote JWKS transport is fake.
 // All signing keys are generated per run; no accounts, secrets or network ports are used.
@@ -75,7 +76,7 @@ string Token(Action<SecurityTokenDescriptor>? edit = null, SigningCredentials? s
     return new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(descriptor);
 }
 
-async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<string, string?>? extra = null)
+async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<string, string?>? extra = null, ITaskReader? tasks = null)
 {
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Production });
     builder.WebHost.UseTestServer();
@@ -87,6 +88,8 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
     if (extra is not null) foreach (var pair in extra) settings[pair.Key] = pair.Value;
     builder.Configuration.AddInMemoryCollection(settings);
     builder.Services.AddIdentityFoundation(builder.Configuration);
+    if (tasks is not null) builder.Services.AddSingleton(tasks);
+    builder.Services.AddTasksFoundation();
     builder.Services.AddHttpClient(SupabaseBearerOptions.KeyClient).ConfigurePrimaryHttpMessageHandler(() => keys);
     var app = builder.Build();
     // Inject an untrusted principal to ensure only the Bearer handler result is used.
@@ -96,6 +99,7 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
         await next(context);
     });
     app.MapIdentityFoundation();
+    app.MapTasksFoundation();
     try { await app.StartAsync(); return app; }
     catch { await app.DisposeAsync(); throw; }
 }
@@ -206,7 +210,11 @@ foreach (var settings in new[] {
     Check(rejected, "Invalid configuration reached running application.");
     Pass("invalid/unknown configuration fails at startup");
 }
-Console.WriteLine($"{passed} checks passed; real JWT verification, ephemeral test keys, mocked JWKS transport, no external account.");
+passed += await TaskFoundationChecks.Run(reader => Start("Supabase", new FakeKeys(jwks), tasks: reader),
+    user => user is null ? Token() : Token(d => d.Claims["sub"] = user),
+    [Token(d => d.Claims["role"] = "service_role"), Token(d => d.Claims["is_anonymous"] = true),
+     Token(d => d.Issuer = "https://another.supabase.co/auth/v1"), "not-a-token"]);
+Console.WriteLine($"{passed} checks passed; real JWT verification, ephemeral test keys, mocked JWKS/task reader, no external account.");
 
 sealed class FakeKeys(string json, bool unavailable = false) : HttpMessageHandler
 {

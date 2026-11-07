@@ -1,6 +1,6 @@
 {
   "name": "personal-os",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "workspaces": [
     "apps/desktop"
@@ -21,9 +21,11 @@
     "test:login-ui": "playwright test --config playwright.login.config.ts",
     "test:native": "node scripts/native-smoke.mjs",
     "test:storage": "cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
-    "test:identity": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release"
+    "test:identity": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release",
+    "test:tasks-schema": "node --test scripts/tasks-schema.test.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
     "@playwright/test": "^1.64.1"
   }
 }
