@@ -37,7 +37,6 @@ try {
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.RedirectStandardInput = $true
-    $start.StandardInputEncoding = New-Object System.Text.UTF8Encoding($false)
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
     $process = New-Object System.Diagnostics.Process
@@ -46,12 +45,17 @@ try {
     # The password is piped over stdin, never placed in command arguments or printed.
     $outTask = $process.StandardOutput.ReadToEndAsync()
     $errTask = $process.StandardError.ReadToEndAsync()
-    $process.StandardInput.WriteLine(($settings | ConvertTo-Json -Compress))
+    # .NET Framework / Windows PowerShell 5.1 has no StandardInputEncoding property.
+    # Write UTF-8 bytes directly so non-ASCII passwords survive on both PowerShell versions.
+    $inputBytes = [System.Text.Encoding]::UTF8.GetBytes(($settings | ConvertTo-Json -Compress) + "`n")
+    $process.StandardInput.BaseStream.Write($inputBytes, 0, $inputBytes.Length)
+    $process.StandardInput.BaseStream.Flush()
     $process.StandardInput.Close()
     if (-not $process.WaitForExit(15000)) { $process.Kill(); throw 'Local configuration timed out.' }
     if ($process.ExitCode -ne 0) { throw 'Local configuration failed. Check the .NET SDK installation.' }
     Write-Host 'Saved outside the repository for this Windows user. Restart the local API to apply.'
 } finally {
+    if ($inputBytes) { [Array]::Clear($inputBytes, 0, $inputBytes.Length) }
     if ($settings) { $settings.Clear() }
     if ($pointer -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
     $secret.Dispose()
