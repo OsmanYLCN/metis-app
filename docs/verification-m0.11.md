@@ -1,5 +1,11 @@
 # M0.11 doğrulama — 2026-11-08
 
+## Sonradan tamamlanan canlı bağlantı kontrolü — 2026-11-08
+
+Kullanıcı migration'ları, installation kaydını ve okuyucu parolasını hazırladı. Supabase panelinden indirdiği kök sertifika `%LOCALAPPDATA%/Metis/certificates/supabase-prod-ca-2021.crt` konumuna kopyalandı; yalnızca sertifika yolu yerel User Secrets'a eklendi. Parola görüntülenmedi/değiştirilmedi.
+
+Canlı Supabase PostgreSQL bağlantısı **VerifyFull TLS** ile başarılı. Üretim `PostgresTaskReader` üzerinden rol, RLS, migration ve proje eşleşmesi kontrolleri geçti. Rastgele sentetik hesap ID'siyle salt okuma 0 kayıt döndürdü; veri eklenmedi/değiştirilmedi. Bu, gerçek kullanıcı JWT'siyle uçtan uca liste doğrulaması değildir; o kontrol henüz yapılmadı. Açık API süreci yeni sertifika ayarı için yeniden başlatılmalı. Aşağıdaki ilk teslim kaydındaki canlı bağlantı bekleme durumu bu ek kontrolle güncellenmiştir.
+
 Sürüm 0.11.0. PostgreSQL okuma adaptörü tamamlandı; canlı Supabase veritabanı kurulumu ve canlı kullanıcıyla okuma henüz doğrulanmadı. Masaüstü görevleri yerel SQLite'ta çalışmaya devam eder.
 
 ## Oluşan parçalar

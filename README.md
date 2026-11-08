@@ -12,7 +12,7 @@ M0.9: Görev başlığını düzenleme, iptal/klavye odağı ve görev adıyla k
 
 M0.10: Merkezi görev veri modeli, doğrulanmış hesaba göre salt okunur API sözleşmesi ve PostgreSQL RLS hazırlığı. Gerçek merkezi bağlantı henüz yoktur; API bu durumda 503 döner. [ADR-0009](docs/adr/0009-central-task-foundation.md), [doğrulama](docs/verification-m0.10.md).
 
-M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçek okuma hazırlığı kontrolü. Yerel PostgreSQL motoruna TCP üzerinden okuma doğrulandı; canlı Supabase veritabanı kurulumu bekliyor. [ADR-0010](docs/adr/0010-postgres-task-reader.md), [kurulum](docs/central-postgres-setup.md), [doğrulama](docs/verification-m0.11.md).
+M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçek okuma hazırlığı kontrolü. Yerel testler ve canlı Supabase bağlantısı VerifyFull TLS ile doğrulandı; üretim adaptörünün sentetik hesapla okuma kontrolü geçti. Gerçek kullanıcı JWT'siyle uçtan uca merkezi liste kontrolü henüz yapılmadı. [ADR-0010](docs/adr/0010-postgres-task-reader.md), [kurulum](docs/central-postgres-setup.md), [doğrulama](docs/verification-m0.11.md).
 
 ## Bu dilimde çalışanlar
 
