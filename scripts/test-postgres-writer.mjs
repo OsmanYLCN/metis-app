@@ -38,11 +38,12 @@ try{
   console.log(output.split(/\r?\n/).filter(line=>/PASS PostgreSQL writer|checks passed/.test(line)).join('\n'));
   await server.stop();server=undefined;
   await db.close();db=await PGlite.create(directory);
-  const rows=(await db.query("SELECT title,revision FROM metis.tasks WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'")).rows;
+  const rows=(await db.query("SELECT id,title,revision FROM metis.tasks ORDER BY id")).rows;
   const operations=(await db.query("SELECT count(*)::int AS count FROM metis.task_operations")).rows[0].count;
-  if(rows.length!==1||rows[0].title!=='Renamed cloud task'||rows[0].revision!==2n&&rows[0].revision!==2||operations!==2)
+  if(rows.length!==2||rows[0].title!=='Renamed cloud task'||rows[0].revision!==2n&&rows[0].revision!==2
+    ||rows[1].title!=='HTTP cloud task'||operations!==3)
     throw new Error('Committed task/journal state is invalid');
-  console.log('PASS: committed task revision and exactly two successful operation receipts verified.');
+  console.log('PASS: direct and HTTP tasks plus exactly three successful operation receipts verified.');
 }finally{
   if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}
   await server?.stop();await db.close();

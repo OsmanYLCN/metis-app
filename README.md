@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 14; masaüstü v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 15; masaüstü v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -19,6 +19,8 @@ M0.12: Genel bakışta açık oturumla **Bulut okumasını kontrol et** düğmes
 M0.13: Merkezi oluşturma/başlık düzenleme için tekrar gönderme ve revision çatışması karar katmanı. Kalıcı yazma ve sync henüz açık değil; masaüstü EXE aynı kaldı. [ADR-0011](docs/adr/0011-central-write-rules.md), [doğrulama](docs/verification-m0.13.md).
 
 M0.14: Ayrı ve sınırlı PostgreSQL writer rolü, atomik işlem günlüğü ve create/rename adaptörü izole PostgreSQL motorunda doğrulandı. Canlı migration ve HTTP yazma uçları henüz açık değil; masaüstü EXE aynı kaldı. [ADR-0011](docs/adr/0011-central-write-rules.md), [doğrulama](docs/verification-m0.14.md).
+
+M0.15: Writer için reader'dan ayrı güvenli yapılandırma ve doğrulanmış kullanıcıya bağlı create/rename HTTP uçları hazır. Canlı migration ve writer parolası henüz uygulanmadı; masaüstü bu uçları çağırmıyor. [Kurulum rehberi](docs/central-writer-setup.md), [doğrulama](docs/verification-m0.15.md).
 
 ## Bu dilimde çalışanlar
 
@@ -141,7 +143,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Atomik PostgreSQL writer ve işlem günlüğü izole veritabanında doğrulandı. Sonraki küçük dilim: writer için ayrı güvenli bağlantı ayarı ve yalnızca oluşturma/başlık düzenleme HTTP sözleşmesi. Canlı migration, otomatik yükleme ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan sonraki dilime geçilmez.
+Writer bağlantı ve HTTP sözleşmesi izole veritabanında doğrulandı. Sonraki küçük dilim: kullanıcı onayıyla canlı migration 0003, ayrı writer parolası/yerel ayarı ve kontrollü tek görev create/replay/rename doğrulaması. Otomatik yükleme ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan devam edilmez.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 

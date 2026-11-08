@@ -23,6 +23,19 @@ public interface ITaskReader
 
 public sealed class TaskStoreUnavailableException : Exception { }
 
+public interface ITaskWriter
+{
+    bool IsConfigured { get; }
+    ValueTask<TaskWriteDecision> ApplyAsync(Guid account, TaskWriteCommand command, CancellationToken cancellationToken);
+}
+
+internal sealed class UnconfiguredTaskWriter : ITaskWriter
+{
+    public bool IsConfigured => false;
+    public ValueTask<TaskWriteDecision> ApplyAsync(Guid account, TaskWriteCommand command, CancellationToken cancellationToken)
+        => ValueTask.FromException<TaskWriteDecision>(new TaskStoreUnavailableException());
+}
+
 // Disabled configuration has no fake/in-memory fallback.
 internal sealed class UnconfiguredTaskReader : ITaskReader
 {

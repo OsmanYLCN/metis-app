@@ -76,7 +76,8 @@ string Token(Action<SecurityTokenDescriptor>? edit = null, SigningCredentials? s
     return new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = false }.CreateToken(descriptor);
 }
 
-async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<string, string?>? extra = null, ITaskReader? tasks = null, string environment = "Production")
+async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<string, string?>? extra = null,
+    ITaskReader? tasks = null, ITaskWriter? writer = null, string environment = "Production")
 {
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
     builder.WebHost.UseTestServer();
@@ -89,6 +90,7 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
     builder.Configuration.AddInMemoryCollection(settings);
     builder.Services.AddIdentityFoundation(builder.Configuration);
     if (tasks is not null) builder.Services.AddSingleton(tasks);
+    if (writer is not null) builder.Services.AddSingleton(writer);
     builder.Services.AddTasksFoundation(builder.Configuration);
     builder.Services.AddHttpClient(SupabaseBearerOptions.KeyClient).ConfigurePrimaryHttpMessageHandler(() => keys);
     var app = builder.Build();
@@ -216,12 +218,19 @@ passed += await TaskFoundationChecks.Run(reader => Start("Supabase", new FakeKey
      Token(d => d.Issuer = "https://another.supabase.co/auth/v1"), "not-a-token"]);
 passed += CentralTaskConfigurationChecks.Run();
 passed += TaskWriteRuleChecks.Run();
+passed += CentralTaskWriterConfigurationChecks.Run();
+passed += await TaskWriteEndpointChecks.Run(
+    writer => Start("Supabase", new FakeKeys(jwks), writer: writer),
+    user => Token(d => d.Claims["sub"] = user),
+    [Token(d => d.Claims["role"] = "service_role"), Token(d => d.Claims["is_anonymous"] = true), "not-a-token"]);
 if (Environment.GetEnvironmentVariable("METIS_TEST_PG_PORT") is { } testPort)
     passed += await PostgresAdapterChecks.Run(testPort,
         settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
         user => Token(d => d.Claims["sub"] = user));
 if (Environment.GetEnvironmentVariable("METIS_TEST_PG_WRITER_PORT") is { } writerPort)
-    passed += await PostgresWriterChecks.Run(writerPort);
+    passed += await PostgresWriterChecks.Run(writerPort,
+        writer => Start("Supabase", new FakeKeys(jwks), writer: writer, environment: Environments.Development),
+        user => Token(d => d.Claims["sub"] = user));
 Console.WriteLine($"{passed} checks passed; ephemeral JWT keys and mocked JWKS; task reader fixtures or opt-in local PostgreSQL, no external account.");
 
 sealed class FakeKeys(string json, bool unavailable = false) : HttpMessageHandler

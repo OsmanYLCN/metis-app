@@ -2,11 +2,31 @@ using System.Data;
 using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
+using Microsoft.Extensions.Options;
 
 namespace PersonalOS.Api.Modules.Tasks;
 
-public sealed class PostgresTaskWriter(NpgsqlDataSource source, string projectRef)
+public sealed class PostgresTaskWriter : ITaskWriter, IAsyncDisposable
 {
+    private readonly NpgsqlDataSource source;
+    private readonly string projectRef;
+    private readonly bool ownsSource;
+
+    public PostgresTaskWriter(IOptions<CentralTaskWriterOptions> options)
+    {
+        projectRef = options.Value.ProjectRef;
+        source = new NpgsqlDataSourceBuilder(options.Value.ConnectionString()).Build();
+        ownsSource = true;
+    }
+
+    public PostgresTaskWriter(NpgsqlDataSource source, string projectRef)
+    {
+        this.source = source;
+        this.projectRef = projectRef;
+    }
+
+    public bool IsConfigured => true;
+
     public async ValueTask<TaskWriteDecision> ApplyAsync(Guid account, TaskWriteCommand command, CancellationToken cancellationToken)
     {
         var now=DateTimeOffset.UnixEpoch;
@@ -81,4 +101,6 @@ public sealed class PostgresTaskWriter(NpgsqlDataSource source, string projectRe
         catch(OperationCanceledException) when(cancellationToken.IsCancellationRequested){throw;}
         catch(Exception error) when(error is NpgsqlException or TimeoutException or OperationCanceledException or InvalidCastException){throw new TaskStoreUnavailableException();}
     }
+
+    public ValueTask DisposeAsync() => ownsSource ? source.DisposeAsync() : ValueTask.CompletedTask;
 }

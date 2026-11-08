@@ -1,9 +1,14 @@
 using Npgsql;
 using PersonalOS.Api.Modules.Tasks;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.TestHost;
 
 internal static class PostgresWriterChecks
 {
-    public static async Task<int> Run(string port)
+    public static async Task<int> Run(string port, Func<ITaskWriter, Task<WebApplication>> start, Func<string, string> token)
     {
         var connection=new NpgsqlConnectionStringBuilder { Host="127.0.0.1",Port=int.Parse(port),Database="postgres",Username="metis_writer",
             Password="synthetic",SslMode=SslMode.Disable,Timeout=5,CommandTimeout=5,MaxPoolSize=4,NoResetOnClose=false }.ConnectionString;
@@ -29,8 +34,24 @@ internal static class PostgresWriterChecks
         await using var forbidden=new NpgsqlCommand("DELETE FROM metis.tasks",raw);
         try { await forbidden.ExecuteNonQueryAsync(); throw new InvalidOperationException("Writer can delete"); }
         catch(PostgresException error) when(error.SqlState=="42501"){}
-        Console.WriteLine("PASS PostgreSQL writer: create, replay, operation conflict, revision conflict, account RLS, cancellation and denied delete");
+        await using var app=await start(writer);
+        using var client=app.GetTestClient();
+        const string httpOperation="cccccccc000040008000000000000001";
+        const string httpTask="dddddddd000040008000000000000001";
+        var json=$"{{\"operationId\":\"{httpOperation}\",\"taskId\":\"{httpTask}\",\"title\":\"HTTP cloud task\"}}";
+        using(var created=await Send(client,json,token(a.ToString())))
+            Check(created.StatusCode==HttpStatusCode.Created,"HTTP create did not reach PostgreSQL writer");
+        using(var replayed=await Send(client,json,token(a.ToString())))
+            Check(replayed.StatusCode==HttpStatusCode.OK,"HTTP replay failed");
+        Console.WriteLine("PASS PostgreSQL writer: create, replay, operation conflict, revision conflict, account RLS, cancellation, denied delete and real HTTP adapter");
         return 1;
+    }
+    private static async Task<HttpResponseMessage> Send(HttpClient client,string json,string token)
+    {
+        using var request=new HttpRequestMessage(HttpMethod.Post,"/api/v1/tasks")
+        { Content=new StringContent(json,Encoding.UTF8,"application/json") };
+        request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
+        return await client.SendAsync(request);
     }
     private static void Check(bool value,string message){if(!value)throw new InvalidOperationException(message);}
 }

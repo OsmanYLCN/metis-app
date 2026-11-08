@@ -26,6 +26,8 @@ Aynı hesap/operation çifti transaction-scope advisory lock ile sıralanır. Fo
 
 M0.14 entegrasyon testi Npgsql üzerinden TCP ile izole PostgreSQL motoruna bağlanır; create, aynı isteğin replay'i, değiştirilmiş operation, rename, eski revision, hesap RLS, iptal ve DELETE reddini doğrular. Son durumda tek görev revision 2 ve yalnızca iki başarılı receipt bulunur. PGlite socket tek backend kullandığından gerçek paralel Supabase oturum yükünü kanıtlamaz; advisory lock ve benzersiz anahtar gerçek PostgreSQL semantiğine göre tasarlanmıştır.
 
-## Henüz etkin olmayanlar
+## M0.15 HTTP sınırı ve henüz etkin olmayanlar
 
-POST/PATCH endpoint, masaüstü yükleme, otomatik sync, silme/tamamlama yazmaları eklenmedi. `metis_reader` salt okunur kalır; writer yapılandırılıp servise kaydedilmediği için üretimde kullanılamaz. `syncAvailable=false` korunur. Migration 0003 canlı Supabase'e uygulanmadı ve writer parolası oluşturulmadı. Bir sonraki küçük dilim, writer için ayrı güvenli yapılandırma ve yalnızca oluşturma/başlık düzenleme HTTP sözleşmesidir; canlı migration ayrıca somut kullanıcı adımıyla uygulanacak.
+Ayrı writer yapılandırması, DI kaydı ve create/rename HTTP uçları eklendi. Varsayılan writer Disabled olduğundan canlı migration/parola/yerel secret tamamlanmadan 503 döner. İstek kullanıcı ID'si kabul etmez; hesap yalnızca doğrulanmış token'dan gelir. JSON 4 KiB ile sınırlı, bilinmeyen alanlar reddedilir. Başarı yanıtı task ID ve revision içerir; görev içeriğini veya kullanıcı ID'sini geri sızdırmaz.
+
+Masaüstü yükleme, otomatik sync, silme/tamamlama yazmaları eklenmedi. `metis_reader` salt okunur kalır ve `syncAvailable=false` korunur. Migration 0003 canlı Supabase'e uygulanmadı, writer parolası oluşturulmadı ve masaüstü istemcisi HTTP yazma uçlarını çağırmaz.

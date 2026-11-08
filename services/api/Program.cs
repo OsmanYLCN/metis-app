@@ -12,11 +12,11 @@ builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy());
 
 // Development-only origins, including Tauri's Windows production-webview origin.
-// Central task foundation is read-only; no business mutation methods are enabled.
+// Development-only desktop origins; authentication and task ownership are still enforced by the API.
 builder.Services.AddCors(options => options.AddPolicy("LocalDesktop", policy =>
     policy.WithOrigins("http://127.0.0.1:1420", "http://localhost:1420",
                        "http://127.0.0.1:4173", "http://tauri.localhost")
-        .WithMethods("GET")
+        .WithMethods("GET", "POST", "PATCH")
         .WithHeaders("Content-Type", "Authorization")));
 
 var app = builder.Build();

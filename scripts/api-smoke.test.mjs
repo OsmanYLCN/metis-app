@@ -4,6 +4,8 @@ import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp } from 'node:fs/promises';
+import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -19,10 +21,13 @@ async function availablePort() {
 test('real API health, routing and development CORS', { timeout: 30000 }, async (t) => {
   const port = await availablePort();
   const base = `http://127.0.0.1:${port}`;
+  await mkdir(path.join(root, 'test-results'), { recursive: true });
+  const testProfile = await mkdtemp(path.join(root, 'test-results/api-profile-'));
   const child = spawn('dotnet', ['services/api/bin/Release/net10.0/PersonalOS.Api.dll'], {
     cwd: root,
     env: { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: base,
-      Identity__Provider: 'Disabled', Identity__Authority: '', CentralTasks__Provider: 'Disabled' },
+      Identity__Provider: 'Disabled', Identity__Authority: '', CentralTasks__Provider: 'Disabled',
+      CentralTaskWriter__Provider: 'Disabled', LOCALAPPDATA: testProfile },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -68,12 +73,12 @@ test('real API health, routing and development CORS', { timeout: 30000 }, async 
     const response = await fetch(`${base}/health`, { headers: { Origin: 'https://untrusted.example' } });
     assert.equal(response.headers.get('access-control-allow-origin'), null);
   });
-  await t.test('protects central task reads and does not enable mutations', async () => {
+  await t.test('protects central task reads and writes', async () => {
     const tasks = await fetch(`${base}/api/v1/tasks`);
     assert.equal(tasks.status, 401);
     assert.equal(tasks.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await tasks.json(), { code: 'authentication_required' });
-    assert.equal((await fetch(`${base}/api/v1/tasks`, { method: 'POST' })).status, 405);
+    assert.equal((await fetch(`${base}/api/v1/tasks`, { method: 'POST' })).status, 401);
     assert.equal((await fetch(`${base}/health`, { method: 'POST' })).status, 405);
   });
   await t.test('exposes disconnected identity status without creating a session', async () => {

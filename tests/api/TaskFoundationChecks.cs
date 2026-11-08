@@ -70,11 +70,12 @@ internal static class TaskFoundationChecks
             await Get(client, $"/api/v1/tasks/{reader.Rows[2].Id:N}", HttpStatusCode.NotFound, token(null));
             Pass("storage outage and mis-scoped adapter fail closed without exposing rows");
 
-            using var post = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tasks") { Content = new StringContent("{}") };
+            using var post = new HttpRequestMessage(HttpMethod.Post, "/api/v1/tasks")
+            { Content = new StringContent("{\"operationId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"taskId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"title\":\"Test\"}", System.Text.Encoding.UTF8, "application/json") };
             post.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token(null));
             using var response = await client.SendAsync(post);
-            Check(response.StatusCode == HttpStatusCode.MethodNotAllowed, "Writes unexpectedly enabled.");
-            Pass("central writes remain unavailable in the read-model slice");
+            Check(response.StatusCode == HttpStatusCode.ServiceUnavailable, "Disabled writer did not fail closed.");
+            Pass("central writer endpoints fail closed while writer configuration is disabled");
         }
         return count;
     }
