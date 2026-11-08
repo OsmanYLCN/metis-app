@@ -22,6 +22,48 @@ beforeEach(() => {
 });
 afterEach(() => { store.cancel(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
+describe('central read check', () => {
+  const ready = { storage: 'ready', readAvailable: true, syncAvailable: false };
+  it('requires an open session before making any request', async () => {
+    await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Oturum');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('checks readiness then a bounded list with the current bearer, without exposing it', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json(ready)).mockResolvedValueOnce(json({ items: [], nextCursor: null }));
+    await expect(store.checkCentralTasks(new AbortController().signal)).resolves.toEqual({ empty: true });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenLastCalledWith('http://127.0.0.1:5080/api/v1/tasks?limit=1', expect.objectContaining({
+      method: 'GET', headers: { Authorization: 'Bearer test-access-token' }, redirect: 'error', credentials: 'omit', cache: 'no-store',
+    }));
+  });
+  it('rejects unavailable readiness and never requests tasks', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValue(json({ ...ready, storage: 'unavailable', readAvailable: false }));
+    await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('hazır değil');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('discards a delayed response after logout', async () => {
+    await store.signIn('user@example.test', 'password');
+    let finish!: (response: Response) => void;
+    fetcher.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const check = expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Oturum');
+    store.suspend(); finish(json(ready)); await check;
+  });
+  it('rejects malformed list responses instead of claiming success', async () => {
+    await store.signIn('user@example.test', 'password');
+    fetcher.mockResolvedValueOnce(json(ready)).mockResolvedValueOnce(json({ items: [{ id: 'bad' }], nextCursor: null }));
+    await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
+  });
+  it('does not show server details for rejected or failed requests', async () => {
+    await store.signIn('user@example.test', 'password');
+    fetcher.mockResolvedValueOnce(json({ secret: 'private' }, 401));
+    await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Oturum doğrulanamadı');
+    fetcher.mockRejectedValueOnce(Error('private connection string'));
+    await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Bağlantını kontrol');
+  });
+});
+
 describe('public login configuration', () => {
   it('keeps an unconfigured build offline', () => expect(parseLoginSettings()).toEqual({ kind: 'missing' }));
   it('accepts only a hosted HTTPS project and publishable key', () => {

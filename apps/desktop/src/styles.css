@@ -94,6 +94,8 @@ h1 { margin: 0; font-size: clamp(25px, 2.3vw, 34px); font-weight: 550; letter-sp
 .status-card .account-message { color: var(--text); min-height: 0; border-left: 2px solid var(--accent); padding-left: 10px; }
 .lower-grid { display: grid; grid-template-columns: 1.45fr 1fr; gap: 20px; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 23px; }
+.central-read-panel { margin-bottom: 20px; }
+.central-read-panel p { color: var(--muted); line-height: 1.65; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .panel h2 { font-size: 15px; font-weight: 550; letter-spacing: -.3px; margin: 0; }
 .subtle-label { font-size: 10px; color: var(--muted); white-space: nowrap; }

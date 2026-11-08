@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 11, v0.11.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 12, v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -13,6 +13,8 @@ M0.9: Görev başlığını düzenleme, iptal/klavye odağı ve görev adıyla k
 M0.10: Merkezi görev veri modeli, doğrulanmış hesaba göre salt okunur API sözleşmesi ve PostgreSQL RLS hazırlığı. Gerçek merkezi bağlantı henüz yoktur; API bu durumda 503 döner. [ADR-0009](docs/adr/0009-central-task-foundation.md), [doğrulama](docs/verification-m0.10.md).
 
 M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçek okuma hazırlığı kontrolü. Yerel testler ve canlı Supabase bağlantısı VerifyFull TLS ile doğrulandı; üretim adaptörünün sentetik hesapla okuma kontrolü geçti. Gerçek kullanıcı JWT'siyle uçtan uca merkezi liste kontrolü henüz yapılmadı. [ADR-0010](docs/adr/0010-postgres-task-reader.md), [kurulum](docs/central-postgres-setup.md), [doğrulama](docs/verification-m0.11.md).
+
+M0.12: Genel bakışta açık oturumla **Bulut okumasını kontrol et** düğmesi. Salt okuma ve boş alan/hata açıklamaları hazır; canlı kullanıcı sonucunun doğrulanması bekleniyor. [Kullanım ve testler](docs/verification-m0.12.md).
 
 ## Bu dilimde çalışanlar
 
@@ -27,11 +29,11 @@ M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçe
 - Supabase yapılandırıldığında public JWKS ile gerçek sunucu token doğrulaması.
 - Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Varsayılan oturum bellektedir; hatırla seçilirse refresh token şifreli kasaya yazılır ve yenilenir.
 
-**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite temel metadata ve görev kayıtlarını saklar; şema sürümü 2 oldu. Kullanıcı canlı girişi ve oturum geri yüklemeyi başarılı bildirdi; otomatik giriş/görev arayüzü testlerinde sağlayıcı yanıtları mock kullanılır. PostgreSQL adaptörü hazırdır; canlı bağlantı, merkezi yazma/sync, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
+**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite temel metadata ve görev kayıtlarını saklar; şema sürümü 2 oldu. Kullanıcı canlı girişi ve oturum geri yüklemeyi başarılı bildirdi; otomatik giriş/görev arayüzü testlerinde sağlayıcı yanıtları mock kullanılır. PostgreSQL bağlantısı doğrulanmıştır; merkezi yazma/sync, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
 
 ## Hazır Windows uygulaması
 
-`outputs/Metis-M0.11.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş ve oturum geri yükleme için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.11 doğrulama kaydı](docs/verification-m0.11.md).
+`outputs/Metis-M0.12.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş ve oturum geri yükleme için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.12 doğrulama kaydı](docs/verification-m0.12.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. SQLite dosyası şifrelenmez; kullanıcının yazdığı görev başlıklarını içerir. Hesaba göre liste ayrımı aynı Windows kullanıcısına karşı bir güvenlik sınırı değildir. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 

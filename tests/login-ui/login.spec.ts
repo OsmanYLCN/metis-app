@@ -18,6 +18,30 @@ async function fixtures(page: Page) {
   await page.goto('/');
 }
 
+test('central read checks the signed-in account, handles outages and clears success on logout (mock API)', async ({ page }) => {
+  await fixtures(page);
+  await expect(page.getByText('Kontrol etmek için hesabına giriş yap.')).toBeVisible();
+  await page.route('**/api/v1/tasks/status', route => route.fulfill({ json: { storage: 'ready', readAvailable: true, syncAvailable: false } }));
+  await page.route('**/api/v1/tasks?limit=1', route => {
+    expect(route.request().headers().authorization).toBe('Bearer ui-test-token');
+    expect(route.request().method()).toBe('GET');
+    return route.fulfill({ json: { items: [], nextCursor: null } });
+  });
+  await page.getByLabel('E-posta', { exact: true }).fill('test@example.test');
+  await page.getByLabel('Parola', { exact: true }).fill('fake-test-password');
+  await page.getByRole('button', { name: 'Giriş yap', exact: true }).click();
+  await page.getByRole('button', { name: 'Bulut okumasını kontrol et' }).click();
+  await expect(page.getByText('Bulut okuması doğrulandı.', { exact: false })).toBeVisible();
+  await page.getByLabel('Görünüm', { exact: true }).selectOption('dark');
+  await page.screenshot({ path: 'test-results/m0.12-central-read.png', fullPage: true });
+  await page.route('**/api/v1/tasks/status', route => route.fulfill({ json: { storage: 'unavailable', readAvailable: false, syncAvailable: false } }));
+  await page.getByRole('button', { name: 'Bulut okumasını kontrol et' }).click();
+  await expect(page.getByText('Bulut okuması henüz hazır değil.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Bulut okuması doğrulandı.', { exact: false })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Bu cihazdan çıkış yap' }).click();
+  await expect(page.getByRole('button', { name: 'Bulut okumasını kontrol et' })).toHaveCount(0);
+});
+
 test('Metis login persists across navigation, clears on logout and never persists across reload', async ({ page }) => {
   await fixtures(page);
   await expect(page).toHaveTitle('Genel bakış · Metis');

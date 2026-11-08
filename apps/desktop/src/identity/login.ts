@@ -25,6 +25,49 @@ export class LoginStore {
   constructor(private readonly config?: LoginConfig, private readonly vault?: SessionVault) { }
   canRemember = () => !!this.vault;
   getSnapshot = () => this.view;
+  // Narrow read-only probe: bearer tokens stay inside the session store.
+  async checkCentralTasks(signal: AbortSignal): Promise<{ empty: boolean }> {
+    const token = this.accessToken;
+    const attempt = this.generation;
+    const assertSession = () => {
+      if (signal.aborted || attempt !== this.generation || token !== this.accessToken
+        || !token || this.view.phase !== 'signedIn' || this.view.expiresAt <= Date.now())
+        throw new LoginError('Oturum değişti veya süresi doldu. Tekrar giriş yap.');
+    };
+    assertSession();
+    const deadline = AbortSignal.any([signal, AbortSignal.timeout(20000)]);
+    const read = async (path: string): Promise<unknown> => {
+      assertSession();
+      const response = await fetch(`${API_URL}/api/v1/tasks${path}`, {
+        method: 'GET', headers: { Authorization: `Bearer ${token}` }, signal: deadline,
+        credentials: 'omit', cache: 'no-store', redirect: 'error',
+      });
+      assertSession();
+      if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Çıkış yapıp tekrar giriş yap.');
+      if (!response.ok) throw new LoginError('Bulut okuması tamamlanamadı. API ve veritabanı bağlantısını kontrol et.');
+      const value: unknown = await response.json();
+      assertSession();
+      return value;
+    };
+    try {
+      const status = await read('/status');
+      if (!isObject(status) || status.storage !== 'ready' || status.readAvailable !== true || status.syncAvailable !== false)
+        throw new LoginError('Bulut okuması henüz hazır değil. Bağlantı ayarlarını kontrol et.');
+      const page = await read('?limit=1');
+      if (!isObject(page) || !Array.isArray(page.items) || page.items.length > 1
+        || !(page.nextCursor === null || (typeof page.nextCursor === 'string' && /^[a-f0-9]{32}$/.test(page.nextCursor)))
+        || (page.items.length === 0 && page.nextCursor !== null)
+        || page.items.some(item => !isObject(item) || typeof item.id !== 'string' || !/^[a-f0-9]{32}$/.test(item.id)
+          || typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200
+          || typeof item.completed !== 'boolean' || typeof item.revision !== 'number' || !Number.isSafeInteger(item.revision) || item.revision < 1
+          || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))
+          || typeof item.updatedAt !== 'string' || !Number.isFinite(Date.parse(item.updatedAt))))
+        throw new LoginError('Bulut yanıtı doğrulanamadı. Tekrar dene.');
+      return { empty: page.items.length === 0 };
+    } catch (error) {
+      throw error instanceof LoginError ? error : new LoginError('Bulut okuması tamamlanamadı. Bağlantını kontrol edip tekrar dene.');
+    }
+  }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(view: LoginView) { this.view = view; this.listeners.forEach(listener => listener()); }
   private clear() { this.accessToken = null; this.refreshToken = null; clearTimeout(this.timer); this.timer = undefined; }
