@@ -1,10 +1,10 @@
-# Merkezi görev writer kurulumu — henüz uygulanmadı
+# Merkezi görev writer kurulumu — canlı doğrulandı
 
-Bu rehber M0.15 koduyla hazırlanmıştır. Canlı Supabase'e migration 0003 uygulanmadı ve writer bağlantısı etkin değildir. Aşağıdaki adımlar bir sonraki onaylı canlı kurulumda uygulanacak; şu anda mevcut M0.12 uygulaması yerel görevlerle çalışmaya devam eder.
+Bu kurulum 2026-11-08 tarihinde kullanıcının Supabase projesinde tamamlandı. Migration 0003 ve Supabase'in özel `auth` şemasına ihtiyaç duymayan düzeltme migrationı 0004 uygulandı; ayrı writer parolası repo dışındaki User Secrets alanına kaydedildi. Parola veya bağlantı sırrı bu belgede bulunmaz.
 
 ## Canlı kurulum sırası
 
-1. Supabase SQL Editor'de `services/api/Database/Migrations/0003_task_writer.sql` dosyasını **bir kez** çalıştır.
+1. Supabase SQL Editor'de `services/api/Database/Migrations/0003_task_writer.sql` ve ardından `0004_task_writer_claims.sql` dosyasını **birer kez** çalıştır.
 2. Ayrı `metis_writer` rolüne güçlü ve yeni bir parola ver:
 
    ```sql
@@ -24,6 +24,8 @@ Bu rehber M0.15 koduyla hazırlanmıştır. Canlı Supabase'e migration 0003 uyg
 4. Gizli parola sorulduğunda yalnızca terminale `metis_writer` parolasını gir. Yardımcı değeri komut argümanına veya repoya yazmaz; ayrı `CentralTaskWriter:*` User Secrets alanlarına kaydeder. User Secrets geliştirme içindir ve şifreli kasa değildir.
 5. API terminalini Ctrl+C ile kapatıp `npm.cmd run dev:api` ile yeniden başlat.
 
+Migration 0004, `metis_writer` rolünün Supabase'in korumalı `auth` şemasına erişmesini gerektirmez. Doğrulanmış hesap claim'leri yalnızca transaction-local `request.jwt.claims` değerinden okunur; writer başlangıç koruması `auth` şema erişiminin kapalı ve migration 4'ün uygulanmış olmasını zorunlu tutar.
+
 ## Kurulumdan sonra beklenen davranış
 
 Writer kapalıyken POST/PATCH istekleri 503 `central_writer_not_configured` döner. Açıldıktan sonra yalnızca geçerli kullanıcı Bearer tokenı ile şu iki işlem kullanılabilir:
@@ -33,4 +35,4 @@ Writer kapalıyken POST/PATCH istekleri 503 `central_writer_not_configured` dön
 
 Başka hesap ID'si gönderilemez; kullanıcı doğrulanmış tokenın `sub` alanından alınır. Aynı operation aynı içerikle tekrar gelirse ikinci yazma yapılmaz. Farklı içerikle aynı operation veya eski revision 409 döner. Silme, tamamlama, otomatik yükleme ve sync hâlâ kapalıdır.
 
-Canlı kurulum sonrasında gerçek hesaba sentetik isimli tek bir test görevi yazıp tekrar/rename davranışını doğrulamak gerekir. Test kaydı kullanıcının açık onayıyla oluşturulmalı; otomatik testler canlı projeyi kullanmaz.
+Canlı kurulum sonrasında kullanıcı onayıyla tek `Metis bağlantı kontrolü` görevi oluşturuldu. Aynı operation ID replay edildi, ikinci değişiklik oluşmadı; ardından başlık düzenlenip revision 2 ve son kayıt okuması doğrulandı. Otomatik testler canlı projeyi kullanmaz.

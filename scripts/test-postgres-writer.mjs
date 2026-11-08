@@ -17,17 +17,23 @@ try{
     CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
     INSERT INTO auth.users VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');`);
-  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql'])
+  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql'])
     await db.exec(await readFile(path.join(root,'services/api/Database/Migrations',file),'utf8'));
   await db.exec(`INSERT INTO metis.installation VALUES(1,'test-project'); SET SESSION AUTHORIZATION metis_writer;`);
   const guard=await db.query(`SELECT current_user,session_user,
     has_table_privilege(current_user,'metis.tasks','SELECT') AS can_read,
     has_column_privilege(current_user,'metis.tasks','title','UPDATE') AS can_rename,
     has_table_privilege(current_user,'metis.tasks','DELETE,TRUNCATE') AS unsafe_write,
+    has_schema_privilege(current_user,'auth','USAGE') AS unsafe_auth,
     (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='metis.tasks'::regclass) AS task_rls,
     (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='metis.task_operations'::regclass) AS operation_rls`);
-  if(!guard.rows[0].can_read||!guard.rows[0].can_rename||guard.rows[0].unsafe_write||!guard.rows[0].task_rls||!guard.rows[0].operation_rls)
+  if(!guard.rows[0].can_read||!guard.rows[0].can_rename||guard.rows[0].unsafe_write||guard.rows[0].unsafe_auth||!guard.rows[0].task_rls||!guard.rows[0].operation_rls)
     throw new Error('Writer fixture permissions are unsafe');
+  await db.exec(`BEGIN;
+    SET LOCAL request.jwt.claims='{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated","is_anonymous":false}';
+    SELECT * FROM metis.apply_task_write('11111111-1111-4111-8111-111111111111'::uuid,'eeeeeeee-0000-4000-8000-000000000001'::uuid,
+      'ffffffff-0000-4000-8000-000000000001'::uuid,0::smallint,0::bigint,'Rolled back SQL probe','AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'::char(64));
+    ROLLBACK;`);
   server=new PGLiteSocketServer({db,host:'127.0.0.1',port:0,maxConnections:4,inspect:false});await server.start();
   const port=new URL(`postgres://${server.getServerConn()}`).port;
   child=spawn('dotnet',['run','--project','tests/api/PersonalOS.Api.Tests.csproj','--configuration','Release','--no-build'],{

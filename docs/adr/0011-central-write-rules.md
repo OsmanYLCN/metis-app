@@ -1,6 +1,6 @@
 # ADR-0011 — Merkezi oluşturma ve başlık düzenleme kuralları
 
-Durum: karar katmanı M0.13'te, PostgreSQL writer ve işlem günlüğü M0.14'te uygulandı. HTTP yazma uçları kapalıdır.
+Durum: karar katmanı M0.13'te, PostgreSQL writer ve işlem günlüğü M0.14'te, HTTP uçları M0.15'te ve kontrollü canlı doğrulama M0.16'da uygulandı.
 
 ## Kapsam
 
@@ -31,3 +31,9 @@ M0.14 entegrasyon testi Npgsql üzerinden TCP ile izole PostgreSQL motoruna bağ
 Ayrı writer yapılandırması, DI kaydı ve create/rename HTTP uçları eklendi. Varsayılan writer Disabled olduğundan canlı migration/parola/yerel secret tamamlanmadan 503 döner. İstek kullanıcı ID'si kabul etmez; hesap yalnızca doğrulanmış token'dan gelir. JSON 4 KiB ile sınırlı, bilinmeyen alanlar reddedilir. Başarı yanıtı task ID ve revision içerir; görev içeriğini veya kullanıcı ID'sini geri sızdırmaz.
 
 Masaüstü yükleme, otomatik sync, silme/tamamlama yazmaları eklenmedi. `metis_reader` salt okunur kalır ve `syncAvailable=false` korunur. Migration 0003 canlı Supabase'e uygulanmadı, writer parolası oluşturulmadı ve masaüstü istemcisi HTTP yazma uçlarını çağırmaz.
+
+## M0.16 canlı etkinleştirme
+
+Migration 0003, ayrı `metis_writer` parolası ve repo dışındaki yerel writer ayarı canlı projede etkinleştirildi. Supabase'in korumalı `auth` şemasına özel rol erişimi kalıcı olmadığından migration 0004, policy ve writer fonksiyonunu transaction-local `request.jwt.claims` değerine taşıdı; writer rolünden `auth` şema/fonksiyon izinlerini kaldırdı. Adaptör başlangıç koruması migration 4'ü ve `auth` şema izolasyonunu zorunlu tutar.
+
+Masaüstü v0.13.0 yalnızca kullanıcının açıkça başlattığı bağlantı kontrolünde tek sentetik görev oluşturur, aynı isteği replay eder, başlığı revision 2'ye düzenler ve kaydı yeniden okur. Bu akış canlı hesapta tamamlandı. Normal yerel görev oluşturma/düzenleme hâlâ SQLite'tadır; otomatik yükleme, silme/tamamlama yazmaları ve sync kapalıdır.

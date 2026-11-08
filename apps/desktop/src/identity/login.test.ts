@@ -20,7 +20,7 @@ beforeEach(() => {
   });
   vi.stubGlobal('fetch', fetcher);
 });
-afterEach(() => { store.cancel(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { store.cancel(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe('central read check', () => {
   const ready = { storage: 'ready', readAvailable: true, syncAvailable: false };
@@ -61,6 +61,43 @@ describe('central read check', () => {
     await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Oturum doğrulanamadı');
     fetcher.mockRejectedValueOnce(Error('private connection string'));
     await expect(store.checkCentralTasks(new AbortController().signal)).rejects.toThrow('Bağlantını kontrol');
+  });
+});
+
+describe('central writer check', () => {
+  it('requires an open session before creating a synthetic task', async () => {
+    await expect(store.checkCentralTaskWriter(new AbortController().signal)).rejects.toThrow('Oturum');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('creates one task, verifies replay, renames it and reads the committed revision', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    const ids = [
+      'aaaaaaaa-0000-4000-8000-000000000001',
+      'bbbbbbbb-0000-4000-8000-000000000001',
+      'cccccccc-0000-4000-8000-000000000001',
+    ];
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => ids.shift() as `${string}-${string}-${string}-${string}-${string}`);
+    const taskId = 'aaaaaaaa000040008000000000000001';
+    fetcher
+      .mockResolvedValueOnce(json({ outcome: 'applied', taskId, revision: 1 }, 201))
+      .mockResolvedValueOnce(json({ outcome: 'replayed', taskId, revision: 1 }))
+      .mockResolvedValueOnce(json({ outcome: 'applied', taskId, revision: 2 }))
+      .mockResolvedValueOnce(json({ id: taskId, title: 'Metis bağlantı kontrolü tamamlandı', completed: false, revision: 2 }));
+    await expect(store.checkCentralTaskWriter(new AbortController().signal)).resolves.toEqual({ taskId });
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher).toHaveBeenNthCalledWith(1, 'http://127.0.0.1:5080/api/v1/tasks', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ operationId: 'bbbbbbbb000040008000000000000001', taskId, title: 'Metis bağlantı kontrolü' }),
+      headers: { Authorization: 'Bearer test-access-token', 'Content-Type': 'application/json' },
+    }));
+    expect(fetcher).toHaveBeenNthCalledWith(3, `http://127.0.0.1:5080/api/v1/tasks/${taskId}`, expect.objectContaining({
+      method: 'PATCH', body: JSON.stringify({ operationId: 'cccccccc000040008000000000000001', expectedRevision: 1, title: 'Metis bağlantı kontrolü tamamlandı' }),
+    }));
+  });
+  it('rejects malformed receipts without exposing server details', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: 'wrong', revision: 1 }, 201));
+    await expect(store.checkCentralTaskWriter(new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
 

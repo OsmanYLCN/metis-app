@@ -14,6 +14,18 @@ internal static class PostgresWriterChecks
             Password="synthetic",SslMode=SslMode.Disable,Timeout=5,CommandTimeout=5,MaxPoolSize=4,NoResetOnClose=false }.ConnectionString;
         await using var source=NpgsqlDataSource.Create(connection);
         var writer=new PostgresTaskWriter(source,"test-project");
+        await using(var diagnostic=await source.OpenConnectionAsync())
+        {
+            foreach(var (name,sql) in new (string,string)[] {
+                ("identity","select current_user='metis_writer' and session_user='metis_writer'"),
+                ("auth isolation","select not has_schema_privilege(current_user,'auth','USAGE')"),
+                ("migration","select exists(select 1 from metis.schema_migrations where version=4 and name='task_writer_claims')"),
+                ("installation","select exists(select 1 from metis.installation where id=1 and project_ref='test-project')") })
+            {
+                await using var command=new NpgsqlCommand(sql,diagnostic);
+                Check(await command.ExecuteScalarAsync() is true,$"writer diagnostic: {name}");
+            }
+        }
         var a=Guid.Parse("11111111-1111-4111-8111-111111111111");
         var b=Guid.Parse("22222222-2222-4222-8222-222222222222");
         var id=Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");

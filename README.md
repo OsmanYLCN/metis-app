@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 15; masaüstü v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 16; masaüstü v0.13.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -22,6 +22,8 @@ M0.14: Ayrı ve sınırlı PostgreSQL writer rolü, atomik işlem günlüğü ve
 
 M0.15: Writer için reader'dan ayrı güvenli yapılandırma ve doğrulanmış kullanıcıya bağlı create/rename HTTP uçları hazır. Canlı migration ve writer parolası henüz uygulanmadı; masaüstü bu uçları çağırmıyor. [Kurulum rehberi](docs/central-writer-setup.md), [doğrulama](docs/verification-m0.15.md).
 
+M0.16: Canlı writer kurulumu tamamlandı. Masaüstündeki açık kullanıcı eylemiyle tek sentetik create/replay/rename ve son okuma doğrulandı; normal görevler yüklenmedi ve sync açılmadı. [Canlı kurulum](docs/central-writer-setup.md), [doğrulama](docs/verification-m0.16.md).
+
 ## Bu dilimde çalışanlar
 
 - Minimal Türkçe uygulama kabuğu, 12 modül için gezinme, açık/koyu/sistem teması.
@@ -35,11 +37,11 @@ M0.15: Writer için reader'dan ayrı güvenli yapılandırma ve doğrulanmış k
 - Supabase yapılandırıldığında public JWKS ile gerçek sunucu token doğrulaması.
 - Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Varsayılan oturum bellektedir; hatırla seçilirse refresh token şifreli kasaya yazılır ve yenilenir.
 
-**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite temel metadata ve görev kayıtlarını saklar; şema sürümü 2 oldu. Kullanıcı canlı girişi ve oturum geri yüklemeyi başarılı bildirdi; otomatik giriş/görev arayüzü testlerinde sağlayıcı yanıtları mock kullanılır. PostgreSQL bağlantısı doğrulanmıştır; merkezi yazma/sync, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
+**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite temel metadata ve görev kayıtlarını saklar; şema sürümü 2 oldu. Kullanıcı canlı girişi, oturum geri yüklemeyi ve kontrollü tek merkezi writer kontrolünü başarılı bildirdi; otomatik giriş/görev arayüzü testlerinde sağlayıcı yanıtları mock kullanılır. Normal görevlerin merkezi yazması ve sync, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
 
 ## Hazır Windows uygulaması
 
-`outputs/Metis-M0.12.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş ve oturum geri yükleme için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Canlı giriş için yerel ayarları doldurup masaüstünü yeniden başlat/derle: [bağlantı rehberi](docs/supabase-local-setup.md). Güncel kapsam ve sonuçlar: [M0.12 doğrulama kaydı](docs/verification-m0.12.md).
+`outputs/Metis-M0.16.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş, oturum geri yükleme ve açıkça başlatılan bulut kontrolü için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Güncel kapsam ve sonuçlar: [M0.16 doğrulama kaydı](docs/verification-m0.16.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. SQLite dosyası şifrelenmez; kullanıcının yazdığı görev başlıklarını içerir. Hesaba göre liste ayrımı aynı Windows kullanıcısına karşı bir güvenlik sınırı değildir. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 
@@ -143,7 +145,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Writer bağlantı ve HTTP sözleşmesi izole veritabanında doğrulandı. Sonraki küçük dilim: kullanıcı onayıyla canlı migration 0003, ayrı writer parolası/yerel ayarı ve kontrollü tek görev create/replay/rename doğrulaması. Otomatik yükleme ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan devam edilmez.
+Canlı reader/writer bağlantısı ve kullanıcı tarafından başlatılan tek create/replay/rename kontrolü doğrulandı. Sonraki aday küçük dilim, normal görev akışına dokunmadan kalıcı yerel outbox/operation kimliği temelidir. Otomatik yükleme, çift yönlü sync ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan devam edilmez.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 

@@ -16,6 +16,7 @@ export function CentralReadCard() {
 function ReadCheck() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('Henüz kontrol edilmedi.');
+  const [writeMessage, setWriteMessage] = useState('Henüz kontrol edilmedi.');
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
   async function check() {
@@ -31,8 +32,26 @@ function ReadCheck() {
       if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : 'Kontrol tamamlanamadı. Tekrar dene.');
     } finally { if (!controller.signal.aborted) setBusy(false); }
   }
+  async function checkWriter() {
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    setBusy(true); setWriteMessage('Bulutta kontrollü test görevi oluşturuluyor…');
+    try {
+      await loginStore.checkCentralTaskWriter(controller.signal);
+      if (!controller.signal.aborted) setWriteMessage('Bulut yazması doğrulandı. Tek test görevi oluşturuldu, güvenli tekrar ve başlık düzenleme kontrolleri geçti.');
+    } catch (error) {
+      if (!controller.signal.aborted) setWriteMessage(error instanceof Error ? error.message : 'Yazma kontrolü tamamlanamadı. Tekrar dene.');
+    } finally { if (!controller.signal.aborted) setBusy(false); }
+  }
   return <><p role="status">{message}</p>
     <button className="text-button" onClick={() => void check()} disabled={busy}>
       <RefreshCw size={14} className={busy ? 'spin' : ''} /> Bulut okumasını kontrol et
-    </button></>;
+    </button>
+    <div className="central-write-check">
+      <p>İstersen bulutta tek bir “Metis bağlantı kontrolü” görevi oluşturarak writer bağlantısını doğrula. Yerel görevlerin yüklenmez ve eşitleme açılmaz.</p>
+      <p role="status">{writeMessage}</p>
+      <button className="text-button" onClick={() => void checkWriter()} disabled={busy}>
+        <RefreshCw size={14} className={busy ? 'spin' : ''} /> Bulut yazmasını doğrula
+      </button>
+    </div></>;
 }

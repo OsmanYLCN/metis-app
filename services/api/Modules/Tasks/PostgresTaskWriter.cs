@@ -65,7 +65,8 @@ public sealed class PostgresTaskWriter : ITaskWriter, IAsyncDisposable
                   AND NOT has_table_privilege(current_user,'metis.task_operations','INSERT,UPDATE,DELETE,TRUNCATE')
                   AND NOT has_any_column_privilege(current_user,'metis.task_operations','UPDATE')
                   AND has_function_privilege(current_user,'metis.apply_task_write(uuid,uuid,uuid,smallint,bigint,text,character)','EXECUTE')
-                  AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version=3 AND name='task_writer')
+                  AND NOT has_schema_privilege(current_user,'auth','USAGE')
+                  AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version=4 AND name='task_writer_claims')
                   AND EXISTS(SELECT 1 FROM metis.installation WHERE id=1 AND project_ref=$1)
                 FROM pg_roles r CROSS JOIN pg_class t CROSS JOIN pg_class o
                 WHERE r.rolname=current_user AND t.oid='metis.tasks'::regclass AND o.oid='metis.task_operations'::regclass

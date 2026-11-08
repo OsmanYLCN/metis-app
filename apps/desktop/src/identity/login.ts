@@ -68,6 +68,57 @@ export class LoginStore {
       throw error instanceof LoginError ? error : new LoginError('Bulut okuması tamamlanamadı. Bağlantını kontrol edip tekrar dene.');
     }
   }
+  // Explicit, user-triggered live writer verification. It creates exactly one synthetic cloud task;
+  // local tasks are never enumerated or uploaded and the bearer remains inside this store.
+  async checkCentralTaskWriter(signal: AbortSignal): Promise<{ taskId: string }> {
+    const token = this.accessToken;
+    const attempt = this.generation;
+    const assertSession = () => {
+      if (signal.aborted || attempt !== this.generation || token !== this.accessToken
+        || !token || this.view.phase !== 'signedIn' || this.view.expiresAt <= Date.now())
+        throw new LoginError('Oturum değişti veya süresi doldu. Tekrar giriş yap.');
+    };
+    assertSession();
+    const deadline = AbortSignal.any([signal, AbortSignal.timeout(30000)]);
+    const taskId = crypto.randomUUID().replaceAll('-', '');
+    const createOperation = crypto.randomUUID().replaceAll('-', '');
+    const renameOperation = crypto.randomUUID().replaceAll('-', '');
+    const initialTitle = 'Metis bağlantı kontrolü';
+    const finalTitle = 'Metis bağlantı kontrolü tamamlandı';
+    const send = async (path: string, method: 'GET' | 'POST' | 'PATCH', body?: object): Promise<{ status: number; value: unknown }> => {
+      assertSession();
+      const response = await fetch(`${API_URL}/api/v1/tasks${path}`, {
+        method, headers: body ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          : { Authorization: `Bearer ${token}` },
+        body: body ? JSON.stringify(body) : undefined, signal: deadline,
+        credentials: 'omit', cache: 'no-store', redirect: 'error',
+      });
+      assertSession();
+      if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Çıkış yapıp tekrar giriş yap.');
+      const value: unknown = await response.json().catch(() => null);
+      return { status: response.status, value };
+    };
+    const isReceipt = (result: { status: number; value: unknown }, status: number, outcome: string, revision: number) =>
+      result.status === status && isObject(result.value) && result.value.outcome === outcome
+      && result.value.taskId === taskId && result.value.revision === revision;
+    try {
+      const payload = { operationId: createOperation, taskId, title: initialTitle };
+      const created = await send('', 'POST', payload);
+      if (!isReceipt(created, 201, 'applied', 1)) throw new LoginError('Bulut yazma yanıtı doğrulanamadı.');
+      const replayed = await send('', 'POST', payload);
+      if (!isReceipt(replayed, 200, 'replayed', 1)) throw new LoginError('Bulut tekrar koruması doğrulanamadı.');
+      const renamed = await send(`/${taskId}`, 'PATCH', { operationId: renameOperation, expectedRevision: 1, title: finalTitle });
+      if (!isReceipt(renamed, 200, 'applied', 2)) throw new LoginError('Bulut düzenleme yanıtı doğrulanamadı.');
+      const stored = await send(`/${taskId}`, 'GET');
+      if (stored.status !== 200 || !isObject(stored.value) || stored.value.id !== taskId
+        || stored.value.title !== finalTitle || stored.value.completed !== false || stored.value.revision !== 2)
+        throw new LoginError('Buluta yazılan görev doğrulanamadı.');
+      return { taskId };
+    } catch (error) {
+      if (error instanceof LoginError) throw error;
+      throw new LoginError('Bulut yazma kontrolü tamamlanamadı. API ve bağlantıyı kontrol edip tekrar dene.');
+    }
+  }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(view: LoginView) { this.view = view; this.listeners.forEach(listener => listener()); }
   private clear() { this.accessToken = null; this.refreshToken = null; clearTimeout(this.timer); this.timer = undefined; }
