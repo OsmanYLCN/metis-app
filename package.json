@@ -23,7 +23,8 @@
     "test:storage": "cargo test --release --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
     "test:identity": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release",
     "test:tasks-schema": "node --test scripts/tasks-schema.test.mjs",
-    "test:postgres": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-adapter.mjs"
+    "test:postgres": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-adapter.mjs",
+    "test:postgres-writer": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-writer.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.15",

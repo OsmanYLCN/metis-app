@@ -220,6 +220,8 @@ if (Environment.GetEnvironmentVariable("METIS_TEST_PG_PORT") is { } testPort)
     passed += await PostgresAdapterChecks.Run(testPort,
         settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
         user => Token(d => d.Claims["sub"] = user));
+if (Environment.GetEnvironmentVariable("METIS_TEST_PG_WRITER_PORT") is { } writerPort)
+    passed += await PostgresWriterChecks.Run(writerPort);
 Console.WriteLine($"{passed} checks passed; ephemeral JWT keys and mocked JWKS; task reader fixtures or opt-in local PostgreSQL, no external account.");
 
 sealed class FakeKeys(string json, bool unavailable = false) : HttpMessageHandler

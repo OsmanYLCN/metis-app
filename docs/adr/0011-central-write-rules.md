@@ -1,6 +1,6 @@
 # ADR-0011 — Merkezi oluşturma ve başlık düzenleme kuralları
 
-Durum: karar katmanı uygulandı (M0.13). Kalıcı writer, işlem günlüğü ve HTTP yazma uçları sonraki dilimde.
+Durum: karar katmanı M0.13'te, PostgreSQL writer ve işlem günlüğü M0.14'te uygulandı. HTTP yazma uçları kapalıdır.
 
 ## Kapsam
 
@@ -18,6 +18,14 @@ Mevcut veya silinmiş görev ID'siyle yeni Create kabul edilmez. Rename, farklı
 
 `TaskWriteRules.Decide` saf karar fonksiyonudur; veri değiştirmez, kilit veya transaction yerine geçmez. Gelecekteki writer hesap kapsamını, operation ID için eşzamanlılık kontrolünü, görev kilidi/revision koşulunu ve görev + receipt kaydını **tek atomik veritabanı işlemi** içinde sağlamalıdır. Saf fonksiyon testleri eşzamanlı PostgreSQL yazma garantisi olarak sunulamaz.
 
+## M0.14 uygulaması
+
+Migration 0003 ayrı `metis_writer` login rolü, FORCE RLS korumalı işlem günlüğü ve `apply_task_write` fonksiyonunu ekler. Rol tablo sahibi, rol üyesi, süper kullanıcı veya BYPASSRLS değildir. Görevlerde yalnızca SELECT, yeni kaydın `user_id/id/title` sütunlarına INSERT ve `title` sütununa UPDATE alır. Tamamlama, silme, sahiplik, revision ve tarih sütunlarına yazamaz. Günlük yalnızca kendi hesabında okunup eklenebilir; güncellenemez veya silinemez.
+
+Aynı hesap/operation çifti transaction-scope advisory lock ile sıralanır. Fonksiyon journal kontrolü, revision koşullu görev yazması ve receipt eklemesini tek transaction içinde yapar. Uygulama adaptörü başlamadan rol, izin, RLS, migration ve Project Ref bağını denetler; doğrulanmış hesap claim'lerini transaction-local olarak ayarlar. Parametreli SQL, süre/lock sınırları ve bağlantı havuzu bağlam temizliği korunur.
+
+M0.14 entegrasyon testi Npgsql üzerinden TCP ile izole PostgreSQL motoruna bağlanır; create, aynı isteğin replay'i, değiştirilmiş operation, rename, eski revision, hesap RLS, iptal ve DELETE reddini doğrular. Son durumda tek görev revision 2 ve yalnızca iki başarılı receipt bulunur. PGlite socket tek backend kullandığından gerçek paralel Supabase oturum yükünü kanıtlamaz; advisory lock ve benzersiz anahtar gerçek PostgreSQL semantiğine göre tasarlanmıştır.
+
 ## Henüz etkin olmayanlar
 
-Yeni DB rolü, migration, yazma izni, POST/PATCH endpoint, masaüstü yükleme, otomatik sync, silme/tamamlama yazmaları eklenmedi. `metis_reader` salt okunur kalır. `syncAvailable=false` korunur. Bir sonraki küçük dilim: ayrı ve sınırlı writer rolü, atomik operation journal ve bu iki işlemin izole PostgreSQL entegrasyon testleri; canlı migration ayrıca somut kurulum adımıyla uygulanacak.
+POST/PATCH endpoint, masaüstü yükleme, otomatik sync, silme/tamamlama yazmaları eklenmedi. `metis_reader` salt okunur kalır; writer yapılandırılıp servise kaydedilmediği için üretimde kullanılamaz. `syncAvailable=false` korunur. Migration 0003 canlı Supabase'e uygulanmadı ve writer parolası oluşturulmadı. Bir sonraki küçük dilim, writer için ayrı güvenli yapılandırma ve yalnızca oluşturma/başlık düzenleme HTTP sözleşmesidir; canlı migration ayrıca somut kullanıcı adımıyla uygulanacak.
