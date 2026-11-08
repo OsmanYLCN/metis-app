@@ -215,6 +215,7 @@ passed += await TaskFoundationChecks.Run(reader => Start("Supabase", new FakeKey
     [Token(d => d.Claims["role"] = "service_role"), Token(d => d.Claims["is_anonymous"] = true),
      Token(d => d.Issuer = "https://another.supabase.co/auth/v1"), "not-a-token"]);
 passed += CentralTaskConfigurationChecks.Run();
+passed += TaskWriteRuleChecks.Run();
 if (Environment.GetEnvironmentVariable("METIS_TEST_PG_PORT") is { } testPort)
     passed += await PostgresAdapterChecks.Run(testPort,
         settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),

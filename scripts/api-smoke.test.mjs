@@ -22,7 +22,7 @@ test('real API health, routing and development CORS', { timeout: 30000 }, async 
   const child = spawn('dotnet', ['services/api/bin/Release/net10.0/PersonalOS.Api.dll'], {
     cwd: root,
     env: { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: base,
-      Identity__Provider: 'Disabled', Identity__Authority: '' },
+      Identity__Provider: 'Disabled', Identity__Authority: '', CentralTasks__Provider: 'Disabled' },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

@@ -2,6 +2,8 @@
 
 2026-11-08, sürüm 0.12.0.
 
+Son durum: kullanıcı canlı Windows uygulamasında **Bulut okuması doğrulandı** mesajını gördüğünü ekran görüntüsüyle doğruladı (2026-11-08). Aşağıdaki ilk teslimde bekleyen canlı kullanıcı kontrolü tamamlandı.
+
 Genel bakış ekranına **Bulut bağlantısı** kartı eklendi. Kullanıcı düğmeye bastığında mevcut oturumun Bearer tokenıyla önce `/api/v1/tasks/status`, ardından `/api/v1/tasks?limit=1` okunur. Başarı yalnızca iki yanıt da doğrulanırsa gösterilir. Boş bulut alanı ayrı açıklanır. Görev başlıkları gösterilmez, SQLite'a kopyalanmaz; merkezi yazma ve sync yoktur.
 
 Token yalnızca LoginStore içinde kullanılır; React state'ine, URL'ye veya log'a çıkarılmaz. İstekler GET, no-store, credentials omit ve redirect error kullanır; toplam süre sınırı 20 saniyedir. Oturum değişikliği/süre sonu ve iptal sonrası yanıt reddedilir. Kart çıkışta veya token yenilemede yeniden oluşturulur; önceki sonuç korunmaz.

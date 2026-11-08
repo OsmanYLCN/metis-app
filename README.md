@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 12, v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 13; masaüstü v0.12.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth bağlantısı yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -12,9 +12,11 @@ M0.9: Görev başlığını düzenleme, iptal/klavye odağı ve görev adıyla k
 
 M0.10: Merkezi görev veri modeli, doğrulanmış hesaba göre salt okunur API sözleşmesi ve PostgreSQL RLS hazırlığı. Gerçek merkezi bağlantı henüz yoktur; API bu durumda 503 döner. [ADR-0009](docs/adr/0009-central-task-foundation.md), [doğrulama](docs/verification-m0.10.md).
 
-M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçek okuma hazırlığı kontrolü. Yerel testler ve canlı Supabase bağlantısı VerifyFull TLS ile doğrulandı; üretim adaptörünün sentetik hesapla okuma kontrolü geçti. Gerçek kullanıcı JWT'siyle uçtan uca merkezi liste kontrolü henüz yapılmadı. [ADR-0010](docs/adr/0010-postgres-task-reader.md), [kurulum](docs/central-postgres-setup.md), [doğrulama](docs/verification-m0.11.md).
+M0.11: Npgsql PostgreSQL okuma adaptörü, sınırlı bağlantı rolü ve gerçek okuma hazırlığı kontrolü. Yerel testler ve canlı Supabase bağlantısı VerifyFull TLS ile doğrulandı; üretim adaptörünün sentetik hesapla okuma kontrolü geçti. Gerçek kullanıcı oturumuyla okuma kontrolü kullanıcı tarafından doğrulandı. [ADR-0010](docs/adr/0010-postgres-task-reader.md), [kurulum](docs/central-postgres-setup.md), [doğrulama](docs/verification-m0.11.md).
 
-M0.12: Genel bakışta açık oturumla **Bulut okumasını kontrol et** düğmesi. Salt okuma ve boş alan/hata açıklamaları hazır; canlı kullanıcı sonucunun doğrulanması bekleniyor. [Kullanım ve testler](docs/verification-m0.12.md).
+M0.12: Genel bakışta açık oturumla **Bulut okumasını kontrol et** düğmesi. Salt okuma ve boş alan/hata açıklamaları hazır; canlı kullanıcı sonucu doğrulandı. [Kullanım ve testler](docs/verification-m0.12.md).
+
+M0.13: Merkezi oluşturma/başlık düzenleme için tekrar gönderme ve revision çatışması karar katmanı. Kalıcı yazma ve sync henüz açık değil; masaüstü EXE aynı kaldı. [ADR-0011](docs/adr/0011-central-write-rules.md), [doğrulama](docs/verification-m0.13.md).
 
 ## Bu dilimde çalışanlar
 
@@ -136,7 +138,7 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
-Önce [Supabase veritabanı ayarları](docs/central-postgres-setup.md) tamamlanıp canlı kullanıcıyla salt okuma doğrulanacak. Bunun ardından **merkezi yazma ve çatışma sözleşmesinin ilk küçük dilimi** planlanabilir. Oluşturma/listeleme/tamamlama/düzenleme/silme yerelde çalışır. Sync ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan sonraki dilime geçilmez.
+Canlı hesapla okuma doğrulandı. Sonraki küçük dilim: oluşturma/başlık düzenleme kurallarını tek transaction içinde uygulayan PostgreSQL writer ve işlem günlüğü. Otomatik yükleme ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan sonraki dilime geçilmez.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.
 

@@ -69,7 +69,7 @@ try {
   if (!mockApi) {
     const api = launch('dotnet', ['services/api/bin/Release/net10.0/PersonalOS.Api.dll'], {
       ASPNETCORE_ENVIRONMENT: 'Development', ASPNETCORE_URLS: 'http://127.0.0.1:5080',
-      Identity__Provider: 'Disabled', Identity__Authority: '',
+      Identity__Provider: 'Disabled', Identity__Authority: '', CentralTasks__Provider: 'Disabled',
     });
     await waitFor('http://127.0.0.1:5080/health', api);
   }
