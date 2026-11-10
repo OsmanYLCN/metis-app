@@ -4,5 +4,5 @@
   "description": "Only the local main window may inspect SQLite, manage local task records and encrypted session records; no arbitrary paths or remote origins.",
   "windows": ["main"],
   "local": true,
-  "permissions": ["allow-outbox-count", "allow-local-storage-status", "allow-session-vault-read", "allow-session-vault-write", "allow-session-vault-clear", "allow-tasks-list", "allow-tasks-create", "allow-tasks-set-completed", "allow-tasks-rename", "allow-tasks-delete"]
+  "permissions": ["allow-outbox-count", "allow-outbox-pending-for-task", "allow-outbox-begin", "allow-outbox-acknowledge", "allow-local-storage-status", "allow-session-vault-read", "allow-session-vault-write", "allow-session-vault-clear", "allow-tasks-list", "allow-tasks-create", "allow-tasks-set-completed", "allow-tasks-rename", "allow-tasks-delete"]
 }

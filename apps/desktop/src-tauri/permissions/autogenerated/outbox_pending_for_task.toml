@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-outbox-pending-for-task"
+description = "Enables the outbox_pending_for_task command without any pre-configured scope."
+commands.allow = ["outbox_pending_for_task"]
+
+[[permission]]
+identifier = "deny-outbox-pending-for-task"
+description = "Denies the outbox_pending_for_task command without any pre-configured scope."
+commands.deny = ["outbox_pending_for_task"]

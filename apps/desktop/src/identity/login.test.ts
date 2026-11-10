@@ -101,6 +101,30 @@ describe('central writer check', () => {
   });
 });
 
+describe('one local task delivery', () => {
+  const operation = { operationId: 'aaaaaaaa000040008000000000000001', taskId: 'bbbbbbbb000040008000000000000001', kind: 'create', expectedRevision: 0, title: 'One local task' };
+  it('uses the private bearer and accepts only a matching receipt', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: operation.taskId, revision: 1 }, 201));
+    await expect(store.sendOneLocalCreate(operation, new AbortController().signal)).resolves.toEqual({ outcome: 'applied', revision: 1 });
+    expect(fetcher).toHaveBeenCalledWith('http://127.0.0.1:5080/api/v1/tasks', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ operationId: operation.operationId, taskId: operation.taskId, title: operation.title }),
+      headers: { Authorization: 'Bearer test-access-token', 'Content-Type': 'application/json' },
+    }));
+    fetcher.mockResolvedValueOnce(json({ outcome: 'replayed', taskId: operation.taskId, revision: 1 }));
+    await expect(store.sendOneLocalCreate(operation, new AbortController().signal)).resolves.toEqual({ outcome: 'replayed', revision: 1 });
+  });
+  it('rejects missing login, wrong task and uncertain response', async () => {
+    await expect(store.sendOneLocalCreate(operation, new AbortController().signal)).rejects.toThrow('Oturum');
+    expect(fetcher).not.toHaveBeenCalled();
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: 'wrong', revision: 1 }, 201));
+    await expect(store.sendOneLocalCreate(operation, new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
+    fetcher.mockRejectedValueOnce(Error('secret transport detail'));
+    await expect(store.sendOneLocalCreate(operation, new AbortController().signal)).rejects.toThrow('sonucu belirsiz');
+  });
+});
+
 describe('public login configuration', () => {
   it('keeps an unconfigured build offline', () => expect(parseLoginSettings()).toEqual({ kind: 'missing' }));
   it('accepts only a hosted HTTPS project and publishable key', () => {

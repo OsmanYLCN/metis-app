@@ -183,10 +183,28 @@
           "markdownDescription": "Enables the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the outbox_acknowledge command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-acknowledge",
+          "markdownDescription": "Enables the outbox_acknowledge command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbox_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-begin",
+          "markdownDescription": "Enables the outbox_begin command without any pre-configured scope."
+        },
+        {
           "description": "Enables the outbox_count command without any pre-configured scope.",
           "type": "string",
           "const": "allow-outbox-count",
           "markdownDescription": "Enables the outbox_count command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbox_pending_for_task command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-pending-for-task",
+          "markdownDescription": "Enables the outbox_pending_for_task command without any pre-configured scope."
         },
         {
           "description": "Enables the session_vault_clear command without any pre-configured scope.",
@@ -243,10 +261,28 @@
           "markdownDescription": "Denies the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Denies the outbox_acknowledge command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-acknowledge",
+          "markdownDescription": "Denies the outbox_acknowledge command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbox_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-begin",
+          "markdownDescription": "Denies the outbox_begin command without any pre-configured scope."
+        },
+        {
           "description": "Denies the outbox_count command without any pre-configured scope.",
           "type": "string",
           "const": "deny-outbox-count",
           "markdownDescription": "Denies the outbox_count command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbox_pending_for_task command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-pending-for-task",
+          "markdownDescription": "Denies the outbox_pending_for_task command without any pre-configured scope."
         },
         {
           "description": "Denies the session_vault_clear command without any pre-configured scope.",

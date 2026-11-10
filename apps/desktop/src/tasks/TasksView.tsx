@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { CheckCheck, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
-import { completeTask, createTask, deleteTask, listTasks, pendingCount, renameTask, type Task, type TaskOwner } from './client';
+import { beginLocalCreate, completeTask, confirmLocalCreate, createTask, deleteTask, listTasks, pendingCount, renameTask, type Task, type TaskOwner } from './client';
 
 export function TasksView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
@@ -124,11 +124,25 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
+  async function sendOne(task: Task) {
+    if (inFlight.current) return;
+    const attempt = ++request.current;
+    inFlight.current = true; setBusy(true); setError(''); setNotice('');
+    try {
+      const operation = await beginLocalCreate(owner, task.id);
+      if (!operation) throw new Error('Bu görev için bekleyen oluşturma kaydı yok.');
+      const receipt = await loginStore.sendOneLocalCreate(operation, new AbortController().signal);
+      if (attempt !== request.current) return;
+      await confirmLocalCreate(owner, operation, receipt.outcome, receipt.revision);
+      setNotice('Görev buluta gönderildi. Otomatik eşitleme henüz yok.');
+    } catch (failure) { if (attempt === request.current) setError(message(failure)); }
+    finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
+  }
   return <section className="panel tasks-panel" aria-label="Yerel görevler" aria-busy={busy}>
     <div className="section-heading"><div><h2>Bir sonraki küçük adımın</h2>
       <p className="section-description">Görevlerin bu cihazda saklanır. Bulut eşitlemesi henüz yok.</p></div>
       <button className="text-button" disabled={busy || !!action} onClick={() => void load()}><RefreshCw size={15} /> Listeyi yenile</button></div>
-    <p role="status">{queued === null ? 'Bekleyen kayıt sayısı henüz alınamadı.' : `${queued} yerel kayıt gönderim hazırlığında.`} Buluta gönderim henüz kapalı.</p>
+    <p role="status">{queued === null ? 'Bekleyen kayıt sayısı henüz alınamadı.' : `${queued} yerel kayıt gönderim hazırlığında.`} Görevleri tek tek gönderebilirsin.</p>
     <form className="task-form" onSubmit={save}>
       <label htmlFor="task-title">Yeni görev</label>
       <div className="task-compose"><input id="task-title" value={title} maxLength={200} disabled={busy || !loaded || !!action}
@@ -144,6 +158,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
         aria-label={`${task.title}: ${task.completed ? 'yeniden aç' : 'tamamla'}`} /><span>{task.title}</span></label>
       <span className="small-tag">{task.completed ? 'Tamamlandı' : 'Açık'}</span>
       <div className="task-row-actions">
+        {!task.completed && <button className="text-button" disabled={busy || !!action} onClick={() => void sendOne(task)}>Buluta gönder</button>}
         <button className="icon-button" disabled={busy || !!action} aria-label={`${task.title}: düzenle`} title="Başlığı düzenle" onClick={event => beginAction('edit', task, event.currentTarget)}><Pencil size={16} /></button>
         <button className="icon-button" disabled={busy || !!action} aria-label={`${task.title}: sil`} title="Görevi sil" onClick={event => beginAction('delete', task, event.currentTarget)}><Trash2 size={16} /></button>
       </div>

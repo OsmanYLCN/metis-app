@@ -41,6 +41,8 @@ M0.16: Canlı writer kurulumu tamamlandı. Masaüstündeki açık kullanıcı ey
 
 ## Hazır Windows uygulaması
 
+Güncel **outputs/Metis-M0.21.exe** seçilen yerel görevin kullanıcı eylemiyle buluta gönderimini içerir. [M0.21 doğrulama](docs/verification-m0.21.md). İlk açılışta SQLite şema 4'e yükselir; eski EXE aynı DB'yi açamaz. Önceki teslim notları aşağıda tarihsel kayıt olarak durur.
+
 Güncel teslim **outputs/Metis-M0.19.exe**: yerel kuyruk uzlaştırması ve görev ekranında bekleyen kayıt sayısı. [M0.19 kaydı](docs/verification-m0.19.md). SQLite şema 3'e yükselir; yükseltmeden sonra M0.16 ile aynı veritabanı açılamaz. Aşağıdaki M0.16 açıklaması önceki teslimi anlatır.
 
 `outputs/Metis-M0.16.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş, oturum geri yükleme ve açıkça başlatılan bulut kontrolü için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Güncel kapsam ve sonuçlar: [M0.16 doğrulama kaydı](docs/verification-m0.16.md).

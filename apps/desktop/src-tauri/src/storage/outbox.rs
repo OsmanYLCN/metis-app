@@ -42,6 +42,18 @@ pub fn count(path: &Path, owner: &TaskOwner) -> Result<u32, TaskError> {
     rows[0][0].parse().map_err(|_| super::StorageError::InvalidSchema.into())
 }
 
+pub fn pending_for_task(path: &Path, owner: &TaskOwner, task_id: &str) -> Result<Option<PendingOperation>, TaskError> {
+    owner.validate()?;
+    if task_id.len()!=32 || !task_id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) { return Err(TaskError::InvalidInput); }
+    let (db, _) = connect(path)?;
+    let rows = db.query("SELECT sequence,operation_id,task_id,kind,expected_revision,title FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending' ORDER BY sequence LIMIT 2", &[&owner.project_ref,&owner.user_id,task_id])?;
+    if rows.len()>1 { return Err(TaskError::Conflict); }
+    rows.into_iter().next().map(|r| {
+        if r.len()!=6 { return Err(TaskError::from(super::StorageError::InvalidSchema)); }
+        Ok(PendingOperation { sequence:r[0].parse().map_err(|_| super::StorageError::InvalidSchema)?,operation_id:r[1].clone(),task_id:r[2].clone(),kind:r[3].clone(),expected_revision:r[4].parse().map_err(|_| super::StorageError::InvalidSchema)?,title:r[5].clone() })
+    }).transpose()
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingOperation {
