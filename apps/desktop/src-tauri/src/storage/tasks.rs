@@ -74,6 +74,7 @@ pub fn set_completed(path: &Path, owner: &TaskOwner, id: &str, completed: bool) 
     if !valid_id(id) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
+    if !db.query("SELECT d.sequence FROM outbox_delivery d JOIN task_outbox o ON o.sequence=d.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     db.query("UPDATE tasks SET completed=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND completed<>?4",
         &[id, &owner.project_ref, &owner.user_id, if completed { "1" } else { "0" }])?;
     let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",

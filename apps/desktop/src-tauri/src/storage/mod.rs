@@ -9,11 +9,12 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 3;
+const VERSION: u32 = 4;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
 const OUTBOX_MIGRATION: &str = include_str!("../../migrations/0003_local_outbox.sql");
+const DELIVERY_MIGRATION: &str = include_str!("../../migrations/0004_outbox_delivery.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -108,6 +109,14 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
         return Err(StorageError::InvalidSchema);
     }
     connection.query("SELECT sequence,project_ref,user_id,operation_id,task_id,kind,expected_revision,title,state,created_at FROM task_outbox LIMIT 0", &[])?;
+    let delivery_checksum = format!("{:x}", Sha256::digest(DELIVERY_MIGRATION.replace("\r\n", "\n").as_bytes()));
+    if old_version < 4 {
+        connection.execute(DELIVERY_MIGRATION).map_err(|_| StorageError::MigrationFailed)?;
+        connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(4,'outbox_delivery','{delivery_checksum}'); PRAGMA user_version=4;"))
+            .map_err(|_| StorageError::MigrationFailed)?;
+    }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=4 AND name='outbox_delivery'")? != delivery_checksum { return Err(StorageError::InvalidSchema); }
+    connection.query("SELECT sequence,revision,started_at FROM outbox_delivery LIMIT 0", &[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

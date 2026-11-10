@@ -2,6 +2,38 @@
 use super::{connect, tasks::{TaskOwner, TaskError}};
 use serde::Serialize;
 use std::path::Path;
+use super::sqlite::Transaction;
+
+/// Durable send intent, committed BEFORE any future HTTP request. Repeat calls return
+/// the same frozen command. Only open, matching create snapshots are eligible.
+pub fn begin_delivery(path: &Path, owner: &TaskOwner, sequence: i64) -> Result<PendingOperation, TaskError> {
+    owner.validate()?;
+    if sequence <= 0 { return Err(TaskError::InvalidInput); }
+    let (db, _) = connect(path)?;
+    let tx = Transaction::begin(&db)?;
+    let rows = db.query("SELECT o.sequence,o.operation_id,o.task_id,o.kind,o.expected_revision,o.title FROM task_outbox o JOIN tasks t ON t.id=o.task_id AND t.project_ref=o.project_ref AND t.user_id=o.user_id WHERE o.project_ref=?1 AND o.user_id=?2 AND o.sequence=?3 AND o.state='pending' AND o.kind='create' AND o.expected_revision=0 AND t.title=o.title AND t.completed=0", &[&owner.project_ref,&owner.user_id,&sequence.to_string()])?;
+    let r = rows.first().ok_or(TaskError::Conflict)?;
+    let operation = PendingOperation { sequence, operation_id:r[1].clone(),task_id:r[2].clone(),kind:r[3].clone(),expected_revision:0,title:r[5].clone() };
+    db.query("INSERT INTO outbox_delivery(sequence) VALUES(?1) ON CONFLICT(sequence) DO NOTHING", &[&sequence.to_string()])?;
+    tx.commit()?;
+    Ok(operation)
+}
+
+/// Called only after the future authenticated HTTP client validates its response.
+/// A receipt cannot acknowledge a different task, operation, owner or revision.
+pub fn acknowledge(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: &str, revision: i64, outcome: &str) -> Result<(), TaskError> {
+    owner.validate()?;
+    if revision != 1 || !matches!(outcome,"applied"|"replayed") { return Err(TaskError::InvalidInput); }
+    let (db, _) = connect(path)?;
+    let tx = Transaction::begin(&db)?;
+    let rows = db.query("SELECT o.sequence,o.state FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.operation_id=?3 AND o.task_id=?4 AND o.kind='create' AND o.expected_revision=0", &[&owner.project_ref,&owner.user_id,operation_id,task_id])?;
+    let r = rows.first().ok_or(TaskError::Conflict)?;
+    if !matches!(r[1].as_str(),"pending"|"acknowledged") { return Err(TaskError::Conflict); }
+    db.query("UPDATE outbox_delivery SET revision=?2 WHERE sequence=?1", &[&r[0],&revision.to_string()])?;
+    db.query("UPDATE task_outbox SET state='acknowledged' WHERE sequence=?1", &[&r[0]])?;
+    tx.commit()?;
+    Ok(())
+}
 
 pub fn count(path: &Path, owner: &TaskOwner) -> Result<u32, TaskError> {
     owner.validate()?;

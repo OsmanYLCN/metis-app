@@ -147,6 +147,8 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
+M0.20 kaynak kodunda kalıcı gönderim niyeti ve receipt doğrulaması hazır. [Doğrulama](docs/verification-m0.20.md). Sonraki birleşik adım tek görev için açık kullanıcı eylemiyle HTTP gönderim ve yerel onay bağlantısıdır. M0.19 son teslim EXE'sidir; aşağıdaki aşama notları tarihseldir.
+
 M0.18 kaynak kodunda hesap kapsamlı kuyruk okuma ve yeni görev/create kaydının atomik yazılması birlikte tamamlandı. [Kapsam ve sınırlar](docs/verification-m0.18.md). Sonraki dilim yerel değişikliklerin kuyrukla uzlaştırılması ve durum arayüzüdür; aşağıdaki M0.17 notu tarihsel aşamadır.
 
 M0.17: Yerel outbox şema temeli kaynak kodda hazır; SQLite şema 3'e veri koruyan geçiş, değişmez işlem içeriği ve kalıcı operation kimliği testleri eklendi. Henüz görev komutlarına bağlanmadı; yeni EXE yayımlanmadı. [Kapsam](docs/verification-m0.17.md). Sonraki adım hesap kapsamlı yerel kuyruk erişimi ve atomik kayıt katmanıdır.
