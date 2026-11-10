@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readLocalStorage, storageMessage } from './localStorage';
 
-const info = { engine: 'sqlite', schemaVersion: 2, migrationCount: 2,
+const info = { engine: 'sqlite', schemaVersion: 3, migrationCount: 3,
   storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });

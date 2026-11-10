@@ -145,6 +145,8 @@ JavaScript bağımlılıkları npm workspaces ile yönetilir; `package-lock.json
 
 ## Sonraki küçük dilim
 
+M0.17: Yerel outbox şema temeli kaynak kodda hazır; SQLite şema 3'e veri koruyan geçiş, değişmez işlem içeriği ve kalıcı operation kimliği testleri eklendi. Henüz görev komutlarına bağlanmadı; yeni EXE yayımlanmadı. [Kapsam](docs/verification-m0.17.md). Sonraki adım hesap kapsamlı yerel kuyruk erişimi ve atomik kayıt katmanıdır.
+
 Canlı reader/writer bağlantısı ve kullanıcı tarafından başlatılan tek create/replay/rename kontrolü doğrulandı. Sonraki aday küçük dilim, normal görev akışına dokunmadan kalıcı yerel outbox/operation kimliği temelidir. Otomatik yükleme, çift yönlü sync ve diğer modüller ayrı dilimlerde kalır. Yeni kullanıcı onayı olmadan devam edilmez.
 
 Ürün planı [ADR-0001](docs/adr/0001-foundation.md), yerel depolama kararları [ADR-0002](docs/adr/0002-local-sqlite.md) içinde. Yeni hosting veya ücretli servis açılmadı. Gizli anahtarları sohbete veya `VITE_*` değişkenlerine koyma; yalnızca publishable key istemci yapılandırmasına uygundur. `.env.local`, yerel DB ve derleme çıktıları Git dışında tutulur. Marka değişirken mevcut uygulama/veri kimliği ve iç paket adları korunmuştur.

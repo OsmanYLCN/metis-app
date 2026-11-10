@@ -3,6 +3,42 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
+#[test]
+fn outbox_payload_persists_and_cannot_be_replaced_on_retry() {
+    let temp = TestDirectory::new();
+    let (db, _) = connect(&temp.db()).unwrap();
+    let insert = "INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES('project-a','11111111-1111-4111-8111-111111111111','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','create',0,'Test')";
+    db.execute(insert).unwrap();
+    assert!(db.execute(insert).is_err());
+    assert!(db.execute("UPDATE task_outbox SET title='Changed'").is_err());
+    assert!(db.execute("UPDATE task_outbox SET operation_id='cccccccccccccccccccccccccccccccc'").is_err());
+    drop(db);
+    let (db, _) = connect(&temp.db()).unwrap();
+    assert_eq!(db.scalar("SELECT operation_id FROM task_outbox").unwrap(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assert_eq!(db.scalar("SELECT count(*) FROM task_outbox WHERE project_ref='other-project'").unwrap(), "0");
+    assert_eq!(db.scalar("SELECT title FROM task_outbox").unwrap(), "Test");
+    {
+        let _transaction = Transaction::begin(&db).unwrap();
+        db.execute("UPDATE task_outbox SET state='acknowledged'").unwrap();
+    }
+    assert_eq!(db.scalar("SELECT state FROM task_outbox").unwrap(), "pending");
+}
+
+#[test]
+fn outbox_upgrade_preserves_v2_tasks() {
+    let temp = TestDirectory::new();
+    let db = old_database(&temp.db());
+    db.execute(TASK_MIGRATION).unwrap();
+    let checksum = format!("{:x}", Sha256::digest(TASK_MIGRATION.replace("\r\n", "\n").as_bytes()));
+    db.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(2,'local_tasks','{checksum}'); PRAGMA user_version=2;")).unwrap();
+    db.execute("INSERT INTO tasks(id,project_ref,user_id,title) VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','project-a','11111111-1111-4111-8111-111111111111','Keep me')").unwrap();
+    drop(db);
+    let (db, status) = connect(&temp.db()).unwrap();
+    assert_eq!(status.schema_version, 3);
+    assert_eq!(db.scalar("SELECT title FROM tasks").unwrap(), "Keep me");
+    assert_eq!(db.scalar("SELECT count(*) FROM task_outbox").unwrap(), "0");
+}
+
 fn old_database(path: &Path) -> Connection {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     let db = Connection::open(path).unwrap();
@@ -25,7 +61,7 @@ fn upgrades_v1_without_changing_identity_and_failed_v2_rolls_back() {
     drop(db);
     let status = open_storage(&temp.db()).unwrap();
     assert_eq!(status.storage_id, id);
-    assert_eq!(status.schema_version, 2);
+    assert_eq!(status.schema_version, 3);
 }
 
 fn task_owner(project: &str, user: char) -> tasks::TaskOwner {
@@ -152,10 +188,10 @@ impl Drop for TestDirectory {
 fn first_open_creates_real_sqlite_and_foundation_and_tasks_tables() {
     let temp = TestDirectory::new();
     let status = open_storage(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 2);
+    assert_eq!(status.schema_version, 3);
     assert_eq!(&fs::read(temp.db()).unwrap()[..16], b"SQLite format 3\0");
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,schema_migrations,tasks");
+    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,schema_migrations,sqlite_sequence,task_outbox,tasks");
     assert_eq!(db.scalar("PRAGMA journal_mode").unwrap(), "wal");
 }
 
@@ -166,7 +202,7 @@ fn closing_and_reopening_preserves_identity_and_applies_migration_once() {
     let second = open_storage(&temp.db()).unwrap();
     assert_eq!(first, second);
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "2");
+    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "3");
 }
 
 #[test]
@@ -188,9 +224,9 @@ fn newer_schema_is_rejected_without_resetting_existing_data() {
     let temp = TestDirectory::new();
     let original = open_storage(&temp.db()).unwrap();
     let db = Connection::open(&temp.db()).unwrap();
-    db.execute("PRAGMA user_version=3").unwrap();
+    db.execute("PRAGMA user_version=4").unwrap();
     assert_eq!(open_storage(&temp.db()), Err(StorageError::NewerSchema));
-    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "3");
+    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "4");
     assert_eq!(db.scalar("SELECT storage_id FROM local_metadata").unwrap(), original.storage_id);
 }
 
