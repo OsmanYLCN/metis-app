@@ -1,5 +1,6 @@
 mod sqlite;
 pub mod tasks;
+pub mod outbox;
 #[cfg(test)]
 mod tests;
 

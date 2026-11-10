@@ -21,7 +21,7 @@ pub struct Task {
 pub struct TaskPage { pub items: Vec<Task>, pub has_more: bool }
 
 impl TaskOwner {
-    fn validate(&self) -> Result<(), TaskError> {
+    pub(super) fn validate(&self) -> Result<(), TaskError> {
         let project = self.project_ref.as_bytes();
         let user = self.user_id.as_bytes();
         if project.is_empty() || project.len() > 63 || !project[0].is_ascii_alphanumeric()
@@ -32,7 +32,7 @@ impl TaskOwner {
         Ok(())
     }
 }
-fn valid_id(id: &str) -> bool { id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) }
+fn valid_id(id: &str) -> bool { id.len() == 32 && id != "00000000000000000000000000000000" && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) }
 fn valid_title(title: &str) -> bool { !title.is_empty() && title.chars().count() <= 200 && !title.chars().any(char::is_control) }
 fn decode(row: Vec<String>) -> Result<Task, TaskError> {
     if row.len() != 5 || !valid_id(&row[0]) || !matches!(row[2].as_str(), "0" | "1") { return Err(StorageError::InvalidSchema.into()); }
@@ -54,12 +54,18 @@ pub fn create(path: &Path, owner: &TaskOwner, id: &str, title: &str) -> Result<T
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
     // Stable client request ID makes an ambiguous create retry safe, without duplicate tasks.
+    let existed = !db.query("SELECT id FROM tasks WHERE id=?1", &[id])?.is_empty();
     db.query("INSERT INTO tasks(id,project_ref,user_id,title) VALUES (?1,?2,?3,?4) ON CONFLICT(id) DO NOTHING",
         &[id, &owner.project_ref, &owner.user_id, title])?;
     let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id])?;
     let task = decode(rows.pop().ok_or(TaskError::Conflict)?)?;
     if task.title != title { return Err(TaskError::Conflict); }
+    if !existed {
+        // Create ID is also its stable operation ID. No backfill of pre-existing tasks.
+        db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,?3,?3,'create',0,?4)",
+            &[&owner.project_ref, &owner.user_id, id, title])?;
+    }
     transaction.commit()?;
     Ok(task)
 }

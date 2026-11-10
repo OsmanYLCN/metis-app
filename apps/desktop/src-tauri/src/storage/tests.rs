@@ -4,6 +4,27 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn create_and_outbox_are_atomic_and_retries_keep_one_operation() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let id = "a".repeat(32);
+    tasks::create(&temp.db(), &owner, &id, "Original").unwrap();
+    tasks::create(&temp.db(), &owner, &id, "Original").unwrap();
+    let pending = outbox::pending(&temp.db(), &owner, 0).unwrap();
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].operation_id, id);
+    assert_eq!(pending[0].title, "Original");
+    assert!(outbox::pending(&temp.db(), &task_owner("other", '1'), 0).unwrap().is_empty());
+    assert!(outbox::pending(&temp.db(), &task_owner("project-a", '2'), 0).unwrap().is_empty());
+    assert!(outbox::pending(&temp.db(), &owner, pending[0].sequence).unwrap().is_empty());
+    let (db, _) = connect(&temp.db()).unwrap();
+    db.execute("CREATE TRIGGER fail_enqueue BEFORE INSERT ON task_outbox BEGIN SELECT RAISE(ABORT,'injected failure'); END;").unwrap();
+    assert!(tasks::create(&temp.db(), &owner, &"b".repeat(32), "Must roll back").is_err());
+    assert_eq!(tasks::list(&temp.db(), &owner, 0).unwrap().items.len(), 1);
+    assert_eq!(outbox::pending(&temp.db(), &owner, 0).unwrap().len(), 1);
+}
+
+#[test]
 fn outbox_payload_persists_and_cannot_be_replaced_on_retry() {
     let temp = TestDirectory::new();
     let (db, _) = connect(&temp.db()).unwrap();
@@ -114,7 +135,12 @@ fn invalid_task_input_is_rejected_before_creating_a_database() {
 fn task_pages_have_stable_order_and_no_duplicates() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');
-    for i in 0..103 { tasks::create(&temp.db(), &owner, &format!("{i:032x}"), "Test task").unwrap(); }
+    for i in 1..104 { tasks::create(&temp.db(), &owner, &format!("{i:032x}"), "Test task").unwrap(); }
+    let queued = outbox::pending(&temp.db(), &owner, 0).unwrap();
+    assert_eq!(queued.len(), 100);
+    let remainder = outbox::pending(&temp.db(), &owner, queued.last().unwrap().sequence).unwrap();
+    assert_eq!(remainder.len(), 3);
+    assert!(remainder[0].sequence > queued.last().unwrap().sequence);
     let first = tasks::list(&temp.db(), &owner, 0).unwrap();
     let second = tasks::list(&temp.db(), &owner, 100).unwrap();
     assert_eq!(first.items.len(), 100); assert!(first.has_more);
