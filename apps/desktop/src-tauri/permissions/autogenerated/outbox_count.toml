@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-outbox-count"
+description = "Enables the outbox_count command without any pre-configured scope."
+commands.allow = ["outbox_count"]
+
+[[permission]]
+identifier = "deny-outbox-count"
+description = "Denies the outbox_count command without any pre-configured scope."
+commands.deny = ["outbox_count"]

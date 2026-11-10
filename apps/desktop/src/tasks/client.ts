@@ -37,6 +37,11 @@ export async function listTasks(owner: TaskOwner, offset = 0): Promise<TaskPage>
   if (new Set(items.map(task => task.id)).size !== items.length) throw new Error('Görev listesi doğrulanamadı.');
   return { items, hasMore: value.hasMore };
 }
+export async function pendingCount(owner: TaskOwner): Promise<number> {
+  const value = await invoke('outbox_count', { owner });
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new Error('Bekleyen kayıt sayısı okunamadı.');
+  return value;
+}
 export async function createTask(owner: TaskOwner, id: string, title: string): Promise<Task> {
   return parseTask(await invoke('tasks_create', { owner, id, title }));
 }

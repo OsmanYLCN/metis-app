@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { CheckCheck, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
-import { completeTask, createTask, deleteTask, listTasks, renameTask, type Task, type TaskOwner } from './client';
+import { completeTask, createTask, deleteTask, listTasks, pendingCount, renameTask, type Task, type TaskOwner } from './client';
 
 export function TasksView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
@@ -29,6 +29,13 @@ function TaskList({ owner }: { owner: TaskOwner }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [queued, setQueued] = useState<number | null>(null);
+  useEffect(() => {
+    let active = true;
+    setQueued(null);
+    if (!busy) void pendingCount(owner).then(value => { if (active) setQueued(value); }).catch(() => { if (active) setQueued(null); });
+    return () => { active = false; };
+  }, [busy, items, owner.projectRef, owner.userId]);
   const [action, setAction] = useState<{ kind: 'edit' | 'delete'; task: Task; draft: string } | null>(null);
   const [actionError, setActionError] = useState('');
   const actionTrigger = useRef<HTMLButtonElement | null>(null);
@@ -121,6 +128,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     <div className="section-heading"><div><h2>Bir sonraki küçük adımın</h2>
       <p className="section-description">Görevlerin bu cihazda saklanır. Bulut eşitlemesi henüz yok.</p></div>
       <button className="text-button" disabled={busy || !!action} onClick={() => void load()}><RefreshCw size={15} /> Listeyi yenile</button></div>
+    <p role="status">{queued === null ? 'Bekleyen kayıt sayısı henüz alınamadı.' : `${queued} yerel kayıt gönderim hazırlığında.`} Buluta gönderim henüz kapalı.</p>
     <form className="task-form" onSubmit={save}>
       <label htmlFor="task-title">Yeni görev</label>
       <div className="task-compose"><input id="task-title" value={title} maxLength={200} disabled={busy || !loaded || !!action}

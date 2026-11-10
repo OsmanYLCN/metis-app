@@ -41,6 +41,8 @@ M0.16: Canlı writer kurulumu tamamlandı. Masaüstündeki açık kullanıcı ey
 
 ## Hazır Windows uygulaması
 
+Güncel teslim **outputs/Metis-M0.19.exe**: yerel kuyruk uzlaştırması ve görev ekranında bekleyen kayıt sayısı. [M0.19 kaydı](docs/verification-m0.19.md). SQLite şema 3'e yükselir; yükseltmeden sonra M0.16 ile aynı veritabanı açılamaz. Aşağıdaki M0.16 açıklaması önceki teslimi anlatır.
+
 `outputs/Metis-M0.16.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş, oturum geri yükleme ve açıkça başlatılan bulut kontrolü için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Güncel kapsam ve sonuçlar: [M0.16 doğrulama kaydı](docs/verification-m0.16.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. SQLite dosyası şifrelenmez; kullanıcının yazdığı görev başlıklarını içerir. Hesaba göre liste ayrımı aynı Windows kullanıcısına karşı bir güvenlik sınırı değildir. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.

@@ -4,6 +4,37 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn unsent_rename_replaces_operation_and_delete_cancels_it() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let id = "a".repeat(32);
+    tasks::create(&temp.db(), &owner, &id, "Before").unwrap();
+    tasks::rename(&temp.db(), &owner, &id, "After", "Before").unwrap();
+    let queue = outbox::pending(&temp.db(), &owner, 0).unwrap();
+    assert_eq!(queue.len(), 1);
+    assert_ne!(queue[0].operation_id, id);
+    assert_eq!(queue[0].title, "After");
+    tasks::rename(&temp.db(), &owner, &id, "After", "Before").unwrap();
+    assert_eq!(outbox::pending(&temp.db(), &owner, 0).unwrap()[0].operation_id, queue[0].operation_id);
+    assert_eq!(outbox::count(&temp.db(), &task_owner("other", '1')).unwrap(), 0);
+    tasks::delete(&temp.db(), &owner, &id, "After").unwrap();
+    assert_eq!(outbox::count(&temp.db(), &owner).unwrap(), 0);
+}
+
+#[test]
+fn failed_queue_replacement_rolls_back_title_and_original_operation() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let id = "a".repeat(32);
+    tasks::create(&temp.db(), &owner, &id, "Before").unwrap();
+    let (db, _) = connect(&temp.db()).unwrap();
+    db.execute("CREATE TRIGGER fail_replace BEFORE INSERT ON task_outbox BEGIN SELECT RAISE(ABORT,'test'); END;").unwrap();
+    assert!(tasks::rename(&temp.db(), &owner, &id, "After", "Before").is_err());
+    assert_eq!(tasks::list(&temp.db(), &owner, 0).unwrap().items[0].title, "Before");
+    assert_eq!(outbox::pending(&temp.db(), &owner, 0).unwrap()[0].operation_id, id);
+}
+
+#[test]
 fn create_and_outbox_are_atomic_and_retries_keep_one_operation() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');

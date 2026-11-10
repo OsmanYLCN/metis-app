@@ -95,6 +95,13 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
     // A lost reply can be retried. A different intervening title must not be overwritten.
     if current.title == title { transaction.commit()?; return Ok(current); }
     if current.title != expected_title { return Err(TaskError::Conflict); }
+    // No sender exists yet: replace only an unsent create snapshot, with a NEW operation ID.
+    if !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
+    let queued = !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty();
+    if queued {
+        db.query("DELETE FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?;
+        db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'create',0,?4)", &[&owner.project_ref,&owner.user_id,id,title])?;
+    }
     db.query("UPDATE tasks SET title=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id, title])?;
     let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
@@ -113,6 +120,8 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) ->
         &[id, &owner.project_ref, &owner.user_id])?;
     if let Some(row) = rows.first() {
         if row[0] != expected_title { return Err(TaskError::Conflict); }
+        if !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
+        db.query("DELETE FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?;
         db.query("DELETE FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3", &[id, &owner.project_ref, &owner.user_id])?;
     }
     // Already absent in this owner partition: safe to retry without affecting any other owner.

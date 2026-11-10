@@ -3,6 +3,13 @@ use super::{connect, tasks::{TaskOwner, TaskError}};
 use serde::Serialize;
 use std::path::Path;
 
+pub fn count(path: &Path, owner: &TaskOwner) -> Result<u32, TaskError> {
+    owner.validate()?;
+    let (db, _) = connect(path)?;
+    let rows = db.query("SELECT count(*) FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending'", &[&owner.project_ref,&owner.user_id])?;
+    rows[0][0].parse().map_err(|_| super::StorageError::InvalidSchema.into())
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingOperation {

@@ -183,6 +183,12 @@
           "markdownDescription": "Enables the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the outbox_count command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-count",
+          "markdownDescription": "Enables the outbox_count command without any pre-configured scope."
+        },
+        {
           "description": "Enables the session_vault_clear command without any pre-configured scope.",
           "type": "string",
           "const": "allow-session-vault-clear",
@@ -235,6 +241,12 @@
           "type": "string",
           "const": "deny-local-storage-status",
           "markdownDescription": "Denies the local_storage_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbox_count command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-count",
+          "markdownDescription": "Denies the outbox_count command without any pre-configured scope."
         },
         {
           "description": "Denies the session_vault_clear command without any pre-configured scope.",
