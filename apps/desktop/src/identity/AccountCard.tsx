@@ -9,6 +9,7 @@ type State = { kind: 'checking' } | { kind: 'unavailable' } | { kind: 'available
 export function AccountCard() {
   const login = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const [state, setState] = useState<State>({ kind: 'checking' });
+  const [email, setEmail] = useState('');
   const pending = useRef<AbortController | null>(null);
   const refresh = useCallback(async () => {
     pending.current?.abort();
@@ -59,7 +60,7 @@ export function AccountCard() {
     {login.phase === 'signedOut' && login.message && <p role="status" className="account-message">{login.message}</p>}
     {login.phase === 'signedOut' && configured && <form className="login-form" onSubmit={submit}>
       <label htmlFor="account-email">E-posta</label>
-      <input id="account-email" name="email" type="email" autoComplete="username" maxLength={254} required />
+      <input id="account-email" name="email" type="email" autoComplete="username" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} required />
       <label htmlFor="account-password">Parola</label>
       <input id="account-password" name="password" type="password" autoComplete="current-password" maxLength={1024} required />
       {loginStore.canRemember() && <label className="remember-option"><input name="remember" type="checkbox" /> Bu cihazda oturumumu hatırla</label>}

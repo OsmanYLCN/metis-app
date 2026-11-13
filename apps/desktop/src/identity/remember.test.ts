@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginStore } from './login';
-import type { SessionVault } from './vault';
+import { SessionVaultBusyError, type SessionVault } from './vault';
 const config = { url: 'https://test-project.supabase.co', issuer: 'https://test-project.supabase.co/auth/v1', publishableKey: 'sb_publishable_test' };
 const userId = '11111111-1111-4111-8111-111111111111';
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
@@ -32,6 +32,12 @@ describe('remembered desktop sessions', () => {
   it('a non-remembered login clears an old remembered account and stores nothing', async () => {
     saved = 'old-account'; await store.signIn('test@example.test', 'fake');
     expect(saved).toBeNull(); expect(vault.write).not.toHaveBeenCalled();
+  });
+  it('explains that another Metis window must be closed before login', async () => {
+    vi.mocked(vault.clear).mockRejectedValueOnce(new SessionVaultBusyError());
+    await store.signIn('test@example.test', 'fake');
+    expect(store.getSnapshot()).toMatchObject({ phase: 'signedOut', message: expect.stringContaining('başka bir pencerede') });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
   it('restores only by exchanging the saved token and verifying the fresh access token', async () => {
     saved = 'previous'; await store.restore();

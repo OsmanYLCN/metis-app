@@ -1,7 +1,7 @@
 import { API_URL } from '../api/health';
 import { type LoginConfig, loginSettings } from './config';
 import { readIdentityStatus } from './session';
-import { nativeVault, type SessionVault } from './vault';
+import { nativeVault, SessionVaultBusyError, type SessionVault } from './vault';
 
 export type LoginView =
   | { phase: 'signedOut'; message?: string }
@@ -248,7 +248,9 @@ export class LoginStore {
         }
         if (attempt === this.generation) this.publish({ phase: 'signedOut', message: cleanupFailed
           ? 'Kayıtlı oturum silinemedi. Çıkışı tekrar dene; cihazdaki kayıt kalmış olabilir.'
-          : error instanceof LoginError ? error.message : 'Giriş tamamlanamadı. Bağlantıyı ve cihazdaki oturum alanını kontrol edip tekrar dene.' });
+          : error instanceof LoginError ? error.message
+            : error instanceof SessionVaultBusyError ? 'Metis başka bir pencerede açık. Diğer Metis pencerelerini kapatıp tekrar giriş yap.'
+              : 'Giriş tamamlanamadı. Bağlantıyı ve cihazdaki oturum alanını kontrol edip tekrar dene.' });
       }
     } finally {
       if (issuedToken) void this.revoke(issuedToken);

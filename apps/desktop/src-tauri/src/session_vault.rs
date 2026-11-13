@@ -11,7 +11,7 @@ static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum VaultError { InvalidInput, Unavailable, InvalidData }
+pub enum VaultError { InvalidInput, Unavailable, InvalidData, Busy }
 
 // Deliberately has no Debug, Serialize, Clone or Display implementation.
 pub struct Secret(Vec<u8>);
@@ -72,7 +72,11 @@ impl SessionVault {
         use std::os::windows::fs::OpenOptionsExt;
         fs::create_dir_all(&self.directory).map_err(|_| VaultError::Unavailable)?;
         OpenOptions::new().read(true).write(true).create(true).truncate(false).share_mode(0)
-            .open(self.file.with_extension("lock")).map_err(|_| VaultError::Unavailable)
+            .open(self.file.with_extension("lock")).map_err(|error| {
+                // A second Metis process cannot own the same account session.
+                if matches!(error.raw_os_error(), Some(32 | 33)) { VaultError::Busy }
+                else { VaultError::Unavailable }
+            })
     }
     /// The native host selects the absolute root; never accept an arbitrary frontend path.
     pub fn new(directory: &Path, project_ref: &str) -> Result<Self, VaultError> {
@@ -204,7 +208,7 @@ mod tests {
     #[test] fn exclusive_lock_blocks_second_owner_until_released() {
         let fixture = Fixture::new(); let vault = fixture.vault();
         let lock = vault.lock().unwrap();
-        assert!(fixture.vault().lock().is_err());
+        assert!(matches!(fixture.vault().lock(), Err(VaultError::Busy)));
         drop(lock);
         assert!(fixture.vault().lock().is_ok());
     }
