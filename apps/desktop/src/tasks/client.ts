@@ -42,20 +42,33 @@ export async function pendingCount(owner: TaskOwner): Promise<number> {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new Error('Bekleyen kayıt sayısı okunamadı.');
   return value;
 }
-export type PendingCreate = { sequence: number; operationId: string; taskId: string; kind: 'create'; expectedRevision: 0; title: string };
-export async function beginLocalCreate(owner: TaskOwner, taskId: string): Promise<PendingCreate | null> {
+export type CloudStatus = { taskId: string; phase: 'localOnly' | 'pendingCreate' | 'pendingRename' | 'sent' | 'conflict'; revision: number | null };
+export async function cloudStatuses(owner: TaskOwner, taskIds: string[]): Promise<CloudStatus[]> {
+  const value = await invoke('outbox_statuses', { owner, taskIds });
+  if (!Array.isArray(value) || value.length !== taskIds.length || value.some((entry, index) =>
+    !isObject(entry) || entry.taskId !== taskIds[index]
+    || typeof entry.phase !== 'string' || !['localOnly', 'pendingCreate', 'pendingRename', 'sent', 'conflict'].includes(entry.phase)
+    || (entry.phase === 'sent' ? !Number.isSafeInteger(entry.revision) || (entry.revision as number) <= 0 : entry.revision !== null)))
+    throw new Error('Görevlerin bulut durumu okunamadı. Listeyi yenile.');
+  return value as CloudStatus[];
+}
+export type PendingDelivery = { sequence: number; operationId: string; taskId: string; kind: 'create' | 'rename'; expectedRevision: number; title: string };
+export async function beginLocalDelivery(owner: TaskOwner, taskId: string): Promise<PendingDelivery | null> {
   const item = await invoke('outbox_pending_for_task', { owner, taskId });
   if (item === null) return null;
   if (!isObject(item) || !Number.isSafeInteger(item.sequence) || (item.sequence as number) <= 0
     || item.taskId !== taskId || !/^[a-f0-9]{32}$/.test(String(item.operationId))
-    || item.kind !== 'create' || item.expectedRevision !== 0 || typeof item.title !== 'string')
+    || !((item.kind === 'create' && item.expectedRevision === 0)
+      || (item.kind === 'rename' && Number.isSafeInteger(item.expectedRevision) && (item.expectedRevision as number) > 0))
+    || typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200)
     throw new Error('Bekleyen görev doğrulanamadı.');
   const frozen = await invoke('outbox_begin', { owner, sequence: item.sequence });
   if (!isObject(frozen) || frozen.operationId !== item.operationId || frozen.taskId !== item.taskId
-    || frozen.title !== item.title || frozen.sequence !== item.sequence) throw new Error('Gönderim kaydı değişti. Yeniden dene.');
-  return frozen as PendingCreate;
+    || frozen.title !== item.title || frozen.sequence !== item.sequence || frozen.kind !== item.kind
+    || frozen.expectedRevision !== item.expectedRevision) throw new Error('Gönderim kaydı değişti. Yeniden dene.');
+  return frozen as PendingDelivery;
 }
-export async function confirmLocalCreate(owner: TaskOwner, item: PendingCreate, outcome: 'applied' | 'replayed', revision: 1): Promise<void> {
+export async function confirmLocalDelivery(owner: TaskOwner, item: PendingDelivery, outcome: 'applied' | 'replayed', revision: number): Promise<void> {
   await invoke('outbox_acknowledge', { owner, operationId: item.operationId, taskId: item.taskId, outcome, revision });
 }
 export async function createTask(owner: TaskOwner, id: string, title: string): Promise<Task> {

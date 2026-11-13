@@ -150,6 +150,38 @@ export class LoginStore {
       throw new LoginError('Gönderim sonucu belirsiz. Aynı görev için tekrar dene.');
     }
   }
+  async sendOneLocalRename(operation: { operationId: string; taskId: string; title: string; kind: string; expectedRevision: number }, signal: AbortSignal): Promise<{ outcome: 'applied' | 'replayed'; revision: number }> {
+    const token = this.accessToken;
+    const attempt = this.generation;
+    const active = () => !signal.aborted && attempt === this.generation && token === this.accessToken
+      && !!token && this.view.phase === 'signedIn' && this.view.expiresAt > Date.now();
+    if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
+    if (operation.kind !== 'rename' || !Number.isSafeInteger(operation.expectedRevision) || operation.expectedRevision < 1
+      || operation.expectedRevision >= Number.MAX_SAFE_INTEGER
+      || !/^[a-f0-9]{32}$/.test(operation.operationId) || !/^[a-f0-9]{32}$/.test(operation.taskId)
+      || !operation.title.trim() || operation.title !== operation.title.trim() || [...operation.title].length > 200)
+      throw new LoginError('Gönderilecek değişiklik doğrulanamadı.');
+    try {
+      const response = await fetch(`${API_URL}/api/v1/tasks/${operation.taskId}`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operationId: operation.operationId, expectedRevision: operation.expectedRevision, title: operation.title }),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]), credentials: 'omit', cache: 'no-store', redirect: 'error',
+      });
+      if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
+      if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Yeniden giriş yap.');
+      if (response.status === 409) throw new LoginError('Bulutta sürüm çatışması var. Yerel başlık korundu; değişiklik gönderilmedi.');
+      if (response.status !== 200) throw new LoginError('Değişiklik doğrulanamadı. Bağlantıyı kontrol edip tekrar dene.');
+      const value: unknown = await response.json();
+      if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
+      if (!isObject(value) || value.taskId !== operation.taskId || value.revision !== operation.expectedRevision + 1
+        || !['applied', 'replayed'].includes(String(value.outcome)))
+        throw new LoginError('Bulut yanıtı doğrulanamadı. Aynı değişikliği tekrar dene.');
+      return { outcome: value.outcome as 'applied' | 'replayed', revision: value.revision as number };
+    } catch (error) {
+      if (error instanceof LoginError) throw error;
+      throw new LoginError('Gönderim sonucu belirsiz. Aynı değişikliği tekrar dene.');
+    }
+  }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(view: LoginView) { this.view = view; this.listeners.forEach(listener => listener()); }
   private clear() { this.accessToken = null; this.refreshToken = null; clearTimeout(this.timer); this.timer = undefined; }

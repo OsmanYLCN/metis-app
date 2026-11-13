@@ -96,12 +96,21 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
     // A lost reply can be retried. A different intervening title must not be overwritten.
     if current.title == title { transaction.commit()?; return Ok(current); }
     if current.title != expected_title { return Err(TaskError::Conflict); }
-    // No sender exists yet: replace only an unsent create snapshot, with a NEW operation ID.
-    if !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
-    let queued = !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty();
-    if queued {
-        db.query("DELETE FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?;
-        db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'create',0,?4)", &[&owner.project_ref,&owner.user_id,id,title])?;
+    let rows = db.query("SELECT o.sequence,o.kind,o.state,COALESCE(CAST(d.revision AS TEXT),'') FROM task_outbox o LEFT JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3 ORDER BY o.sequence DESC LIMIT 1", &[&owner.project_ref,&owner.user_id,id])?;
+    if let Some(last) = rows.first() {
+        match (last[1].as_str(),last[2].as_str()) {
+            ("create","pending") if last[3].is_empty() && db.query("SELECT sequence FROM outbox_delivery WHERE sequence=?1", &[&last[0]])?.is_empty() => {
+                // An untouched create snapshot can be replaced before any network attempt.
+                db.query("DELETE FROM task_outbox WHERE sequence=?1", &[&last[0]])?;
+                db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'create',0,?4)", &[&owner.project_ref,&owner.user_id,id,title])?;
+            }
+            (_,"acknowledged") => {
+                let revision: i64 = last[3].parse().map_err(|_| StorageError::InvalidSchema)?;
+                if revision < 1 { return Err(StorageError::InvalidSchema.into()); }
+                db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'rename',?4,?5)", &[&owner.project_ref,&owner.user_id,id,&revision.to_string(),title])?;
+            }
+            _ => return Err(TaskError::Conflict),
+        }
     }
     db.query("UPDATE tasks SET title=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id, title])?;

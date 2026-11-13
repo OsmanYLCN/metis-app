@@ -125,6 +125,29 @@ describe('one local task delivery', () => {
   });
 });
 
+describe('one local title change delivery', () => {
+  const operation = { operationId: 'aaaaaaaa000040008000000000000001', taskId: 'bbbbbbbb000040008000000000000001', kind: 'rename', expectedRevision: 1, title: 'Updated title' };
+  it('sends a revision-bound PATCH and accepts its matching replay', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: operation.taskId, revision: 2 }));
+    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).resolves.toEqual({ outcome: 'applied', revision: 2 });
+    expect(fetcher).toHaveBeenCalledWith(`http://127.0.0.1:5080/api/v1/tasks/${operation.taskId}`, expect.objectContaining({
+      method: 'PATCH', body: JSON.stringify({ operationId: operation.operationId, expectedRevision: 1, title: operation.title }),
+      headers: { Authorization: 'Bearer test-access-token', 'Content-Type': 'application/json' },
+    }));
+    fetcher.mockResolvedValueOnce(json({ outcome: 'replayed', taskId: operation.taskId, revision: 2 }));
+    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).resolves.toEqual({ outcome: 'replayed', revision: 2 });
+  });
+  it('rejects a conflicting or mismatched receipt without acknowledging it', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    fetcher.mockResolvedValueOnce(json({ code: 'task_revision_conflict' }, 409));
+    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).rejects.toThrow('sürüm çatışması');
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: operation.taskId, revision: 3 }));
+    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('public login configuration', () => {
   it('keeps an unconfigured build offline', () => expect(parseLoginSettings()).toEqual({ kind: 'missing' }));
   it('accepts only a hosted HTTPS project and publishable key', () => {

@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 16; masaüstü v0.13.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 22; masaüstü v0.14.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -37,15 +37,15 @@ M0.16: Canlı writer kurulumu tamamlandı. Masaüstündeki açık kullanıcı ey
 - Supabase yapılandırıldığında public JWKS ile gerçek sunucu token doğrulaması.
 - Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Varsayılan oturum bellektedir; hatırla seçilirse refresh token şifreli kasaya yazılır ve yenilenir.
 
-**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite temel metadata ve görev kayıtlarını saklar; şema sürümü 2 oldu. Kullanıcı canlı girişi, oturum geri yüklemeyi ve kontrollü tek merkezi writer kontrolünü başarılı bildirdi; otomatik giriş/görev arayüzü testlerinde sağlayıcı yanıtları mock kullanılır. Normal görevlerin merkezi yazması ve sync, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcıda SQLite yerine sahte başarı gösterilmez. Tarayıcı önizlemesi ayrı web ürünü değildir.
+**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite şema sürümü 4'tür. Kullanıcı canlı girişi, oturum geri yüklemeyi ve kontrollü sentetik writer kontrolünü başarılı bildirdi; otomatik testlerde sağlayıcı yanıtları mock kullanılır. Seçilen yerel görev ve başlık değişikliği açık kullanıcı eylemiyle buluta gönderilebilir. Otomatik veya çift yönlü eşitleme, bulut tamamlama/silme, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcı önizlemesi ayrı web ürünü değildir.
 
 ## Hazır Windows uygulaması
 
-Güncel **outputs/Metis-M0.21.exe** seçilen yerel görevin kullanıcı eylemiyle buluta gönderimini içerir. [M0.21 doğrulama](docs/verification-m0.21.md). İlk açılışta SQLite şema 4'e yükselir; eski EXE aynı DB'yi açamaz. Önceki teslim notları aşağıda tarihsel kayıt olarak durur.
+Güncel **outputs/Metis-M0.22.exe** gönderilmiş görev durumunu ve açık kullanıcı eylemiyle güvenli başlık güncellemesini içerir. [M0.22 doğrulama](docs/verification-m0.22.md). SQLite şema 4 korunur. Eski sürümden geçerken önce bütün Metis pencerelerini kapat. Önceki teslim notları aşağıda tarihsel kayıt olarak durur.
 
-Güncel teslim **outputs/Metis-M0.19.exe**: yerel kuyruk uzlaştırması ve görev ekranında bekleyen kayıt sayısı. [M0.19 kaydı](docs/verification-m0.19.md). SQLite şema 3'e yükselir; yükseltmeden sonra M0.16 ile aynı veritabanı açılamaz. Aşağıdaki M0.16 açıklaması önceki teslimi anlatır.
+Önceki teslim **outputs/Metis-M0.19.exe**: yerel kuyruk uzlaştırması ve görev ekranında bekleyen kayıt sayısı. [M0.19 kaydı](docs/verification-m0.19.md). Bu sürüm SQLite şema 3'e yükseltti; M0.16 aynı veritabanını açamaz.
 
-`outputs/Metis-M0.16.exe` güncel Windows uygulamasıdır. Bu ortamda yerel public bağlantı ayarlarıyla derlendi. Eski uygulamayı kapatıp yeni dosyayı aç. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş, oturum geri yükleme ve açıkça başlatılan bulut kontrolü için API/Supabase bağlantısı gerekir.** API kapalıysa bağlantı ve hesap kartlarının erişilemiyor, yerel alan kartının hazır görünmesi beklenen durumdur. API EXE içine paketlenmez; ayrı çalıştırılır. Güncel kapsam ve sonuçlar: [M0.16 doğrulama kaydı](docs/verification-m0.16.md).
+`outputs/Metis-M0.16.exe` önceki Windows teslimidir. **Yerel depolama ağ gerektirmez; görev ekranına ilk giriş, oturum geri yükleme ve açıkça başlatılan bulut kontrolü için API/Supabase bağlantısı gerekir.** API EXE içine paketlenmez; ayrı çalıştırılır. O sürümün kapsamı: [M0.16 doğrulama kaydı](docs/verification-m0.16.md).
 
 Veritabanı varsayılan olarak `%LOCALAPPDATA%/com.personalos.desktop/storage/personal-os.sqlite3` konumundadır. SQLite Windows'un `winsqlite3.dll` bileşenini kullanır; ayrıca servis veya SQLite kurulumu gerektirmez. SQLite dosyası şifrelenmez; kullanıcının yazdığı görev başlıklarını içerir. Hesaba göre liste ayrımı aynı Windows kullanıcısına karşı bir güvenlik sınırı değildir. Hata halinde otomatik sıfırlanmaz. Geliştirme/test için yalnızca süreç ortamında `PERSONAL_OS_DATA_DIR` mutlak dizin seçeneği kullanılabilir; normal kullanımda gerekmez.
 

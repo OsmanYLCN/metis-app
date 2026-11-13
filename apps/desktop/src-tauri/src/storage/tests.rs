@@ -4,6 +4,40 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn sent_task_rename_keeps_one_durable_operation_and_revision_chain() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let id = "c".repeat(32);
+    tasks::create(&temp.db(), &owner, &id, "Before").unwrap();
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].phase, "pendingCreate");
+    let create = outbox::pending(&temp.db(), &owner, 0).unwrap().remove(0);
+    outbox::begin_delivery(&temp.db(), &owner, create.sequence).unwrap();
+    outbox::acknowledge(&temp.db(), &owner, &create.operation_id, &id, 1, "applied").unwrap();
+    let sent = outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap();
+    assert_eq!(sent[0].phase, "sent"); assert_eq!(sent[0].revision, Some(1));
+
+    tasks::rename(&temp.db(), &owner, &id, "After", "Before").unwrap();
+    let rename = outbox::pending(&temp.db(), &owner, 0).unwrap().remove(0);
+    assert_eq!(rename.kind, "rename"); assert_eq!(rename.expected_revision, 1);
+    assert_eq!(rename.title, "After");
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].phase, "pendingRename");
+    assert_eq!(tasks::rename(&temp.db(), &owner, &id, "Too soon", "After"), Err(tasks::TaskError::Conflict));
+    assert_eq!(tasks::set_completed(&temp.db(), &owner, &id, true), Err(tasks::TaskError::Conflict));
+    assert_eq!(tasks::delete(&temp.db(), &owner, &id, "After"), Err(tasks::TaskError::Conflict));
+    let frozen = outbox::begin_delivery(&temp.db(), &owner, rename.sequence).unwrap();
+    assert_eq!(frozen.operation_id, rename.operation_id);
+    assert_eq!(outbox::begin_delivery(&temp.db(), &owner, rename.sequence).unwrap().operation_id, rename.operation_id);
+    assert!(outbox::acknowledge(&temp.db(), &owner, &rename.operation_id, &id, 1, "applied").is_err());
+    outbox::acknowledge(&temp.db(), &owner, &rename.operation_id, &id, 2, "applied").unwrap();
+    outbox::acknowledge(&temp.db(), &owner, &rename.operation_id, &id, 2, "replayed").unwrap();
+    assert!(outbox::acknowledge(&temp.db(), &owner, &rename.operation_id, &id, 3, "applied").is_err());
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].revision, Some(2));
+    assert_eq!(outbox::statuses(&temp.db(), &task_owner("other", '1'), &[id.clone()]).unwrap()[0].phase, "localOnly");
+    tasks::rename(&temp.db(), &owner, &id, "Again", "After").unwrap();
+    assert_eq!(outbox::pending(&temp.db(), &owner, 0).unwrap()[0].expected_revision, 2);
+}
+
+#[test]
 fn delivery_intent_survives_restart_and_receipts_are_scoped() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');
