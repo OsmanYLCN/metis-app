@@ -2,6 +2,8 @@
 
 Bu kurulum 2026-11-08 tarihinde kullanıcının Supabase projesinde tamamlandı. Migration 0003 ve Supabase'in özel `auth` şemasına ihtiyaç duymayan düzeltme migrationı 0004 uygulandı; ayrı writer parolası repo dışındaki User Secrets alanına kaydedildi. Parola veya bağlantı sırrı bu belgede bulunmaz.
 
+**M0.23 ek adımı:** Mevcut kurulumun ardından Supabase SQL Editor'de [`0005_task_writer_lifecycle.sql`](../services/api/Database/Migrations/0005_task_writer_lifecycle.sql) dosyasının tamamını bir kez çalıştır ve yerel API'yi yeniden başlat. Yeni parola veya anahtar gerekmiyor. Bu migration bulut görevi tamamlama, yeniden açma ve silme için gereklidir. [Güncel kullanım ve doğrulama](verification-m0.23.md). Aşağıdaki bölüm önceki kurulumun tarihsel kaydıdır.
+
 ## Canlı kurulum sırası
 
 1. Supabase SQL Editor'de `services/api/Database/Migrations/0003_task_writer.sql` ve ardından `0004_task_writer_claims.sql` dosyasını **birer kez** çalıştır.

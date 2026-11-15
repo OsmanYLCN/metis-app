@@ -17,7 +17,7 @@ try{
     CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
     INSERT INTO auth.users VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');`);
-  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql'])
+  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql','0005_task_writer_lifecycle.sql'])
     await db.exec(await readFile(path.join(root,'services/api/Database/Migrations',file),'utf8'));
   await db.exec(`INSERT INTO metis.installation VALUES(1,'test-project'); SET SESSION AUTHORIZATION metis_writer;`);
   const guard=await db.query(`SELECT current_user,session_user,
@@ -46,10 +46,10 @@ try{
   await db.close();db=await PGlite.create(directory);
   const rows=(await db.query("SELECT id,title,revision FROM metis.tasks ORDER BY id")).rows;
   const operations=(await db.query("SELECT count(*)::int AS count FROM metis.task_operations")).rows[0].count;
-  if(rows.length!==2||rows[0].title!=='Renamed cloud task'||rows[0].revision!==2n&&rows[0].revision!==2
-    ||rows[1].title!=='HTTP cloud task'||operations!==3)
+  if(rows.length!==2||rows[0].title!=='Renamed cloud task'||rows[0].revision!==5n&&rows[0].revision!==5
+    ||rows[1].title!=='HTTP cloud task'||operations!==6)
     throw new Error('Committed task/journal state is invalid');
-  console.log('PASS: direct and HTTP tasks plus exactly three successful operation receipts verified.');
+  console.log('PASS: task lifecycle and HTTP writes plus six successful operation receipts verified.');
 }finally{
   if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}
   await server?.stop();await db.close();

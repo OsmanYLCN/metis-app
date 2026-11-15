@@ -148,6 +148,34 @@ describe('one local title change delivery', () => {
   });
 });
 
+describe('cloud task lifecycle delivery', () => {
+  const base = { operationId: 'aaaaaaaa000040008000000000000001', taskId: 'bbbbbbbb000040008000000000000001', expectedRevision: 2 };
+  it('sends completion and deletion with private bearer and validates replay revisions', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    const complete = { ...base, kind: 'complete' as const, completed: true };
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: base.taskId, revision: 3 }));
+    await expect(store.sendOneLocalAction(complete, new AbortController().signal)).resolves.toEqual({ outcome: 'applied', revision: 3 });
+    expect(fetcher).toHaveBeenCalledWith(`http://127.0.0.1:5080/api/v1/tasks/${base.taskId}/completion`, expect.objectContaining({
+      method: 'PATCH', body: JSON.stringify({ operationId: base.operationId, expectedRevision: 2, completed: true }),
+      headers: { Authorization: 'Bearer test-access-token', 'Content-Type': 'application/json' },
+    }));
+    const remove = { ...base, kind: 'delete' as const, completed: null };
+    fetcher.mockResolvedValueOnce(json({ outcome: 'replayed', taskId: base.taskId, revision: 3 }));
+    await expect(store.sendOneLocalAction(remove, new AbortController().signal)).resolves.toEqual({ outcome: 'replayed', revision: 3 });
+    expect(fetcher).toHaveBeenLastCalledWith(`http://127.0.0.1:5080/api/v1/tasks/${base.taskId}`, expect.objectContaining({
+      method: 'DELETE', body: JSON.stringify({ operationId: base.operationId, expectedRevision: 2 }),
+    }));
+  });
+  it('rejects mismatched receipt and keeps the operation available for retry', async () => {
+    await store.signIn('user@example.test', 'password'); fetcher.mockClear();
+    const complete = { ...base, kind: 'complete' as const, completed: false };
+    fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: base.taskId, revision: 4 }));
+    await expect(store.sendOneLocalAction(complete, new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
+    fetcher.mockRejectedValueOnce(Error('transport detail'));
+    await expect(store.sendOneLocalAction(complete, new AbortController().signal)).rejects.toThrow('sonucu belirsiz');
+  });
+});
+
 describe('public login configuration', () => {
   it('keeps an unconfigured build offline', () => expect(parseLoginSettings()).toEqual({ kind: 'missing' }));
   it('accepts only a hosted HTTPS project and publishable key', () => {

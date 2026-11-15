@@ -4,6 +4,47 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn cloud_actions_keep_one_operation_across_restart_and_acknowledge_locally() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let id = "e".repeat(32);
+    tasks::create(&temp.db(), &owner, &id, "Cloud task").unwrap();
+    let create = outbox::pending(&temp.db(), &owner, 0).unwrap().remove(0);
+    outbox::begin_delivery(&temp.db(), &owner, create.sequence).unwrap();
+    outbox::acknowledge(&temp.db(), &owner, &create.operation_id, &id, 1, "applied").unwrap();
+
+    let complete = outbox::prepare_action(&temp.db(), &owner, &id, "complete", Some(true)).unwrap();
+    assert_eq!(complete.expected_revision, 1);
+    assert_eq!(outbox::count(&temp.db(), &owner).unwrap(), 1);
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].phase, "pendingComplete");
+    open_storage(&temp.db()).unwrap();
+    assert_eq!(outbox::prepare_action(&temp.db(), &owner, &id, "complete", Some(true)).unwrap().operation_id, complete.operation_id);
+    assert!(outbox::prepare_action(&temp.db(), &owner, &id, "delete", None).is_err());
+    assert!(tasks::rename(&temp.db(), &owner, &id, "Changed", "Cloud task").is_err());
+    assert!(outbox::acknowledge_action(&temp.db(), &owner, &complete.operation_id, &id, 2).is_err());
+    outbox::begin_action(&temp.db(), &owner, &complete.operation_id).unwrap();
+    assert!(outbox::acknowledge_action(&temp.db(), &task_owner("project-a", '2'), &complete.operation_id, &id, 2).is_err());
+    outbox::acknowledge_action(&temp.db(), &owner, &complete.operation_id, &id, 2).unwrap();
+    outbox::acknowledge_action(&temp.db(), &owner, &complete.operation_id, &id, 2).unwrap();
+    assert!(tasks::list(&temp.db(), &owner, 0).unwrap().items[0].completed);
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].revision, Some(2));
+
+    let reopen = outbox::prepare_action(&temp.db(), &owner, &id, "complete", Some(false)).unwrap();
+    assert_eq!(reopen.expected_revision, 2);
+    outbox::begin_action(&temp.db(), &owner, &reopen.operation_id).unwrap();
+    outbox::acknowledge_action(&temp.db(), &owner, &reopen.operation_id, &id, 3).unwrap();
+    assert!(!tasks::list(&temp.db(), &owner, 0).unwrap().items[0].completed);
+
+    let deletion = outbox::prepare_action(&temp.db(), &owner, &id, "delete", None).unwrap();
+    assert_eq!(deletion.expected_revision, 3);
+    assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].phase, "pendingDelete");
+    assert_eq!(outbox::begin_action(&temp.db(), &owner, &deletion.operation_id).unwrap().operation_id, deletion.operation_id);
+    outbox::acknowledge_action(&temp.db(), &owner, &deletion.operation_id, &id, 4).unwrap();
+    assert!(tasks::list(&temp.db(), &owner, 0).unwrap().items.is_empty());
+    assert_eq!(outbox::count(&temp.db(), &owner).unwrap(), 0);
+}
+
+#[test]
 fn sent_task_rename_keeps_one_durable_operation_and_revision_chain() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');
@@ -161,7 +202,7 @@ fn outbox_upgrade_preserves_v2_tasks() {
     db.execute("INSERT INTO tasks(id,project_ref,user_id,title) VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','project-a','11111111-1111-4111-8111-111111111111','Keep me')").unwrap();
     drop(db);
     let (db, status) = connect(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 4);
+    assert_eq!(status.schema_version, 5);
     assert_eq!(db.scalar("SELECT title FROM tasks").unwrap(), "Keep me");
     assert_eq!(db.scalar("SELECT count(*) FROM task_outbox").unwrap(), "0");
 }
@@ -188,7 +229,7 @@ fn upgrades_v1_without_changing_identity_and_failed_v2_rolls_back() {
     drop(db);
     let status = open_storage(&temp.db()).unwrap();
     assert_eq!(status.storage_id, id);
-    assert_eq!(status.schema_version, 4);
+    assert_eq!(status.schema_version, 5);
 }
 
 fn task_owner(project: &str, user: char) -> tasks::TaskOwner {
@@ -320,10 +361,10 @@ impl Drop for TestDirectory {
 fn first_open_creates_real_sqlite_and_foundation_and_tasks_tables() {
     let temp = TestDirectory::new();
     let status = open_storage(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 4);
+    assert_eq!(status.schema_version, 5);
     assert_eq!(&fs::read(temp.db()).unwrap()[..16], b"SQLite format 3\0");
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_outbox,tasks");
+    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_action_outbox,task_outbox,tasks");
     assert_eq!(db.scalar("PRAGMA journal_mode").unwrap(), "wal");
 }
 
@@ -334,7 +375,7 @@ fn closing_and_reopening_preserves_identity_and_applies_migration_once() {
     let second = open_storage(&temp.db()).unwrap();
     assert_eq!(first, second);
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "4");
+    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "5");
 }
 
 #[test]
@@ -356,9 +397,9 @@ fn newer_schema_is_rejected_without_resetting_existing_data() {
     let temp = TestDirectory::new();
     let original = open_storage(&temp.db()).unwrap();
     let db = Connection::open(&temp.db()).unwrap();
-    db.execute("PRAGMA user_version=5").unwrap();
+    db.execute("PRAGMA user_version=6").unwrap();
     assert_eq!(open_storage(&temp.db()), Err(StorageError::NewerSchema));
-    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "5");
+    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "6");
     assert_eq!(db.scalar("SELECT storage_id FROM local_metadata").unwrap(), original.storage_id);
 }
 

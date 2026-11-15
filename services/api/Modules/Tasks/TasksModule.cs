@@ -16,6 +16,8 @@ public static class TasksModule
 
     private sealed record CreateTaskBody(string? OperationId, string? TaskId, string? Title);
     private sealed record RenameTaskBody(string? OperationId, long? ExpectedRevision, string? Title);
+    private sealed record CompleteTaskBody(string? OperationId, long? ExpectedRevision, bool? Completed);
+    private sealed record DeleteTaskBody(string? OperationId, long? ExpectedRevision);
 
     public static IServiceCollection AddTasksFoundation(this IServiceCollection services, IConfiguration configuration)
     {
@@ -45,6 +47,8 @@ public static class TasksModule
         group.MapGet("/{id}", Find);
         group.MapPost("", Create);
         group.MapMethods("/{id}", ["PATCH"], Rename);
+        group.MapMethods("/{id}/completion", ["PATCH"], SetCompleted);
+        group.MapDelete("/{id}", Delete);
         return endpoints;
     }
 
@@ -111,13 +115,33 @@ public static class TasksModule
             new TaskWriteCommand(operationId, taskId, TaskWriteKind.Rename, body.ExpectedRevision.Value, body.Title!), false);
     }
 
+    private static async Task<IResult> SetCompleted(string id, HttpContext context, ITaskWriter writer)
+    {
+        if (context.Request.Query.Count != 0 || !ParseId(id, out var taskId)) return BadWrite();
+        var body = await ReadBody<CompleteTaskBody>(context);
+        if (body is null || !ParseId(body.OperationId, out var operationId) || body.ExpectedRevision is null || body.Completed is null)
+            return BadWrite();
+        return await ApplyWrite(context, writer, new TaskWriteCommand(operationId, taskId,
+            TaskWriteKind.SetCompleted, body.ExpectedRevision.Value, body.Completed.Value ? "1" : "0"), false);
+    }
+
+    private static async Task<IResult> Delete(string id, HttpContext context, ITaskWriter writer)
+    {
+        if (context.Request.Query.Count != 0 || !ParseId(id, out var taskId)) return BadWrite();
+        var body = await ReadBody<DeleteTaskBody>(context);
+        if (body is null || !ParseId(body.OperationId, out var operationId) || body.ExpectedRevision is null)
+            return BadWrite();
+        return await ApplyWrite(context, writer, new TaskWriteCommand(operationId, taskId,
+            TaskWriteKind.Delete, body.ExpectedRevision.Value, ""), false);
+    }
+
     private static async Task<IResult> ApplyWrite(HttpContext context, ITaskWriter writer, TaskWriteCommand command, bool create)
     {
         var account = context.Features.Get<VerifiedTaskAccount>()!.Id;
         try
         {
             var decision = await writer.ApplyAsync(account, command, context.RequestAborted);
-            if (decision.Outcome is TaskWriteOutcome.Create or TaskWriteOutcome.Rename or TaskWriteOutcome.Replay)
+            if (decision.Outcome is TaskWriteOutcome.Create or TaskWriteOutcome.Rename or TaskWriteOutcome.SetCompleted or TaskWriteOutcome.Delete or TaskWriteOutcome.Replay)
             {
                 if (decision.AppliedRevision is null or < 1) return WriterUnavailable(writer);
                 var response = new { outcome = decision.Outcome == TaskWriteOutcome.Replay ? "replayed" : "applied",

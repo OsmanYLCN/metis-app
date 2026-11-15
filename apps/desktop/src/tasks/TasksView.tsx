@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { CheckCheck, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
-import { beginLocalDelivery, cloudStatuses, completeTask, confirmLocalDelivery, createTask, deleteTask, listTasks, pendingCount, renameTask, type CloudStatus, type Task, type TaskOwner } from './client';
+import { beginLocalDelivery, beginTaskAction, cloudStatuses, completeTask, confirmLocalDelivery, confirmTaskAction, createTask, deleteTask, listTasks, pendingCount, prepareTaskAction, renameTask, type CloudStatus, type Task, type TaskOwner } from './client';
 
 export function TasksView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
@@ -46,10 +46,10 @@ function TaskList({ owner }: { owner: TaskOwner }) {
 
   function closeAction() {
     setAction(null); setActionError('');
-    requestAnimationFrame(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       if (actionTrigger.current?.isConnected) actionTrigger.current.focus();
       else document.getElementById('task-title')?.focus();
-    });
+    }));
   }
   function beginAction(kind: 'edit' | 'delete', task: Task, trigger: HTMLButtonElement) {
     if (inFlight.current || action) return;
@@ -73,10 +73,12 @@ function TaskList({ owner }: { owner: TaskOwner }) {
         if (cloud[saved.id]?.phase === 'sent') setCloud(previous => ({ ...previous, [saved.id]: { taskId: saved.id, phase: 'pendingRename', revision: null } }));
         setNotice(cloud[saved.id]?.phase === 'sent' ? 'Başlık bu cihazda kaydedildi. Değişikliği buluta gönderebilirsin.' : 'Görev başlığı kaydedildi.');
       } else {
-        await deleteTask(owner, action.task);
+        if (cloud[action.task.id]?.phase === 'sent' || cloud[action.task.id]?.phase === 'pendingDelete')
+          await sendAction(action.task, 'delete', null, attempt);
+        else await deleteTask(owner, action.task);
         if (attempt !== request.current) return;
         setItems(previous => previous.filter(item => item.id !== action.task.id));
-        setNotice('Görev bu cihazdan silindi.');
+        setNotice(cloud[action.task.id]?.phase === 'sent' ? 'Görev buluttan ve bu cihazdan silindi.' : 'Görev bu cihazdan silindi.');
       }
       closeAction();
     } catch (failure) { if (attempt === request.current) setActionError(message(failure)); }
@@ -123,10 +125,45 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     const attempt = ++request.current;
     inFlight.current = true; setBusy(true); setError(''); setNotice('');
     try {
+      if (cloud[task.id]?.phase === 'sent' || cloud[task.id]?.phase === 'pendingComplete') {
+        const receipt = await sendAction(task, 'complete', !task.completed, attempt);
+        if (attempt !== request.current) return;
+        setItems(previous => previous.map(item => item.id === task.id ? { ...item, completed: !task.completed } : item));
+        setNotice(task.completed ? 'Görev bulutta yeniden açıldı.' : 'Görev bulutta tamamlandı.');
+        setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'sent', revision: receipt } }));
+        return;
+      }
       const saved = await completeTask(owner, task.id, !task.completed);
       if (attempt !== request.current) return;
       setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
       setNotice(saved.completed ? 'Görev tamamlandı.' : 'Görev yeniden açıldı.');
+    } catch (failure) { if (attempt === request.current) setError(message(failure)); }
+    finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
+  }
+  async function sendAction(task: Task, kind: 'complete' | 'delete', completed: boolean | null, attempt: number): Promise<number> {
+    const prepared = await prepareTaskAction(owner, task.id, kind, completed);
+    if (attempt !== request.current) throw new Error('Oturum veya liste değişti. Listeyi yenile.');
+    setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: kind === 'delete' ? 'pendingDelete' : 'pendingComplete', revision: null } }));
+    const frozen = await beginTaskAction(owner, prepared);
+    const receipt = await loginStore.sendOneLocalAction(frozen, new AbortController().signal);
+    if (attempt !== request.current) throw new Error('Oturum veya liste değişti. Listeyi yenile.');
+    await confirmTaskAction(owner, frozen, receipt.revision);
+    return receipt.revision;
+  }
+  async function retryAction(task: Task) {
+    if (inFlight.current) return;
+    const kind = cloud[task.id]?.phase === 'pendingDelete' ? 'delete' : 'complete';
+    const attempt = ++request.current;
+    inFlight.current = true; setBusy(true); setError(''); setNotice('');
+    try {
+      const revision = await sendAction(task, kind, kind === 'complete' ? !task.completed : null, attempt);
+      if (attempt !== request.current) return;
+      if (kind === 'delete') setItems(previous => previous.filter(item => item.id !== task.id));
+      else {
+        setItems(previous => previous.map(item => item.id === task.id ? { ...item, completed: !task.completed } : item));
+        setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'sent', revision } }));
+      }
+      setNotice(kind === 'delete' ? 'Görev buluttan silindi.' : 'Görev durumu bulutta güncellendi.');
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
@@ -163,10 +200,12 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     <p className="task-feedback" role="status">{busy ? 'İşleniyor…' : notice || (loaded ? `${items.length} görev listeleniyor` : 'Görevler yüklenemedi. Listeyi yenileyebilirsin.')}</p>
     {loaded && items.length === 0 && !hasMore && <div className="tasks-empty"><CheckCheck size={28} /><h3>İlk görevine yer aç.</h3><p>Yukarıya bir başlık yaz; küçük bir adımla başla.</p></div>}
     <ul className="task-list">{items.map(task => <li key={task.id} className={task.completed ? 'is-complete' : ''}>
-      <label><input type="checkbox" checked={task.completed} disabled={busy || !!action || ['sent', 'pendingRename', 'conflict'].includes(cloud[task.id]?.phase ?? '')} onChange={() => void toggle(task)}
+      <label><input type="checkbox" checked={task.completed} disabled={busy || !!action || ['pendingRename', 'pendingComplete', 'pendingDelete', 'conflict'].includes(cloud[task.id]?.phase ?? '')} onChange={() => void toggle(task)}
         aria-label={`${task.title}: ${task.completed ? 'yeniden aç' : 'tamamla'}`} /><span>{task.title}</span></label>
       <span className="small-tag">{task.completed ? 'Tamamlandı' : 'Açık'}</span>
       <span className="small-tag">{cloud[task.id]?.phase === 'sent' ? 'Bulutta'
+        : cloud[task.id]?.phase === 'pendingComplete' ? 'Durum gönderimi bekliyor'
+          : cloud[task.id]?.phase === 'pendingDelete' ? 'Silme gönderimi bekliyor'
         : cloud[task.id]?.phase === 'pendingRename' ? 'Değişiklik bekliyor'
           : cloud[task.id]?.phase === 'pendingCreate' ? 'Gönderim bekliyor'
             : cloud[task.id]?.phase === 'conflict' ? 'Bulut çatışması'
@@ -174,8 +213,10 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       <div className="task-row-actions">
         {!task.completed && (cloud[task.id]?.phase === 'pendingCreate' || cloud[task.id]?.phase === 'pendingRename')
           && <button className="text-button" disabled={busy || !!action} onClick={() => void sendOne(task)}>{cloud[task.id]?.phase === 'pendingRename' ? 'Değişikliği gönder' : 'Buluta gönder'}</button>}
-        <button className="icon-button" disabled={busy || !!action || ['pendingRename', 'conflict'].includes(cloud[task.id]?.phase ?? '')} aria-label={`${task.title}: düzenle`} title="Başlığı düzenle" onClick={event => beginAction('edit', task, event.currentTarget)}><Pencil size={16} /></button>
-        <button className="icon-button" disabled={busy || !!action || ['sent', 'pendingRename', 'conflict'].includes(cloud[task.id]?.phase ?? '')} aria-label={`${task.title}: sil`} title={cloud[task.id]?.phase === 'sent' ? 'Buluttaki görev silme henüz hazır değil' : 'Görevi sil'} onClick={event => beginAction('delete', task, event.currentTarget)}><Trash2 size={16} /></button>
+        {['pendingComplete', 'pendingDelete'].includes(cloud[task.id]?.phase ?? '')
+          && <button className="text-button" disabled={busy || !!action} onClick={() => void retryAction(task)}>İşlemi tekrar dene</button>}
+        <button className="icon-button" disabled={busy || !!action || ['pendingRename', 'pendingComplete', 'pendingDelete', 'conflict'].includes(cloud[task.id]?.phase ?? '')} aria-label={`${task.title}: düzenle`} title="Başlığı düzenle" onClick={event => beginAction('edit', task, event.currentTarget)}><Pencil size={16} /></button>
+        <button className="icon-button" disabled={busy || !!action || ['pendingRename', 'pendingComplete', 'pendingDelete', 'conflict'].includes(cloud[task.id]?.phase ?? '')} aria-label={`${task.title}: sil`} title="Görevi sil" onClick={event => beginAction('delete', task, event.currentTarget)}><Trash2 size={16} /></button>
       </div>
       {action?.task.id === task.id && <form className="task-editor" onSubmit={applyAction}
         aria-label={action.kind === 'edit' ? 'Görev başlığını düzenle' : 'Görevi silme onayı'}

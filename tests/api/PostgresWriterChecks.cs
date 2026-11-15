@@ -19,7 +19,7 @@ internal static class PostgresWriterChecks
             foreach(var (name,sql) in new (string,string)[] {
                 ("identity","select current_user='metis_writer' and session_user='metis_writer'"),
                 ("auth isolation","select not has_schema_privilege(current_user,'auth','USAGE')"),
-                ("migration","select exists(select 1 from metis.schema_migrations where version=4 and name='task_writer_claims')"),
+                ("migration","select exists(select 1 from metis.schema_migrations where version=5 and name='task_writer_lifecycle')"),
                 ("installation","select exists(select 1 from metis.installation where id=1 and project_ref='test-project')") })
             {
                 await using var command=new NpgsqlCommand(sql,diagnostic);
@@ -39,6 +39,14 @@ internal static class PostgresWriterChecks
         Check((await writer.ApplyAsync(a,rename,CancellationToken.None)).Outcome==TaskWriteOutcome.Rename,"rename");
         Check((await writer.ApplyAsync(a,rename with {OperationId=Guid.NewGuid()},CancellationToken.None)).Outcome==TaskWriteOutcome.Conflict,"stale revision");
         Check((await writer.ApplyAsync(b,rename with {OperationId=Guid.NewGuid(),ExpectedRevision=2},CancellationToken.None)).Outcome==TaskWriteOutcome.NotFound,"account isolation");
+        var done=new TaskWriteCommand(Guid.NewGuid(),id,TaskWriteKind.SetCompleted,2,"1");
+        Check((await writer.ApplyAsync(a,done,CancellationToken.None)).Outcome==TaskWriteOutcome.SetCompleted,"complete");
+        Check((await writer.ApplyAsync(a,done,CancellationToken.None)).Outcome==TaskWriteOutcome.Replay,"complete replay");
+        var reopen=done with {OperationId=Guid.NewGuid(),ExpectedRevision=3,Title="0"};
+        Check((await writer.ApplyAsync(a,reopen,CancellationToken.None)).Outcome==TaskWriteOutcome.SetCompleted,"reopen");
+        var delete=new TaskWriteCommand(Guid.NewGuid(),id,TaskWriteKind.Delete,4,"");
+        Check((await writer.ApplyAsync(a,delete,CancellationToken.None)).Outcome==TaskWriteOutcome.Delete,"tombstone");
+        Check((await writer.ApplyAsync(a,delete,CancellationToken.None)).Outcome==TaskWriteOutcome.Replay,"delete replay");
         using var cancelled=new CancellationTokenSource(); cancelled.Cancel();
         try { await writer.ApplyAsync(a,rename with {OperationId=Guid.NewGuid(),ExpectedRevision=2},cancelled.Token); throw new InvalidOperationException("Cancellation ignored"); }
         catch(OperationCanceledException){}
@@ -55,7 +63,7 @@ internal static class PostgresWriterChecks
             Check(created.StatusCode==HttpStatusCode.Created,"HTTP create did not reach PostgreSQL writer");
         using(var replayed=await Send(client,json,token(a.ToString())))
             Check(replayed.StatusCode==HttpStatusCode.OK,"HTTP replay failed");
-        Console.WriteLine("PASS PostgreSQL writer: create, replay, operation conflict, revision conflict, account RLS, cancellation, denied delete and real HTTP adapter");
+        Console.WriteLine("PASS PostgreSQL writer: create, rename, completion, reopen, tombstone, replay, account RLS and HTTP adapter");
         return 1;
     }
     private static async Task<HttpResponseMessage> Send(HttpClient client,string json,string token)

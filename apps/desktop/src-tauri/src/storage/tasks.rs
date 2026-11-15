@@ -74,6 +74,7 @@ pub fn set_completed(path: &Path, owner: &TaskOwner, id: &str, completed: bool) 
     if !valid_id(id) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
+    if !db.query("SELECT sequence FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     if !db.query("SELECT d.sequence FROM outbox_delivery d JOIN task_outbox o ON o.sequence=d.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     db.query("UPDATE tasks SET completed=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND completed<>?4",
         &[id, &owner.project_ref, &owner.user_id, if completed { "1" } else { "0" }])?;
@@ -90,6 +91,7 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
     if !valid_id(id) || !valid_title(title) || !valid_title(expected_title) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
+    if !db.query("SELECT sequence FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id])?;
     let current = decode(rows.pop().ok_or(TaskError::NotFound)?)?;
@@ -105,7 +107,7 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
                 db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'create',0,?4)", &[&owner.project_ref,&owner.user_id,id,title])?;
             }
             (_,"acknowledged") => {
-                let revision: i64 = last[3].parse().map_err(|_| StorageError::InvalidSchema)?;
+                let revision = super::outbox::latest_revision(&db,owner,id)?.ok_or(StorageError::InvalidSchema)?;
                 if revision < 1 { return Err(StorageError::InvalidSchema.into()); }
                 db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'rename',?4,?5)", &[&owner.project_ref,&owner.user_id,id,&revision.to_string(),title])?;
             }
@@ -126,6 +128,7 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) ->
     if !valid_id(id) || !valid_title(expected_title) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
+    if !db.query("SELECT sequence FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     let rows = db.query("SELECT title FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id])?;
     if let Some(row) = rows.first() {

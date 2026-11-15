@@ -54,6 +54,17 @@ internal static class TaskWriteRuleChecks
         Check(TaskWriteRules.Decide(account, rename, row with { DeletedAt = now }, null).Outcome == TaskWriteOutcome.NotFound, "Deleted task");
         Check(TaskWriteRules.Decide(account, rename with { ExpectedRevision = long.MaxValue }, row with { Revision = long.MaxValue }, null).Outcome == TaskWriteOutcome.Unavailable, "Revision overflow");
         Pass("missing/deleted tasks are indistinguishable and revision overflow is blocked");
+        var complete = new TaskWriteCommand(Guid.NewGuid(), id, TaskWriteKind.SetCompleted, 4, "1");
+        var reopen = complete with { OperationId = Guid.NewGuid(), Title = "0" };
+        var deletion = complete with { OperationId = Guid.NewGuid(), Kind = TaskWriteKind.Delete, Title = "" };
+        Check(TaskWriteRules.Decide(account, complete, row, null).Outcome == TaskWriteOutcome.SetCompleted, "Complete decision");
+        Check(TaskWriteRules.Decide(account, reopen, row, null).Outcome == TaskWriteOutcome.SetCompleted, "Reopen decision");
+        Check(TaskWriteRules.Decide(account, deletion, row, null).Outcome == TaskWriteOutcome.Delete, "Delete decision");
+        Check(TaskWriteRules.Decide(account, complete with { Title = "yes" }, row, null).Outcome == TaskWriteOutcome.Invalid, "Invalid completion");
+        Check(TaskWriteRules.Decide(account, deletion with { Title = "hidden payload" }, row, null).Outcome == TaskWriteOutcome.Invalid, "Invalid deletion");
+        Check(TaskWriteRules.Decide(account, deletion with { ExpectedRevision = 3 }, row, null).Outcome == TaskWriteOutcome.Conflict, "Stale deletion");
+        Check(TaskWriteRules.Decide(account, deletion, row with { DeletedAt = now }, null).Outcome == TaskWriteOutcome.NotFound, "Deleted tombstone");
+        Pass("completion, reopen and deletion require a valid revision and bounded payload");
         return passed;
     }
 }

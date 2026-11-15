@@ -42,12 +42,12 @@ export async function pendingCount(owner: TaskOwner): Promise<number> {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new Error('Bekleyen kayıt sayısı okunamadı.');
   return value;
 }
-export type CloudStatus = { taskId: string; phase: 'localOnly' | 'pendingCreate' | 'pendingRename' | 'sent' | 'conflict'; revision: number | null };
+export type CloudStatus = { taskId: string; phase: 'localOnly' | 'pendingCreate' | 'pendingRename' | 'pendingComplete' | 'pendingDelete' | 'sent' | 'conflict'; revision: number | null };
 export async function cloudStatuses(owner: TaskOwner, taskIds: string[]): Promise<CloudStatus[]> {
   const value = await invoke('outbox_statuses', { owner, taskIds });
   if (!Array.isArray(value) || value.length !== taskIds.length || value.some((entry, index) =>
     !isObject(entry) || entry.taskId !== taskIds[index]
-    || typeof entry.phase !== 'string' || !['localOnly', 'pendingCreate', 'pendingRename', 'sent', 'conflict'].includes(entry.phase)
+    || typeof entry.phase !== 'string' || !['localOnly', 'pendingCreate', 'pendingRename', 'pendingComplete', 'pendingDelete', 'sent', 'conflict'].includes(entry.phase)
     || (entry.phase === 'sent' ? !Number.isSafeInteger(entry.revision) || (entry.revision as number) <= 0 : entry.revision !== null)))
     throw new Error('Görevlerin bulut durumu okunamadı. Listeyi yenile.');
   return value as CloudStatus[];
@@ -70,6 +70,27 @@ export async function beginLocalDelivery(owner: TaskOwner, taskId: string): Prom
 }
 export async function confirmLocalDelivery(owner: TaskOwner, item: PendingDelivery, outcome: 'applied' | 'replayed', revision: number): Promise<void> {
   await invoke('outbox_acknowledge', { owner, operationId: item.operationId, taskId: item.taskId, outcome, revision });
+}
+export type PendingAction = { operationId: string; taskId: string; kind: 'complete' | 'delete'; expectedRevision: number; completed: boolean | null };
+function parseAction(value: unknown, taskId: string): PendingAction {
+  if (!isObject(value) || value.taskId !== taskId || !/^[a-f0-9]{32}$/.test(String(value.operationId))
+    || !Number.isSafeInteger(value.expectedRevision) || (value.expectedRevision as number) < 1
+    || !((value.kind === 'complete' && typeof value.completed === 'boolean') || (value.kind === 'delete' && value.completed === null)))
+    throw new Error('Bulut işlemi doğrulanamadı. Listeyi yenile.');
+  return value as PendingAction;
+}
+export async function prepareTaskAction(owner: TaskOwner, taskId: string, kind: PendingAction['kind'], completed: boolean | null): Promise<PendingAction> {
+  return parseAction(await invoke('task_action_prepare', { owner, taskId, kind, completed }), taskId);
+}
+export async function beginTaskAction(owner: TaskOwner, action: PendingAction): Promise<PendingAction> {
+  const frozen = parseAction(await invoke('task_action_begin', { owner, operationId: action.operationId }), action.taskId);
+  if (frozen.operationId !== action.operationId || frozen.kind !== action.kind || frozen.expectedRevision !== action.expectedRevision
+    || frozen.completed !== action.completed) throw new Error('Bulut işlemi değişti. Listeyi yenile.');
+  return frozen;
+}
+export async function confirmTaskAction(owner: TaskOwner, action: PendingAction, revision: number): Promise<void> {
+  const value = await invoke('task_action_acknowledge', { owner, operationId: action.operationId, taskId: action.taskId, revision });
+  if (value !== null) throw new Error('Bulut işleminin yerel kaydı doğrulanamadı. Listeyi yenile.');
 }
 export async function createTask(owner: TaskOwner, id: string, title: string): Promise<Task> {
   return parseTask(await invoke('tasks_create', { owner, id, title }));

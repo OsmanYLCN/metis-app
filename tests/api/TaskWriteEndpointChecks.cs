@@ -51,6 +51,18 @@ internal static class TaskWriteEndpointChecks
                 && writer.LastCommand?.ExpectedRevision == 1 && writer.LastCommand.Kind == TaskWriteKind.Rename, "Rename mapping");
             Pass("replay and rename return bounded receipts; path task and verified account win");
 
+            writer.Next = new(TaskWriteOutcome.SetCompleted, AppliedRevision: 3);
+            var completed = await Send(client, HttpMethod.Patch, $"/api/v1/tasks/{Task}/completion",
+                JsonSerializer.Serialize(new { operationId = Operation, expectedRevision = 2, completed = true }), HttpStatusCode.OK, token(UserA));
+            Check(completed.GetProperty("revision").GetInt64() == 3 && writer.LastCommand?.Kind == TaskWriteKind.SetCompleted
+                && writer.LastCommand.Title == "1" && writer.LastCommand.ExpectedRevision == 2, "Completion mapping");
+            writer.Next = new(TaskWriteOutcome.Delete, AppliedRevision: 4);
+            var deleted = await Send(client, HttpMethod.Delete, $"/api/v1/tasks/{Task}",
+                JsonSerializer.Serialize(new { operationId = Operation, expectedRevision = 3 }), HttpStatusCode.OK, token(UserA));
+            Check(deleted.GetProperty("revision").GetInt64() == 4 && writer.LastCommand?.Kind == TaskWriteKind.Delete
+                && writer.LastCommand.Title == "" && writer.LastCommand.ExpectedRevision == 3, "Delete mapping");
+            Pass("completion and deletion are revision-bound writes with verified account identity");
+
             var before = writer.Calls;
             foreach (var request in new[] {
                 (HttpMethod.Post, "/api/v1/tasks", "{}", "application/json"),
@@ -58,6 +70,8 @@ internal static class TaskWriteEndpointChecks
                 (HttpMethod.Post, "/api/v1/tasks", CreateBody(extra: true), "application/json"),
                 (HttpMethod.Post, "/api/v1/tasks", CreateBody(), "text/plain"),
                 (HttpMethod.Patch, "/api/v1/tasks/not-an-id", "{}", "application/json"),
+                (HttpMethod.Patch, $"/api/v1/tasks/{Task}/completion", JsonSerializer.Serialize(new { operationId = Operation, expectedRevision = 2 }), "application/json"),
+                (HttpMethod.Delete, $"/api/v1/tasks/{Task}", JsonSerializer.Serialize(new { operationId = Operation, expectedRevision = 3, ownerId = UserB }), "application/json"),
             }) await Send(client, request.Item1, request.Item2, request.Item3, HttpStatusCode.BadRequest, token(UserA), request.Item4);
             Check(writer.Calls == before, "Malformed HTTP input reached writer");
             Pass("unknown fields, owner overrides, malformed IDs and media types are rejected before storage");
@@ -110,7 +124,9 @@ internal static class TaskWriteEndpointChecks
         {
             Calls++; LastAccount = account; LastCommand = command;
             if (Unavailable) throw new TaskStoreUnavailableException();
-            var result = Next ?? new(command.Kind == TaskWriteKind.Create ? TaskWriteOutcome.Create : TaskWriteOutcome.Rename,
+            var result = Next ?? new(command.Kind switch { TaskWriteKind.Create => TaskWriteOutcome.Create,
+                TaskWriteKind.Rename => TaskWriteOutcome.Rename, TaskWriteKind.SetCompleted => TaskWriteOutcome.SetCompleted,
+                _ => TaskWriteOutcome.Delete },
                 AppliedRevision: command.Kind == TaskWriteKind.Create ? 1 : command.ExpectedRevision + 1);
             Next = null;
             return ValueTask.FromResult(result);

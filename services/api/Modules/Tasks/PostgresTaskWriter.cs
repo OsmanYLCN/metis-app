@@ -30,10 +30,10 @@ public sealed class PostgresTaskWriter : ITaskWriter, IAsyncDisposable
     public async ValueTask<TaskWriteDecision> ApplyAsync(Guid account, TaskWriteCommand command, CancellationToken cancellationToken)
     {
         var now=DateTimeOffset.UnixEpoch;
-        var validationRow=command.Kind==TaskWriteKind.Rename
+        var validationRow=command.Kind!=TaskWriteKind.Create
             ? new TaskRecord(command.TaskId,account,"validation",false,command.ExpectedRevision,now,now,null) : null;
         var validated = TaskWriteRules.Decide(account, command, validationRow, null);
-        if (validated.Outcome is not (TaskWriteOutcome.Create or TaskWriteOutcome.Rename)) return validated;
+        if (validated.Outcome is not (TaskWriteOutcome.Create or TaskWriteOutcome.Rename or TaskWriteOutcome.SetCompleted or TaskWriteOutcome.Delete)) return validated;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(8));
         var cancel = deadline.Token;
@@ -50,23 +50,25 @@ public sealed class PostgresTaskWriter : ITaskWriter, IAsyncDisposable
                   AND t.relowner<>r.oid AND o.relowner<>r.oid AND t.relrowsecurity AND t.relforcerowsecurity AND o.relrowsecurity AND o.relforcerowsecurity
                   AND has_table_privilege(current_user,'metis.tasks','SELECT')
                   AND has_column_privilege(current_user,'metis.tasks','title','UPDATE')
+                  AND has_column_privilege(current_user,'metis.tasks','completed','UPDATE')
+                  AND has_column_privilege(current_user,'metis.tasks','deleted_at','UPDATE')
                   AND has_column_privilege(current_user,'metis.tasks','user_id','INSERT')
                   AND has_column_privilege(current_user,'metis.tasks','id','INSERT')
                   AND has_column_privilege(current_user,'metis.tasks','title','INSERT')
                   AND NOT has_table_privilege(current_user,'metis.tasks','INSERT,UPDATE,DELETE,TRUNCATE')
                   AND NOT has_column_privilege(current_user,'metis.tasks','user_id','UPDATE')
                   AND NOT has_column_privilege(current_user,'metis.tasks','id','UPDATE')
-                  AND NOT has_column_privilege(current_user,'metis.tasks','completed','INSERT,UPDATE')
+                  AND NOT has_column_privilege(current_user,'metis.tasks','completed','INSERT')
                   AND NOT has_column_privilege(current_user,'metis.tasks','revision','INSERT,UPDATE')
                   AND NOT has_column_privilege(current_user,'metis.tasks','created_at','INSERT,UPDATE')
                   AND NOT has_column_privilege(current_user,'metis.tasks','updated_at','INSERT,UPDATE')
-                  AND NOT has_column_privilege(current_user,'metis.tasks','deleted_at','INSERT,UPDATE')
+                  AND NOT has_column_privilege(current_user,'metis.tasks','deleted_at','INSERT')
                   AND has_table_privilege(current_user,'metis.task_operations','SELECT')
                   AND NOT has_table_privilege(current_user,'metis.task_operations','INSERT,UPDATE,DELETE,TRUNCATE')
                   AND NOT has_any_column_privilege(current_user,'metis.task_operations','UPDATE')
                   AND has_function_privilege(current_user,'metis.apply_task_write(uuid,uuid,uuid,smallint,bigint,text,character)','EXECUTE')
                   AND NOT has_schema_privilege(current_user,'auth','USAGE')
-                  AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version=4 AND name='task_writer_claims')
+                  AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version=5 AND name='task_writer_lifecycle')
                   AND EXISTS(SELECT 1 FROM metis.installation WHERE id=1 AND project_ref=$1)
                 FROM pg_roles r CROSS JOIN pg_class t CROSS JOIN pg_class o
                 WHERE r.rolname=current_user AND t.oid='metis.tasks'::regclass AND o.oid='metis.task_operations'::regclass
@@ -90,7 +92,8 @@ public sealed class PostgresTaskWriter : ITaskWriter, IAsyncDisposable
             apply.Parameters.Add(new NpgsqlParameter { NpgsqlDbType=NpgsqlDbType.Char,Value=validated.Fingerprint! });
             await using var reader=await apply.ExecuteReaderAsync(cancel);
             if (!await reader.ReadAsync(cancel)) throw new TaskStoreUnavailableException();
-            var outcome=reader.GetString(0) switch {"created"=>TaskWriteOutcome.Create,"renamed"=>TaskWriteOutcome.Rename,"replay"=>TaskWriteOutcome.Replay,
+            var outcome=reader.GetString(0) switch {"created"=>TaskWriteOutcome.Create,"renamed"=>TaskWriteOutcome.Rename,
+                "completed"=>TaskWriteOutcome.SetCompleted,"deleted"=>TaskWriteOutcome.Delete,"replay"=>TaskWriteOutcome.Replay,
                 "invalid"=>TaskWriteOutcome.Invalid,"not_found"=>TaskWriteOutcome.NotFound,"conflict"=>TaskWriteOutcome.Conflict,
                 "operation_conflict"=>TaskWriteOutcome.OperationConflict,_=>TaskWriteOutcome.Unavailable};
             long? revision=reader.IsDBNull(1)?null:reader.GetInt64(1);
