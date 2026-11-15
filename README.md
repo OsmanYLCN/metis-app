@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 23; masaüstü v0.15.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 24; masaüstü v0.16.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -26,6 +26,8 @@ M0.16: Canlı writer kurulumu tamamlandı. Masaüstündeki açık kullanıcı ey
 
 M0.23: Buluta gönderilmiş görevi tamamla, yeniden aç ve sil. İşlem önce bu cihazda kalıcı kuyruğa alınır; ağ yanıtı kaybolursa aynı işlem kimliğiyle tekrar denenir. [Kurulum ve doğrulama](docs/verification-m0.23.md).
 
+M0.24: Açık oturumda görev ekranı açılınca ve yeni görev/başlık kaydı sonrasında uygun bekleyen işlemler otomatik gönderilir. Bağlantı hatasında kuyruk korunur; elle yeniden deneme mümkündür. [Doğrulama](docs/verification-m0.24.md).
+
 ## Bu dilimde çalışanlar
 
 - Minimal Türkçe uygulama kabuğu, 12 modül için gezinme, açık/koyu/sistem teması.
@@ -39,11 +41,11 @@ M0.23: Buluta gönderilmiş görevi tamamla, yeniden aç ve sil. İşlem önce b
 - Supabase yapılandırıldığında public JWKS ile gerçek sunucu token doğrulaması.
 - Mevcut Auth kullanıcısı için e-posta/parola giriş formu, API tarafından doğrulanan oturum, cihazdan çıkış, iptal/hata ve süre sonu yönetimi. Varsayılan oturum bellektedir; hatırla seçilirse refresh token şifreli kasaya yazılır ve yenilenir.
 
-**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite şema sürümü 5'tir. Kullanıcı canlı girişi, oturum geri yüklemeyi ve kontrollü sentetik writer kontrolünü başarılı bildirdi; otomatik testlerde sağlayıcı yanıtları mock kullanılır. Seçilen yerel görev, başlık değişikliği, tamamlanma durumu ve silme açık kullanıcı eylemiyle buluta gönderilebilir. Otomatik veya çift yönlü eşitleme, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcı önizlemesi ayrı web ürünü değildir.
+**Kapsam sınırı:** Görevler Windows uygulamasında gerçek yerel kayıtlardır; diğer iş modülleri yerel önizlemedir. Health ve masaüstündeki SQLite mock değildir. SQLite şema sürümü 5'tir. Kullanıcı canlı girişi, oturum geri yüklemeyi ve kontrollü sentetik writer kontrolünü başarılı bildirdi; otomatik testlerde sağlayıcı yanıtları mock kullanılır. Uygun bekleyen görev işlemleri açık oturumda otomatik, ayrıca kullanıcı düğmesiyle buluta gönderilir. Buluttan indirme ve çift yönlü eşitleme, R2 ve hosting henüz yoktur. Tema tercihi sadece oturumda tutulur. Tarayıcı önizlemesi ayrı web ürünü değildir.
 
 ## Hazır Windows uygulaması
 
-Güncel **outputs/Metis-M0.23.exe** bulut görevi tamamlamayı, yeniden açmayı ve silmeyi içerir. [M0.23 kurulum ve doğrulama](docs/verification-m0.23.md). SQLite şema 5'e yükselir. Eski sürümden geçerken önce bütün Metis pencerelerini kapat. Önceki teslim notları aşağıda tarihsel kayıt olarak durur.
+Güncel **outputs/Metis-M0.24.exe** açık oturumda bekleyen görev işlemlerini sırayla buluta gönderir; ayrıca elle gönderme düğmesi vardır. [M0.24 doğrulama](docs/verification-m0.24.md). SQLite şema 5 korunur. Eski sürümden geçerken önce bütün Metis pencerelerini kapat. Önceki teslim notları aşağıda tarihsel kayıt olarak durur.
 
 Önceki teslim **outputs/Metis-M0.19.exe**: yerel kuyruk uzlaştırması ve görev ekranında bekleyen kayıt sayısı. [M0.19 kaydı](docs/verification-m0.19.md). Bu sürüm SQLite şema 3'e yükseltti; M0.16 aynı veritabanını açamaz.
 

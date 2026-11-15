@@ -15,6 +15,8 @@ fn cloud_actions_keep_one_operation_across_restart_and_acknowledge_locally() {
 
     let complete = outbox::prepare_action(&temp.db(), &owner, &id, "complete", Some(true)).unwrap();
     assert_eq!(complete.expected_revision, 1);
+    assert_eq!(outbox::pending_actions(&temp.db(), &owner).unwrap()[0].operation_id, complete.operation_id);
+    assert!(outbox::pending_actions(&temp.db(), &task_owner("project-a", '2')).unwrap().is_empty());
     assert_eq!(outbox::count(&temp.db(), &owner).unwrap(), 1);
     assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].phase, "pendingComplete");
     open_storage(&temp.db()).unwrap();
@@ -25,6 +27,7 @@ fn cloud_actions_keep_one_operation_across_restart_and_acknowledge_locally() {
     outbox::begin_action(&temp.db(), &owner, &complete.operation_id).unwrap();
     assert!(outbox::acknowledge_action(&temp.db(), &task_owner("project-a", '2'), &complete.operation_id, &id, 2).is_err());
     outbox::acknowledge_action(&temp.db(), &owner, &complete.operation_id, &id, 2).unwrap();
+    assert!(outbox::pending_actions(&temp.db(), &owner).unwrap().is_empty());
     outbox::acknowledge_action(&temp.db(), &owner, &complete.operation_id, &id, 2).unwrap();
     assert!(tasks::list(&temp.db(), &owner, 0).unwrap().items[0].completed);
     assert_eq!(outbox::statuses(&temp.db(), &owner, &[id.clone()]).unwrap()[0].revision, Some(2));
@@ -107,16 +110,42 @@ fn delivery_intent_survives_restart_and_receipts_are_scoped() {
 }
 
 #[test]
-fn completed_task_cannot_start_create_delivery() {
+fn completed_local_task_queues_cloud_completion_after_create_receipt() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');
     let id = "b".repeat(32);
     tasks::create(&temp.db(), &owner, &id, "Done locally").unwrap();
-    tasks::set_completed(&temp.db(), &owner, &id, true).unwrap();
     let seq = outbox::pending(&temp.db(), &owner, 0).unwrap()[0].sequence;
-    assert!(outbox::begin_delivery(&temp.db(), &owner, seq).is_err());
-    tasks::set_completed(&temp.db(), &owner, &id, false).unwrap();
-    assert!(outbox::begin_delivery(&temp.db(), &owner, seq).is_ok());
+    tasks::set_completed(&temp.db(), &owner, &id, true).unwrap();
+    assert_eq!(outbox::pending(&temp.db(), &owner, 0).unwrap()[0].sequence, seq);
+    let create = outbox::begin_delivery(&temp.db(), &owner, seq).unwrap();
+    assert!(tasks::set_completed(&temp.db(), &owner, &id, false).is_err());
+    outbox::acknowledge(&temp.db(), &owner, &create.operation_id, &id, 1, "applied").unwrap();
+    let queued = outbox::pending_actions(&temp.db(), &owner).unwrap();
+    assert_eq!(queued.len(), 1);
+    assert_eq!(queued[0].expected_revision, 1);
+    assert_eq!(queued[0].completed, Some(true));
+    outbox::acknowledge(&temp.db(), &owner, &create.operation_id, &id, 1, "replayed").unwrap();
+    assert_eq!(outbox::pending_actions(&temp.db(), &owner).unwrap().len(), 1);
+    outbox::begin_action(&temp.db(), &owner, &queued[0].operation_id).unwrap();
+    outbox::acknowledge_action(&temp.db(), &owner, &queued[0].operation_id, &id, 2).unwrap();
+    assert!(tasks::list(&temp.db(), &owner, 0).unwrap().items[0].completed);
+}
+
+#[test]
+fn outgoing_queue_includes_completed_task_before_later_work() {
+    let temp = TestDirectory::new();
+    let owner = task_owner("project-a", '1');
+    let blocked = "a".repeat(32); let ready = "b".repeat(32);
+    tasks::create(&temp.db(), &owner, &blocked, "Already done locally").unwrap();
+    tasks::set_completed(&temp.db(), &owner, &blocked, true).unwrap();
+    tasks::create(&temp.db(), &owner, &ready, "Ready").unwrap();
+    let queue = outbox::pending(&temp.db(), &owner, 0).unwrap();
+    assert_eq!(queue.len(), 2);
+    assert_eq!(queue[0].task_id, blocked);
+    assert_eq!(queue[1].task_id, ready);
+    assert_eq!(outbox::count(&temp.db(), &owner).unwrap(), 2);
+    assert!(outbox::pending(&temp.db(), &task_owner("project-a", '2'), 0).unwrap().is_empty());
 }
 
 #[test]

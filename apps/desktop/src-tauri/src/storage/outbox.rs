@@ -17,7 +17,7 @@ pub fn begin_delivery(path: &Path, owner: &TaskOwner, sequence: i64) -> Result<P
     if sequence <= 0 { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let tx = Transaction::begin(&db)?;
-    let rows = db.query("SELECT o.sequence,o.operation_id,o.task_id,o.kind,o.expected_revision,o.title FROM task_outbox o JOIN tasks t ON t.id=o.task_id AND t.project_ref=o.project_ref AND t.user_id=o.user_id WHERE o.project_ref=?1 AND o.user_id=?2 AND o.sequence=?3 AND o.state='pending' AND t.title=o.title AND t.completed=0 AND ((o.kind='create' AND o.expected_revision=0 AND NOT EXISTS(SELECT 1 FROM task_outbox older WHERE older.project_ref=o.project_ref AND older.user_id=o.user_id AND older.task_id=o.task_id AND older.state='acknowledged')) OR o.kind='rename') AND NOT EXISTS(SELECT 1 FROM task_action_outbox a WHERE a.project_ref=o.project_ref AND a.user_id=o.user_id AND a.task_id=o.task_id AND a.state='pending')", &[&owner.project_ref,&owner.user_id,&sequence.to_string()])?;
+    let rows = db.query("SELECT o.sequence,o.operation_id,o.task_id,o.kind,o.expected_revision,o.title FROM task_outbox o JOIN tasks t ON t.id=o.task_id AND t.project_ref=o.project_ref AND t.user_id=o.user_id WHERE o.project_ref=?1 AND o.user_id=?2 AND o.sequence=?3 AND o.state='pending' AND t.title=o.title AND ((o.kind='create' AND o.expected_revision=0 AND NOT EXISTS(SELECT 1 FROM task_outbox older WHERE older.project_ref=o.project_ref AND older.user_id=o.user_id AND older.task_id=o.task_id AND older.state='acknowledged')) OR o.kind='rename') AND NOT EXISTS(SELECT 1 FROM task_action_outbox a WHERE a.project_ref=o.project_ref AND a.user_id=o.user_id AND a.task_id=o.task_id AND a.state='pending')", &[&owner.project_ref,&owner.user_id,&sequence.to_string()])?;
     let r = rows.first().ok_or(TaskError::Conflict)?;
     let operation = PendingOperation { sequence, operation_id:r[1].clone(),task_id:r[2].clone(),kind:r[3].clone(),expected_revision:r[4].parse().map_err(|_| super::StorageError::InvalidSchema)?,title:r[5].clone() };
     if operation.kind == "rename" && latest_revision(&db, owner, &operation.task_id)? != Some(operation.expected_revision) { return Err(TaskError::Conflict); }
@@ -33,7 +33,7 @@ pub fn acknowledge(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: 
     if revision < 1 || !matches!(outcome,"applied"|"replayed") { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let tx = Transaction::begin(&db)?;
-    let rows = db.query("SELECT o.sequence,o.state,o.expected_revision,COALESCE(CAST(d.revision AS TEXT),'') FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.operation_id=?3 AND o.task_id=?4", &[&owner.project_ref,&owner.user_id,operation_id,task_id])?;
+    let rows = db.query("SELECT o.sequence,o.state,o.expected_revision,COALESCE(CAST(d.revision AS TEXT),''),o.kind FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.operation_id=?3 AND o.task_id=?4", &[&owner.project_ref,&owner.user_id,operation_id,task_id])?;
     let r = rows.first().ok_or(TaskError::Conflict)?;
     if !matches!(r[1].as_str(),"pending"|"acknowledged") { return Err(TaskError::Conflict); }
     let expected: i64 = r[2].parse().map_err(|_| super::StorageError::InvalidSchema)?;
@@ -41,6 +41,11 @@ pub fn acknowledge(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: 
         || (r[1] == "pending" && !r[3].is_empty() && r[3] != revision.to_string()) { return Err(TaskError::Conflict); }
     db.query("UPDATE outbox_delivery SET revision=?2 WHERE sequence=?1", &[&r[0],&revision.to_string()])?;
     db.query("UPDATE task_outbox SET state='acknowledged' WHERE sequence=?1", &[&r[0]])?;
+    if r[1] == "pending" && r[4] == "create" {
+        // The cloud create starts open. If the user finished the local task before
+        // delivery, queue the matching completion in this same commit.
+        db.query("INSERT INTO task_action_outbox(project_ref,user_id,task_id,operation_id,kind,expected_revision,completed) SELECT t.project_ref,t.user_id,t.id,lower(hex(randomblob(16))),'complete',?4,1 FROM tasks t WHERE t.id=?1 AND t.project_ref=?2 AND t.user_id=?3 AND t.completed=1", &[task_id,&owner.project_ref,&owner.user_id,&revision.to_string()])?;
+    }
     tx.commit()?;
     Ok(())
 }
@@ -161,6 +166,15 @@ pub fn pending_for_task(path: &Path, owner: &TaskOwner, task_id: &str) -> Result
     }).transpose()
 }
 
+/// Snapshot of at most 100 account-scoped lifecycle operations. Their immutable
+/// operation IDs are reused after restart or an ambiguous network response.
+pub fn pending_actions(path: &Path, owner: &TaskOwner) -> Result<Vec<PendingAction>, TaskError> {
+    owner.validate()?;
+    let (db, _) = connect(path)?;
+    db.query("SELECT operation_id,task_id,kind,expected_revision,COALESCE(CAST(completed AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending' ORDER BY sequence LIMIT 100", &[&owner.project_ref,&owner.user_id])?
+        .iter().map(|row| decode_action(row)).collect()
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingOperation {
@@ -177,7 +191,7 @@ pub fn pending(path: &Path, owner: &TaskOwner, after: i64) -> Result<Vec<Pending
     owner.validate()?;
     if after < 0 { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
-    db.query("SELECT sequence,operation_id,task_id,kind,expected_revision,title FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending' AND sequence>?3 ORDER BY sequence LIMIT 100",
+    db.query("SELECT o.sequence,o.operation_id,o.task_id,o.kind,o.expected_revision,o.title FROM task_outbox o JOIN tasks t ON t.id=o.task_id AND t.project_ref=o.project_ref AND t.user_id=o.user_id WHERE o.project_ref=?1 AND o.user_id=?2 AND o.state='pending' AND o.sequence>?3 AND t.title=o.title ORDER BY o.sequence LIMIT 100",
         &[&owner.project_ref, &owner.user_id, &after.to_string()])?.into_iter().map(|r| {
             let invalid = || TaskError::from(super::StorageError::InvalidSchema);
             if r.len()!=6 { return Err(invalid()); }

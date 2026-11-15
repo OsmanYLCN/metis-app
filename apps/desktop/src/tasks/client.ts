@@ -53,20 +53,36 @@ export async function cloudStatuses(owner: TaskOwner, taskIds: string[]): Promis
   return value as CloudStatus[];
 }
 export type PendingDelivery = { sequence: number; operationId: string; taskId: string; kind: 'create' | 'rename'; expectedRevision: number; title: string };
-export async function beginLocalDelivery(owner: TaskOwner, taskId: string): Promise<PendingDelivery | null> {
-  const item = await invoke('outbox_pending_for_task', { owner, taskId });
-  if (item === null) return null;
+function parseDelivery(item: unknown): PendingDelivery {
   if (!isObject(item) || !Number.isSafeInteger(item.sequence) || (item.sequence as number) <= 0
-    || item.taskId !== taskId || !/^[a-f0-9]{32}$/.test(String(item.operationId))
+    || !/^[a-f0-9]{32}$/.test(String(item.taskId)) || !/^[a-f0-9]{32}$/.test(String(item.operationId))
     || !((item.kind === 'create' && item.expectedRevision === 0)
       || (item.kind === 'rename' && Number.isSafeInteger(item.expectedRevision) && (item.expectedRevision as number) > 0))
     || typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200)
     throw new Error('Bekleyen görev doğrulanamadı.');
-  const frozen = await invoke('outbox_begin', { owner, sequence: item.sequence });
-  if (!isObject(frozen) || frozen.operationId !== item.operationId || frozen.taskId !== item.taskId
-    || frozen.title !== item.title || frozen.sequence !== item.sequence || frozen.kind !== item.kind
-    || frozen.expectedRevision !== item.expectedRevision) throw new Error('Gönderim kaydı değişti. Yeniden dene.');
-  return frozen as PendingDelivery;
+  return item as PendingDelivery;
+}
+export async function pendingDeliveries(owner: TaskOwner, after = 0): Promise<PendingDelivery[]> {
+  const value = await invoke('outbox_pending', { owner, after });
+  if (!Array.isArray(value) || value.length > 100) throw new Error('Gönderim kuyruğu okunamadı.');
+  const items = value.map(parseDelivery);
+  if (items.some((item, index) => item.sequence <= (index ? items[index - 1].sequence : after)))
+    throw new Error('Gönderim kuyruğu sırası doğrulanamadı.');
+  return items;
+}
+export async function beginQueuedDelivery(owner: TaskOwner, item: PendingDelivery): Promise<PendingDelivery> {
+  const frozen = parseDelivery(await invoke('outbox_begin', { owner, sequence: item.sequence }));
+  if (frozen.operationId !== item.operationId || frozen.taskId !== item.taskId || frozen.title !== item.title
+    || frozen.sequence !== item.sequence || frozen.kind !== item.kind || frozen.expectedRevision !== item.expectedRevision)
+    throw new Error('Gönderim kaydı değişti. Yeniden dene.');
+  return frozen;
+}
+export async function beginLocalDelivery(owner: TaskOwner, taskId: string): Promise<PendingDelivery | null> {
+  const item = await invoke('outbox_pending_for_task', { owner, taskId });
+  if (item === null) return null;
+  const parsed = parseDelivery(item);
+  if (parsed.taskId !== taskId) throw new Error('Bekleyen görev doğrulanamadı.');
+  return beginQueuedDelivery(owner, parsed);
 }
 export async function confirmLocalDelivery(owner: TaskOwner, item: PendingDelivery, outcome: 'applied' | 'replayed', revision: number): Promise<void> {
   await invoke('outbox_acknowledge', { owner, operationId: item.operationId, taskId: item.taskId, outcome, revision });
@@ -78,6 +94,14 @@ function parseAction(value: unknown, taskId: string): PendingAction {
     || !((value.kind === 'complete' && typeof value.completed === 'boolean') || (value.kind === 'delete' && value.completed === null)))
     throw new Error('Bulut işlemi doğrulanamadı. Listeyi yenile.');
   return value as PendingAction;
+}
+export async function pendingTaskActions(owner: TaskOwner): Promise<PendingAction[]> {
+  const value = await invoke('task_actions_pending', { owner });
+  if (!Array.isArray(value) || value.length > 100) throw new Error('Bekleyen bulut işlemleri okunamadı.');
+  const actions = value.map(item => parseAction(item, isObject(item) ? String(item.taskId) : ''));
+  if (new Set(actions.map(item => item.operationId)).size !== actions.length)
+    throw new Error('Bekleyen bulut işlemleri doğrulanamadı.');
+  return actions;
 }
 export async function prepareTaskAction(owner: TaskOwner, taskId: string, kind: PendingAction['kind'], completed: boolean | null): Promise<PendingAction> {
   return parseAction(await invoke('task_action_prepare', { owner, taskId, kind, completed }), taskId);

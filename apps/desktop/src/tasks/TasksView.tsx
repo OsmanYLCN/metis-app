@@ -3,6 +3,7 @@ import { CheckCheck, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
 import { beginLocalDelivery, beginTaskAction, cloudStatuses, completeTask, confirmLocalDelivery, confirmTaskAction, createTask, deleteTask, listTasks, pendingCount, prepareTaskAction, renameTask, type CloudStatus, type Task, type TaskOwner } from './client';
+import { syncPendingTasks } from './sync';
 
 export function TasksView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
@@ -43,6 +44,43 @@ function TaskList({ owner }: { owner: TaskOwner }) {
   const request = useRef(0);
   const inFlight = useRef(false);
   const draftId = useRef<string | null>(null);
+  const syncAbort = useRef<AbortController | null>(null);
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoAttempted = useRef(false);
+  const autoBlocked = useRef(false);
+
+  function scheduleAutoSync() {
+    if (autoBlocked.current) return;
+    if (autoTimer.current) clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(() => { autoTimer.current = null; void runSync(true); }, 200);
+  }
+  async function runSync(automatic: boolean) {
+    if (inFlight.current || syncAbort.current || (automatic && autoBlocked.current)) return;
+    const controller = new AbortController();
+    syncAbort.current = controller;
+    const attempt = ++request.current;
+    inFlight.current = true; setBusy(true); setError(''); setNotice('');
+    try {
+      const signal = automatic ? AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) : controller.signal;
+      const result = await syncPendingTasks(owner, signal, automatic ? 20 : 100);
+      if (attempt !== request.current) return;
+      setQueued(result.remaining);
+      setNotice(result.sent ? `${result.sent} işlem buluta gönderildi. ${result.remaining} işlem bekliyor.`
+        : result.remaining ? 'Gönderilmeye hazır işlem yok. Listeyi yenileyip tekrar dene.' : 'Bütün değişiklikler gönderildi.');
+      autoBlocked.current = false;
+    } catch (failure) {
+      if (attempt === request.current) {
+        autoBlocked.current = true;
+        setError(`Buluta gönderim durdu. Yerel kayıtlar korundu. ${message(failure)}`);
+      }
+    } finally {
+      if (syncAbort.current === controller) syncAbort.current = null;
+      if (attempt === request.current) {
+        inFlight.current = false; setBusy(false);
+        void load(0, false);
+      }
+    }
+  }
 
   function closeAction() {
     setAction(null); setActionError('');
@@ -71,7 +109,8 @@ function TaskList({ owner }: { owner: TaskOwner }) {
         if (attempt !== request.current) return;
         setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
         if (cloud[saved.id]?.phase === 'sent') setCloud(previous => ({ ...previous, [saved.id]: { taskId: saved.id, phase: 'pendingRename', revision: null } }));
-        setNotice(cloud[saved.id]?.phase === 'sent' ? 'Başlık bu cihazda kaydedildi. Değişikliği buluta gönderebilirsin.' : 'Görev başlığı kaydedildi.');
+        setNotice(cloud[saved.id]?.phase === 'sent' ? 'Başlık bu cihazda kaydedildi; buluta gönderilecek.' : 'Görev başlığı kaydedildi.');
+        scheduleAutoSync();
       } else {
         if (cloud[action.task.id]?.phase === 'sent' || cloud[action.task.id]?.phase === 'pendingDelete')
           await sendAction(action.task, 'delete', null, attempt);
@@ -85,9 +124,10 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
 
-  async function load(offset = 0) {
+  async function load(offset = 0, clearMessages = true) {
     const attempt = ++request.current;
-    inFlight.current = true; setBusy(true); setError(''); setNotice('');
+    inFlight.current = true; setBusy(true);
+    if (clearMessages) { setError(''); setNotice(''); }
     try {
       const result = await listTasks(owner, offset);
       const statuses = await cloudStatuses(owner, result.items.map(task => task.id));
@@ -99,7 +139,12 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { setBusy(false); inFlight.current = false; } }
   }
-  useEffect(() => { void load(); return () => { ++request.current; }; }, [owner.projectRef, owner.userId]);
+  useEffect(() => { void load(); return () => { ++request.current; syncAbort.current?.abort(); if (autoTimer.current) clearTimeout(autoTimer.current); }; }, [owner.projectRef, owner.userId]);
+  useEffect(() => {
+    if (!loaded || queued === null || autoAttempted.current) return;
+    autoAttempted.current = true;
+    if (queued > 0) scheduleAutoSync();
+  }, [loaded, queued]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,6 +162,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       setItems(previous => [task, ...previous.filter(old => old.id !== task.id)]);
       setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'pendingCreate', revision: null } }));
       setTitle(''); draftId.current = null; setNotice('Görev bu cihaza kaydedildi.');
+      scheduleAutoSync();
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
@@ -180,15 +226,16 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       if (attempt !== request.current) return;
       await confirmLocalDelivery(owner, operation, receipt.outcome, receipt.revision);
       setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'sent', revision: receipt.revision } }));
-      setNotice(operation.kind === 'create' ? 'Görev buluta gönderildi. Otomatik eşitleme henüz yok.' : 'Başlık bulutta güncellendi.');
+      setNotice(operation.kind === 'create' ? 'Görev buluta gönderildi.' : 'Başlık bulutta güncellendi.');
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
   return <section className="panel tasks-panel" aria-label="Yerel görevler" aria-busy={busy}>
     <div className="section-heading"><div><h2>Bir sonraki küçük adımın</h2>
-      <p className="section-description">Görevlerin bu cihazda saklanır. Bulut eşitlemesi henüz yok.</p></div>
+      <p className="section-description">Görevlerin bu cihazda saklanır. Açık oturumda bekleyen değişiklikler buluta gönderilir; buluttan indirme henüz yok.</p></div>
       <button className="text-button" disabled={busy || !!action} onClick={() => void load()}><RefreshCw size={15} /> Listeyi yenile</button></div>
-    <p role="status">{queued === null ? 'Bekleyen kayıt sayısı henüz alınamadı.' : `${queued} yerel değişiklik gönderim hazırlığında.`} Değişiklikleri tek tek gönderebilirsin.</p>
+    <p role="status">{queued === null ? 'Bekleyen kayıt sayısı henüz alınamadı.' : `${queued} yerel değişiklik bekliyor.`}
+      {' '}<button className="text-button" disabled={busy || !!action || queued === 0} onClick={() => { autoBlocked.current = false; void runSync(false); }}>Şimdi buluta gönder</button></p>
     <form className="task-form" onSubmit={save}>
       <label htmlFor="task-title">Yeni görev</label>
       <div className="task-compose"><input id="task-title" value={title} maxLength={200} disabled={busy || !loaded || !!action}
