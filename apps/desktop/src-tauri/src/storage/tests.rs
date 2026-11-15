@@ -4,6 +4,46 @@ use std::{path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[test]
+fn notes_persist_search_pin_and_keep_account_boundaries() {
+    let temp=TestDirectory::new();
+    let owner=task_owner("project-a",'1');
+    let other=task_owner("project-a",'2');
+    let id="a".repeat(32);
+    let note=workspace::create(&temp.db(),&owner,&id,"note","İlk fikir","Türkçe içerik\nİkinci satır","active",true).unwrap();
+    assert_eq!(note.revision,1);
+    assert_eq!(workspace::create(&temp.db(),&owner,&id,"note","İlk fikir","Türkçe içerik\nİkinci satır","active",true).unwrap(),note);
+    assert!(workspace::list(&temp.db(),&other,"note","",0).unwrap().items.is_empty());
+    assert!(workspace::create(&temp.db(),&other,&id,"note","Yabancı","","active",false).is_err());
+    assert_eq!(workspace::list(&temp.db(),&owner,"note","fikir",0).unwrap().items.len(),1);
+    assert_eq!(workspace::list(&temp.db(),&owner,"project","",0).unwrap().items.len(),0);
+    open_storage(&temp.db()).unwrap();
+    assert_eq!(workspace::list(&temp.db(),&owner,"note","",0).unwrap().items[0],note);
+    let changed=workspace::save(&temp.db(),&owner,&id,"note",1,"Yeni başlık","Güncel içerik","active",false).unwrap();
+    assert_eq!(changed.revision,2);
+    assert_eq!(workspace::save(&temp.db(),&owner,&id,"note",1,"Yeni başlık","Güncel içerik","active",false).unwrap(),changed);
+    assert_eq!(workspace::save(&temp.db(),&owner,&id,"note",1,"Eski yazma","","active",false),Err(tasks::TaskError::Conflict));
+    assert!(workspace::delete(&temp.db(),&owner,&id,"note",1).is_err());
+    workspace::delete(&temp.db(),&owner,&id,"note",2).unwrap();
+    workspace::delete(&temp.db(),&owner,&id,"note",2).unwrap();
+    assert!(workspace::list(&temp.db(),&owner,"note","",0).unwrap().items.is_empty());
+}
+
+#[test]
+fn projects_support_status_and_reject_invalid_content() {
+    let temp=TestDirectory::new(); let owner=task_owner("project-a",'1'); let id="b".repeat(32);
+    assert!(workspace::create(&temp.db(),&owner,&id,"project","  ","","active",false).is_err());
+    assert!(workspace::create(&temp.db(),&owner,&id,"project","Plan","bad\0body","active",false).is_err());
+    assert!(workspace::create(&temp.db(),&owner,&id,"project","Plan","","active",true).is_err());
+    let first=workspace::create(&temp.db(),&owner,&id,"project"," Plan ","Açıklama","active",false).unwrap();
+    assert_eq!(first.title,"Plan");
+    let paused=workspace::save(&temp.db(),&owner,&id,"project",1,"Plan","Açıklama","paused",false).unwrap();
+    assert_eq!(paused.state,"paused"); assert_eq!(paused.revision,2);
+    let done=workspace::save(&temp.db(),&owner,&id,"project",2,"Plan","Açıklama","done",false).unwrap();
+    assert_eq!(done.state,"done");
+    assert_eq!(workspace::list(&temp.db(),&owner,"project","Plan",0).unwrap().items[0],done);
+}
+
+#[test]
 fn cloud_actions_keep_one_operation_across_restart_and_acknowledge_locally() {
     let temp = TestDirectory::new();
     let owner = task_owner("project-a", '1');
@@ -231,7 +271,7 @@ fn outbox_upgrade_preserves_v2_tasks() {
     db.execute("INSERT INTO tasks(id,project_ref,user_id,title) VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','project-a','11111111-1111-4111-8111-111111111111','Keep me')").unwrap();
     drop(db);
     let (db, status) = connect(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 5);
+    assert_eq!(status.schema_version, 6);
     assert_eq!(db.scalar("SELECT title FROM tasks").unwrap(), "Keep me");
     assert_eq!(db.scalar("SELECT count(*) FROM task_outbox").unwrap(), "0");
 }
@@ -258,7 +298,7 @@ fn upgrades_v1_without_changing_identity_and_failed_v2_rolls_back() {
     drop(db);
     let status = open_storage(&temp.db()).unwrap();
     assert_eq!(status.storage_id, id);
-    assert_eq!(status.schema_version, 5);
+    assert_eq!(status.schema_version, 6);
 }
 
 fn task_owner(project: &str, user: char) -> tasks::TaskOwner {
@@ -390,10 +430,10 @@ impl Drop for TestDirectory {
 fn first_open_creates_real_sqlite_and_foundation_and_tasks_tables() {
     let temp = TestDirectory::new();
     let status = open_storage(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 5);
+    assert_eq!(status.schema_version, 6);
     assert_eq!(&fs::read(temp.db()).unwrap()[..16], b"SQLite format 3\0");
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_action_outbox,task_outbox,tasks");
+    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_action_outbox,task_outbox,tasks,workspace_entries");
     assert_eq!(db.scalar("PRAGMA journal_mode").unwrap(), "wal");
 }
 
@@ -404,7 +444,7 @@ fn closing_and_reopening_preserves_identity_and_applies_migration_once() {
     let second = open_storage(&temp.db()).unwrap();
     assert_eq!(first, second);
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "5");
+    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "6");
 }
 
 #[test]
@@ -426,9 +466,9 @@ fn newer_schema_is_rejected_without_resetting_existing_data() {
     let temp = TestDirectory::new();
     let original = open_storage(&temp.db()).unwrap();
     let db = Connection::open(&temp.db()).unwrap();
-    db.execute("PRAGMA user_version=6").unwrap();
+    db.execute("PRAGMA user_version=7").unwrap();
     assert_eq!(open_storage(&temp.db()), Err(StorageError::NewerSchema));
-    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "6");
+    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "7");
     assert_eq!(db.scalar("SELECT storage_id FROM local_metadata").unwrap(), original.storage_id);
 }
 

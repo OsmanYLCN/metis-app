@@ -11,6 +11,7 @@ import { AccountCard } from './identity/AccountCard';
 import { loginStore } from './identity/login';
 import { TasksView } from './tasks/TasksView';
 import { CentralReadCard } from './tasks/CentralReadCard';
+import { WorkspaceView } from './workspace/WorkspaceView';
 
 const modules = [
   { name: 'Dashboard', label: 'Genel bakış', icon: House },
@@ -69,6 +70,8 @@ export function App() {
   }, []);
 
   function navigate(name: string) {
+    if (name !== selected && document.querySelector('[data-workspace-dirty="true"]')
+      && !window.confirm('Kaydedilmemiş değişiklikler var. Bu sayfadan çıkılsın mı?')) return;
     setSelected(name);
     setMenuOpen(false);
     requestAnimationFrame(() => pageTitle.current?.focus());
@@ -87,10 +90,10 @@ export function App() {
         <div className="nav-heading">ÇALIŞMA ALANI</div>
         <nav>{modules.map(({ name, label, icon: Icon }) => (
           <button key={name} className={`nav-item ${selected === name ? 'active' : ''}`} aria-current={selected === name ? 'page' : undefined} onClick={() => navigate(name)}>
-            <Icon size={18} /><span>{label}</span>{name !== 'Dashboard' && name !== 'Tasks' && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
+            <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Tasks', 'Projects', 'Notes'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 24 <span>v0.16.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 25 <span>v0.17.0</span></div></div>
       </aside>
 
       <div className="main-layout">
@@ -100,7 +103,7 @@ export function App() {
         </header>
 
         <main id="main" tabIndex={-1}>
-          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Her şey için bir başlangıç.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
+          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Her şey için bir başlangıç.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
 
           {selected === 'Dashboard' ? <>
 
@@ -108,8 +111,8 @@ export function App() {
 
             <section className="status-grid" aria-label="Temel durumları"><article className="status-card"><span className="card-icon mint"><Activity size={19} /></span><span className="card-caption">Bağlantı</span><h3 aria-live="polite">{status}</h3><p>Yalnızca API sürecinin sağlık kontrolü.</p><button className="text-button" onClick={() => void refresh()} disabled={connection === 'checking'}><RefreshCw size={14} className={connection === 'checking' ? 'spin' : ''} /> Yeniden kontrol et</button></article><StorageCard /><AccountCard /></section>
 
-            <CentralReadCard /><div className="lower-grid"><section className="panel" id="foundation" aria-labelledby="foundation-title"><div className="section-heading"><h2 id="foundation-title">İlk adım, sağlam temel</h2><span className="subtle-label">03 / M0</span></div><p className="section-description">Bu önizlemede yer alanlar</p><ul className="foundation-list"><li><span className="check-icon"><Check size={14} /></span><div><strong>Ortak uygulama kabuğu</strong><p>Gezinme, görünüm ve tutarlı bir başlangıç.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Yerel API bağlantısı</strong><p>Gerçek health endpoint ve görünür bağlantı durumu.</p></div><span className="row-status">Hazır</span></li><li><span className="pending-icon"><Circle size={14} /></span><div><strong>Hesap ve eşitleme</strong><p>Ayrı, kontrollü geliştirme dilimleri.</p></div><span className="subtle-label">Sonra</span></li></ul></section><section className="panel next-panel"><div className="card-icon neutral"><Command size={19} /></div><h2>Adım adım, birlikte.</h2><p>Bu ekran uygulamanın ilk temelidir. Görevlerini bu cihazda oluşturabilir ve tamamlayabilirsin. Diğer ürün modülleri sıradaki dilimlerde.</p><div className="next-note"><span className="note-dot" /><span>Sonraki dilim, sen “devam edelim” dediğinde.</span></div></section></div>
-          </> : selected === 'Tasks' ? <TasksView onAccount={() => navigate('Dashboard')} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
+            <CentralReadCard /><div className="lower-grid"><section className="panel" id="foundation" aria-labelledby="foundation-title"><div className="section-heading"><h2 id="foundation-title">İlk adım, sağlam temel</h2><span className="subtle-label">03 / M0</span></div><p className="section-description">Şimdi kullanabileceklerin</p><ul className="foundation-list"><li><span className="check-icon"><Check size={14} /></span><div><strong>Görevler</strong><p>Bu cihazdaki görevlerini yönet ve buluta gönder.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Notlar</strong><p>Yaz, ara ve önemli notlarını sabitle.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Projeler</strong><p>Planlarını kaydet ve durumlarını izle.</p></div><span className="row-status">Hazır</span></li></ul></section><section className="panel next-panel"><div className="card-icon neutral"><Command size={19} /></div><h2>Çalışma alanına gir.</h2><p>Görevlerini, notlarını ve projelerini bu Windows cihazında kullanmaya başlayabilirsin. Notlar ve projeler şu anda yalnızca yerelde saklanır.</p><div className="workspace-quick-links"><button className="secondary-button" onClick={() => navigate('Notes')}>Notları aç</button><button className="secondary-button" onClick={() => navigate('Projects')}>Projeleri aç</button></div></section></div>
+          </> : selected === 'Tasks' ? <TasksView onAccount={() => navigate('Dashboard')} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard')} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
 
           <footer><span><span className={`connection-dot ${connection}`} />{status}{lastChecked ? ` · ${lastChecked}` : ''}</span><span>Ürün modülleri geliştirme aşamasında</span></footer>
         </main>

@@ -39,7 +39,7 @@ test('native storage failure is visible and a manual retry recovers (mock bridge
     let count = 0;
     Object.assign(window, { __TAURI__: { core: { invoke: async () => {
       if (++count <= 2) throw 'newerSchema'; // React StrictMode's two initial effect calls.
-      return { engine: 'sqlite', schemaVersion: 2, migrationCount: 2,
+      return { engine: 'sqlite', schemaVersion: 6, migrationCount: 6,
         storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00.000Z' };
     } } } });
   });
@@ -54,8 +54,8 @@ test('compact layout keeps navigation reachable without horizontal overflow', as
   await page.setViewportSize({ width: 780, height: 720 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Menüyü aç' }).click();
-  await page.getByRole('button', { name: 'Notlar Planlandı' }).click();
-  await expect(page.getByRole('heading', { name: 'Notlar için yerimiz hazır.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Notlar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Notlarını Windows uygulamasında.' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 

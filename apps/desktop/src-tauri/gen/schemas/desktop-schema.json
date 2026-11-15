@@ -201,10 +201,22 @@
           "markdownDescription": "Enables the outbox_count command without any pre-configured scope."
         },
         {
+          "description": "Enables the outbox_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-pending",
+          "markdownDescription": "Enables the outbox_pending command without any pre-configured scope."
+        },
+        {
           "description": "Enables the outbox_pending_for_task command without any pre-configured scope.",
           "type": "string",
           "const": "allow-outbox-pending-for-task",
           "markdownDescription": "Enables the outbox_pending_for_task command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbox_statuses command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbox-statuses",
+          "markdownDescription": "Enables the outbox_statuses command without any pre-configured scope."
         },
         {
           "description": "Enables the session_vault_clear command without any pre-configured scope.",
@@ -223,6 +235,30 @@
           "type": "string",
           "const": "allow-session-vault-write",
           "markdownDescription": "Enables the session_vault_write command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the task_action_acknowledge command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-task-action-acknowledge",
+          "markdownDescription": "Enables the task_action_acknowledge command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the task_action_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-task-action-begin",
+          "markdownDescription": "Enables the task_action_begin command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the task_action_prepare command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-task-action-prepare",
+          "markdownDescription": "Enables the task_action_prepare command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the task_actions_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-task-actions-pending",
+          "markdownDescription": "Enables the task_actions_pending command without any pre-configured scope."
         },
         {
           "description": "Enables the tasks_create command without any pre-configured scope.",
@@ -255,6 +291,30 @@
           "markdownDescription": "Enables the tasks_set_completed command without any pre-configured scope."
         },
         {
+          "description": "Enables the workspace_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-create",
+          "markdownDescription": "Enables the workspace_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-delete",
+          "markdownDescription": "Enables the workspace_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-list",
+          "markdownDescription": "Enables the workspace_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workspace_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-save",
+          "markdownDescription": "Enables the workspace_save command without any pre-configured scope."
+        },
+        {
           "description": "Denies the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "deny-local-storage-status",
@@ -279,10 +339,22 @@
           "markdownDescription": "Denies the outbox_count command without any pre-configured scope."
         },
         {
+          "description": "Denies the outbox_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-pending",
+          "markdownDescription": "Denies the outbox_pending command without any pre-configured scope."
+        },
+        {
           "description": "Denies the outbox_pending_for_task command without any pre-configured scope.",
           "type": "string",
           "const": "deny-outbox-pending-for-task",
           "markdownDescription": "Denies the outbox_pending_for_task command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbox_statuses command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbox-statuses",
+          "markdownDescription": "Denies the outbox_statuses command without any pre-configured scope."
         },
         {
           "description": "Denies the session_vault_clear command without any pre-configured scope.",
@@ -301,6 +373,30 @@
           "type": "string",
           "const": "deny-session-vault-write",
           "markdownDescription": "Denies the session_vault_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the task_action_acknowledge command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-task-action-acknowledge",
+          "markdownDescription": "Denies the task_action_acknowledge command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the task_action_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-task-action-begin",
+          "markdownDescription": "Denies the task_action_begin command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the task_action_prepare command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-task-action-prepare",
+          "markdownDescription": "Denies the task_action_prepare command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the task_actions_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-task-actions-pending",
+          "markdownDescription": "Denies the task_actions_pending command without any pre-configured scope."
         },
         {
           "description": "Denies the tasks_create command without any pre-configured scope.",
@@ -331,6 +427,30 @@
           "type": "string",
           "const": "deny-tasks-set-completed",
           "markdownDescription": "Denies the tasks_set_completed command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-create",
+          "markdownDescription": "Denies the workspace_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-delete",
+          "markdownDescription": "Denies the workspace_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-list",
+          "markdownDescription": "Denies the workspace_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-save",
+          "markdownDescription": "Denies the workspace_save command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

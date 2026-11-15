@@ -14,7 +14,7 @@ async function setup(page: Page) {
   await page.exposeFunction('taskBridge', (command: string, args: { owner?: { userId: string }; id?: string; title?: string; completed?: boolean; expectedTitle?: string; taskIds?: string[] }) => {
     if (command === 'session_vault_read') return null;
     if (command.startsWith('session_vault_')) return;
-    if (command === 'local_storage_status') return { engine: 'sqlite', schemaVersion: 5, migrationCount: 5, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00Z' };
+    if (command === 'local_storage_status') return { engine: 'sqlite', schemaVersion: 6, migrationCount: 6, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00Z' };
     if (command === 'outbox_count') return 0;
     if (command === 'outbox_pending' || command === 'task_actions_pending') return [];
     if (command === 'outbox_statuses') return (args.taskIds ?? []).map(taskId => ({ taskId, phase: 'localOnly', revision: null }));

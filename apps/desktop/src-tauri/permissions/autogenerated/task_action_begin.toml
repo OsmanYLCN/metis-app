@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-task-action-begin"
+description = "Enables the task_action_begin command without any pre-configured scope."
+commands.allow = ["task_action_begin"]
+
+[[permission]]
+identifier = "deny-task-action-begin"
+description = "Denies the task_action_begin command without any pre-configured scope."
+commands.deny = ["task_action_begin"]

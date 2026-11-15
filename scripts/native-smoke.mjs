@@ -87,8 +87,8 @@ try {
   await expect(page.getByRole('heading', { name: 'Yerel alan hazır' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hesap bağlantısı kurulmadı' })).toBeVisible();
   const first = await page.evaluate(() => window.__TAURI__.core.invoke('local_storage_status'));
-  expect(first.schemaVersion).toBe(5);
-  expect(first.migrationCount).toBe(5);
+  expect(first.schemaVersion).toBe(6);
+  expect(first.migrationCount).toBe(6);
   await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_write', { projectRef: 'native-test', token: 'synthetic-native-refresh' }));
   expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBe('synthetic-native-refresh');
   expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'another-test' }))).toBeNull();
@@ -104,6 +104,11 @@ try {
   const taskId = 'a'.repeat(32);
   const task = await page.evaluate(({ owner, id }) => window.__TAURI__.core.invoke('tasks_create', { owner, id, title: 'Yerel test görevi' }), { owner: taskOwner, id: taskId });
   expect(task.title).toBe('Yerel test görevi');
+  const queuedTask = await page.evaluate(owner => window.__TAURI__.core.invoke('outbox_pending', { owner, after: 0 }), taskOwner);
+  expect(queuedTask[0].taskId).toBe(taskId);
+  const taskStatus = await page.evaluate(({ owner, id }) => window.__TAURI__.core.invoke('outbox_statuses', { owner, taskIds: [id] }), { owner: taskOwner, id: taskId });
+  expect(taskStatus[0].phase).toBe('pendingCreate');
+  expect(await page.evaluate(owner => window.__TAURI__.core.invoke('task_actions_pending', { owner }), taskOwner)).toEqual([]);
   const completed = await page.evaluate(({ owner, id }) => window.__TAURI__.core.invoke('tasks_set_completed', { owner, id, completed: true }), { owner: taskOwner, id: taskId });
   expect(completed.completed).toBe(true);
   const renamed = await page.evaluate(({ owner, id, expectedTitle }) => window.__TAURI__.core.invoke('tasks_rename', { owner, id, expectedTitle, title: 'Düzenlenen yerel görev' }), { owner: taskOwner, id: taskId, expectedTitle: completed.title });
@@ -111,6 +116,13 @@ try {
   expect(renamed.completed).toBe(true);
   await page.evaluate(owner => window.__TAURI__.core.invoke('tasks_create', { owner, id: 'b'.repeat(32), title: 'Silinecek test görevi' }), taskOwner);
   await page.evaluate(owner => window.__TAURI__.core.invoke('tasks_delete', { owner, id: 'b'.repeat(32), expectedTitle: 'Silinecek test görevi' }), taskOwner);
+  const noteId = 'c'.repeat(32);
+  const projectId = 'd'.repeat(32);
+  const note = await page.evaluate(({ owner, id }) => window.__TAURI__.core.invoke('workspace_create', { owner, id, kind: 'note', title: 'Yerel not', body: 'Kalıcı içerik', state: 'active', pinned: true }), { owner: taskOwner, id: noteId });
+  expect(note.pinned).toBe(true);
+  const project = await page.evaluate(({ owner, id }) => window.__TAURI__.core.invoke('workspace_create', { owner, id, kind: 'project', title: 'Yerel proje', body: 'Proje açıklaması', state: 'active', pinned: false }), { owner: taskOwner, id: projectId });
+  const paused = await page.evaluate(({ owner, entry }) => window.__TAURI__.core.invoke('workspace_save', { owner, id: entry.id, kind: 'project', expectedRevision: entry.revision, title: entry.title, body: entry.body, state: 'paused', pinned: false }), { owner: taskOwner, entry: project });
+  expect(paused.state).toBe('paused');
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${root}test-results/m0.9-native.png` });
 
@@ -143,12 +155,18 @@ try {
   expect(second).toEqual(first);
   const persisted = await reopened.evaluate(owner => window.__TAURI__.core.invoke('tasks_list', { owner, offset: 0 }), taskOwner);
   expect(persisted.items).toEqual([renamed]);
+  const storedNotes = await reopened.evaluate(owner => window.__TAURI__.core.invoke('workspace_list', { owner, kind: 'note', query: '', offset: 0 }), taskOwner);
+  expect(storedNotes.items).toEqual([note]);
+  const storedProjects = await reopened.evaluate(owner => window.__TAURI__.core.invoke('workspace_list', { owner, kind: 'project', query: '', offset: 0 }), taskOwner);
+  expect(storedProjects.items).toEqual([paused]);
   const other = await reopened.evaluate(owner => window.__TAURI__.core.invoke('tasks_list', { owner, offset: 0 }), { ...taskOwner, projectRef: 'another-test' });
   expect(other.items).toEqual([]);
+  const otherNotes = await reopened.evaluate(owner => window.__TAURI__.core.invoke('workspace_list', { owner, kind: 'note', query: '', offset: 0 }), { ...taskOwner, projectRef: 'another-test' });
+  expect(otherNotes.items).toEqual([]);
   expect(await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBe('synthetic-native-refresh');
   await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_clear', { projectRef: 'native-test' }));
   expect(await reopened.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBeNull();
-  console.log(`PASS: Windows IPC task create/complete/rename/delete/restart and owner partition, vault save/reopen/delete, restricted permissions, and SQLite restart identity. API mode: ${mockApi ? 'mock responses; existing API untouched' : 'real isolated local process'}.`);
+  console.log(`PASS: Windows IPC tasks, notes and projects persist across restart with account partitions; vault, permissions and SQLite identity verified. API mode: ${mockApi ? 'mock responses; existing API untouched' : 'real isolated local process'}.`);
 } finally {
   await browser?.close().catch(() => {});
   for (const child of children.reverse()) {

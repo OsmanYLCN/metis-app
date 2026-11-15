@@ -1,6 +1,7 @@
 mod sqlite;
 pub mod tasks;
 pub mod outbox;
+pub mod workspace;
 #[cfg(test)]
 mod tests;
 
@@ -9,13 +10,14 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 5;
+const VERSION: u32 = 6;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
 const OUTBOX_MIGRATION: &str = include_str!("../../migrations/0003_local_outbox.sql");
 const DELIVERY_MIGRATION: &str = include_str!("../../migrations/0004_outbox_delivery.sql");
 const ACTION_MIGRATION: &str = include_str!("../../migrations/0005_task_actions.sql");
+const WORKSPACE_MIGRATION: &str = include_str!("../../migrations/0006_workspace_entries.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -126,6 +128,14 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
     }
     if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=5 AND name='task_actions'")? != action_checksum { return Err(StorageError::InvalidSchema); }
     connection.query("SELECT sequence,project_ref,user_id,task_id,operation_id,kind,expected_revision,completed,state,started,revision FROM task_action_outbox LIMIT 0", &[])?;
+    let workspace_checksum = format!("{:x}", Sha256::digest(WORKSPACE_MIGRATION.replace("\r\n", "\n").as_bytes()));
+    if old_version < 6 {
+        connection.execute(WORKSPACE_MIGRATION).map_err(|_| StorageError::MigrationFailed)?;
+        connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(6,'workspace_entries','{workspace_checksum}'); PRAGMA user_version=6;"))
+            .map_err(|_| StorageError::MigrationFailed)?;
+    }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=6 AND name='workspace_entries'")? != workspace_checksum { return Err(StorageError::InvalidSchema); }
+    connection.query("SELECT id,project_ref,user_id,kind,title,body,state,pinned,revision,created_at,updated_at FROM workspace_entries LIMIT 0", &[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

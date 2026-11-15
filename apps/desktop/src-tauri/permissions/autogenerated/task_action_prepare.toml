@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-task-action-prepare"
+description = "Enables the task_action_prepare command without any pre-configured scope."
+commands.allow = ["task_action_prepare"]
+
+[[permission]]
+identifier = "deny-task-action-prepare"
+description = "Denies the task_action_prepare command without any pre-configured scope."
+commands.deny = ["task_action_prepare"]

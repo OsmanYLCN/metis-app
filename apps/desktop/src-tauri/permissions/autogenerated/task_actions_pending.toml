@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-task-actions-pending"
+description = "Enables the task_actions_pending command without any pre-configured scope."
+commands.allow = ["task_actions_pending"]
+
+[[permission]]
+identifier = "deny-task-actions-pending"
+description = "Denies the task_actions_pending command without any pre-configured scope."
+commands.deny = ["task_actions_pending"]
