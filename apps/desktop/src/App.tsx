@@ -1,3 +1,4 @@
+import { GlobalSearch } from './search/GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity, ArrowUpRight, Bell, CalendarDays, ChartNoAxesCombined,
@@ -37,6 +38,8 @@ const modules = [
 
 export function App() {
   const [selected, setSelected] = useState('Dashboard');
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(value => !value); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
   const [taskIntent, setTaskIntent] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     try { const saved = localStorage.getItem('metis-theme'); return saved === 'light' || saved === 'dark' ? saved : 'system'; } catch { return 'system'; }
@@ -93,6 +96,7 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {searchOpen && <GlobalSearch onClose={()=>setSearchOpen(false)} navigate={navigate}/>}
       <a className="skip-link" href="#main">İçeriğe geç</a>
       <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`} aria-label="Ana gezinme">
         <div className="brand"><span className="brand-symbol"><Layers3 size={21} /></span><span>Metis<small>Kişisel çalışma alanın</small></span>
@@ -105,13 +109,13 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 38 <span>v0.30.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 39 <span>v0.31.0</span></div></div>
       </aside>
 
       <div className="main-layout">
         <header className="topbar">
           <div className="breadcrumb"><button className="icon-button mobile-only" aria-label="Menüyü aç" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={20} /></button><span>Çalışma alanı</span><span className="slash">/</span><strong>{current.label}</strong></div>
-          <div className="topbar-actions"><span className="preview-badge">Yerel önizleme</span><label className="theme-control"><Sun size={15} /><span className="sr-only">Görünüm</span><select aria-label="Görünüm" value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label></div>
+          <div className="topbar-actions"><button className="secondary-button" onClick={()=>setSearchOpen(true)}>Ara · Ctrl+K</button><span className="preview-badge">Yerel önizleme</span><label className="theme-control"><Sun size={15} /><span className="sr-only">Görünüm</span><select aria-label="Görünüm" value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label></div>
         </header>
 
         <main id="main" tabIndex={-1}>
