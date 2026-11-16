@@ -1,3 +1,4 @@
+import { financeTotals } from '../finance/totals';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { ChartNoAxesCombined, RefreshCw } from 'lucide-react';
 import { loginStore } from '../identity/login';
@@ -13,16 +14,10 @@ const monthKey = (date: Date) => iso(date).slice(0, 7);
 
 async function financeMonth(owner: TaskOwner, date: Date): Promise<Month> {
   const key = monthKey(date);
-  const result = await window.__TAURI__!.core.invoke('finance_list', { owner, month: key });
-  if (!Array.isArray(result) || result.length > 500) throw new Error('Finans özeti okunamadı.');
-  let income = 0, expense = 0;
-  for (const value of result) {
-    if (!value || !['income', 'expense'].includes(value.kind) || !Number.isSafeInteger(value.amountCents) || value.amountCents < 1 || value.amountCents > 999999999999)
-      throw new Error('Finans verisi doğrulanamadı.');
-    if (value.kind === 'income') income += value.amountCents;
-    else expense += value.amountCents;
-  }
-  return { key, label: date.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' }), income, expense, count: result.length, limited: result.length === 500 };
+  const result = await financeTotals(owner, key);
+  const income = result.filter(row => row.kind === 'income').reduce((sum,row)=>sum+row.amountCents,0);
+  const expense = result.filter(row => row.kind === 'expense').reduce((sum,row)=>sum+row.amountCents,0);
+  return { key, label: date.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' }), income, expense, count: result.reduce((sum,row)=>sum+row.count,0), limited: false };
 }
 
 async function taskSample(owner: TaskOwner): Promise<{ tasks: Task[]; limited: boolean }> {

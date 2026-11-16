@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 37; masaüstü v0.29.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 38; masaüstü v0.30.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -177,3 +177,5 @@ M0.35: Notlarda günlük plan/toplantı, projelerde plan şablonu; Ctrl+S ile ka
 M0.36: Projeden proje filtreli görevlere geçiş ve yeni görevde hazır proje seçimi; Dashboard geciken/haftalık görev geçişleri; hızlı görev görünümleri ve filtreleri temizleme; ertelenmiş bildirimleri listeleme ve ertelemeyi kaldırma. Bildirimler mevcut 90 gün geçmiş/30 gün gelecek penceresini kullanır. EXE üretilmedi.
 
 M0.37: Finans kayıtlarında başlık/kategori araması ve gelir/gider filtresi; bütçede doğrudan düzenleme; Finans ekranında tüm aylık kayıtlardan hesaplanan toplamlar ve kategori dağılımı. Geçmiş listesi son 500 kayıtla sınırlıdır. EXE üretilmedi.
+
+M0.38: Analizlerde tüm aylık kayıtları kapsayan finans toplamları; önceki ay ile gelir/gider karşılaştırması; hızlı ay geçişleri; onaylı bütçe kaldırma. Karşılaştırma seçili ayın mevcut kayıtlarını önceki ayın tamamıyla karşılaştırır. EXE üretilmedi.

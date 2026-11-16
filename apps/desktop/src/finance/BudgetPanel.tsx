@@ -38,11 +38,18 @@ export function BudgetPanel({ owner, month, onMonthChange }: { owner: TaskOwner;
     } catch { setError('Bütçe kaydedilemedi. Tekrar dene.'); } finally { setBusy(false); }
   }
 
+  async function remove(name: string) {
+    if (busy || !window.confirm(`${name} kategorisinin ${month} bütçesi kaldırılsın mı? Gider kayıtları korunur.`)) return;
+    setBusy(true); setError('');
+    try { await window.__TAURI__!.core.invoke('budgets_set', { owner, month, category: name, limitCents: 0 }); setRefresh(n=>n+1); if(category===name){setCategory('');setAmount('');} }
+    catch { setError('Bütçe kaldırılamadı. Tekrar dene.'); } finally { setBusy(false); }
+  }
+
   return <section className="panel budget-panel">
     <div className="section-heading"><div><h2>Kategori bütçeleri</h2><p className="section-description">Aylık gider sınırları ve gerçekleşen kullanım.</p></div><input aria-label="Bütçe ayı" type="month" value={month} onChange={e => {if(e.target.value)onMonthChange(e.target.value)}} /></div>
     {error && <p className="workspace-error" role="alert">{error}</p>}
     <form className="budget-form" onSubmit={save}><label>Kategori<input required maxLength={60} value={category} onChange={e => setCategory(e.target.value)} placeholder="Örn. Market" /></label><label>Aylık sınır (₺)<input required inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" /></label><button className="primary-button" disabled={busy}>Bütçeyi kaydet</button></form>
     <p className="section-description">Mevcut kategoriyi aynı adla kaydedersen sınır güncellenir. 0 girersen bütçe kaldırılır.</p>
-    {budgets.length ? <div className="budget-list">{budgets.map(b => <article key={b.category}><div><strong>{b.category}</strong><button type="button" className="text-button" disabled={busy} onClick={()=>{setCategory(b.category);setAmount((b.limitCents/100).toFixed(2))}}>Düzenle</button><span>{money(b.spentCents)} / {money(b.limitCents)}</span></div><div className="budget-track"><i className={b.spentCents > b.limitCents ? 'over' : ''} style={{ width: `${Math.min(100, b.spentCents / b.limitCents * 100)}%` }} /></div><small>{b.spentCents > b.limitCents ? `${money(b.spentCents - b.limitCents)} sınırın üzerinde` : `${money(b.limitCents - b.spentCents)} kaldı`}</small></article>)}</div> : !error && <p className="section-description">Bu ay için kategori bütçesi yok.</p>}
+    {budgets.length ? <div className="budget-list">{budgets.map(b => <article key={b.category}><div><strong>{b.category}</strong><button type="button" className="text-button" disabled={busy} onClick={()=>{setCategory(b.category);setAmount((b.limitCents/100).toFixed(2))}}>Düzenle</button><button type="button" className="text-button" disabled={busy} onClick={()=>void remove(b.category)}>Kaldır</button><span>{money(b.spentCents)} / {money(b.limitCents)}</span></div><div className="budget-track"><i className={b.spentCents > b.limitCents ? 'over' : ''} style={{ width: `${Math.min(100, b.spentCents / b.limitCents * 100)}%` }} /></div><small>{b.spentCents > b.limitCents ? `${money(b.spentCents - b.limitCents)} sınırın üzerinde` : `${money(b.limitCents - b.spentCents)} kaldı`}</small></article>)}</div> : !error && <p className="section-description">Bu ay için kategori bütçesi yok.</p>}
   </section>;
 }
