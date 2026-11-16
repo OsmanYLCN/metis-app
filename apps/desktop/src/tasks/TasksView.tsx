@@ -6,7 +6,7 @@ import { beginLocalDelivery, beginTaskAction, cloudStatuses, completeTask, confi
 import { syncPendingTasks } from './sync';
 import { listEntries, type Entry } from '../workspace/client';
 
-export function TasksView({ onAccount }: { onAccount: () => void }) {
+export function TasksView({ onAccount, intent = '' }: { onAccount: () => void; intent?: string }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   if (!globalThis.window?.__TAURI__) return <section className="empty-state">
     <CheckCheck size={32} /><h2>Görevlerin Windows uygulamasında.</h2>
@@ -20,24 +20,25 @@ export function TasksView({ onAccount }: { onAccount: () => void }) {
   const projectRef = new URL(loginSettings.config.url).hostname.split('.')[0];
   const userId = session.userId.toLowerCase();
   // Unmount on logout/account changes: stale async replies and drafts cannot cross accounts.
-  return <TaskList key={`${projectRef}:${userId}`} owner={{ projectRef, userId }} />;
+  return <TaskList key={`${projectRef}:${userId}`} owner={{ projectRef, userId }} intent={intent} />;
 }
 
-function TaskList({ owner }: { owner: TaskOwner }) {
+function TaskList({ owner, intent }: { owner: TaskOwner; intent: string }) {
   const [items, setItems] = useState<Task[]>([]);
   const [cloud, setCloud] = useState<Record<string, CloudStatus>>({});
   const [hasMore, setHasMore] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(true);
   const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState('');
+  const initialProject = intent.startsWith('project:') ? intent.slice(8) : '';
+  const [projectId, setProjectId] = useState(initialProject);
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<TaskPriority>(0);
   const [projects, setProjects] = useState<Entry[]>([]);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'open' | 'done' | 'all'>('open');
-  const [projectFilter, setProjectFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week' | 'none'>('all');
+  const [projectFilter, setProjectFilter] = useState(initialProject || 'all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week' | 'none'>(intent === 'overdue' || intent === 'today' || intent === 'week' ? intent : 'all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'critical'>('all');
   const [sort, setSort] = useState<'due' | 'priority' | 'newest'>('due');
   const [error, setError] = useState('');
@@ -174,7 +175,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       if (attempt !== request.current) return;
       setItems(previous => [task, ...previous.filter(old => old.id !== task.id)]);
       setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'pendingCreate', revision: null } }));
-      setTitle(''); setProjectId(''); setDueDate(''); setPriority(0); draftId.current = null; setNotice('Görev ve planı bu cihaza kaydedildi.');
+      setTitle(''); setProjectId(initialProject); setDueDate(''); setPriority(0); draftId.current = null; setNotice('Görev ve planı bu cihaza kaydedildi.');
       scheduleAutoSync();
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
@@ -275,6 +276,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       </div>
     </form>
     {error && <p className="task-message" role="alert">{error}</p>}
+    <div className="workspace-quick-links" aria-label="Hızlı görev görünümleri"><button className="secondary-button" onClick={()=>{setStatusFilter('open');setDateFilter('today')}}>Bugün</button><button className="secondary-button" onClick={()=>{setStatusFilter('open');setDateFilter('overdue')}}>Geciken</button><button className="secondary-button" onClick={()=>{setStatusFilter('open');setDateFilter('week')}}>Bu hafta</button><button className="text-button" onClick={()=>{setQuery('');setStatusFilter('all');setDateFilter('all');setProjectFilter('all');setPriorityFilter('all');setSort('due')}}>Filtreleri temizle</button></div>
     <div className="task-filters" aria-label="Görev filtreleri"><label>Görev ara<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Başlıkta ara" /></label><label>Durum<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value as typeof statusFilter)}><option value="open">Açık</option><option value="done">Tamamlanan</option><option value="all">Tümü</option></select></label><label>Tarih<select value={dateFilter} onChange={event=>setDateFilter(event.target.value as typeof dateFilter)}><option value="all">Tüm tarihler</option><option value="overdue">Geciken</option><option value="today">Bugün</option><option value="week">7 gün içinde</option><option value="none">Tarihsiz</option></select></label><label>Proje<select value={projectFilter} onChange={event=>setProjectFilter(event.target.value)}><option value="all">Tüm projeler</option><option value="none">Projesiz</option>{projects.map(project=><option value={project.id} key={project.id}>{project.title}</option>)}</select></label><label>Öncelik<select value={priorityFilter} onChange={event=>setPriorityFilter(event.target.value as typeof priorityFilter)}><option value="all">Tüm öncelikler</option><option value="high">Yüksek ve kritik</option><option value="critical">Yalnızca kritik</option></select></label><label>Sırala<select value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="due">Son tarih</option><option value="priority">Öncelik</option><option value="newest">En yeni</option></select></label></div>
     <p className="task-feedback" role="status">{busy ? 'İşleniyor…' : notice || (loaded ? `${visible.length} görev gösteriliyor${hasMore ? ' · Diğer kayıtlar için “Daha fazla göster”' : ''}` : 'Görevler yüklenemedi. Listeyi yenileyebilirsin.')}</p>
     {loaded && items.length === 0 && !hasMore && <div className="tasks-empty"><CheckCheck size={28} /><h3>İlk görevine yer aç.</h3><p>Yukarıya bir başlık yaz; küçük bir adımla başla.</p></div>}

@@ -37,6 +37,7 @@ const modules = [
 
 export function App() {
   const [selected, setSelected] = useState('Dashboard');
+  const [taskIntent, setTaskIntent] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     try { const saved = localStorage.getItem('metis-theme'); return saved === 'light' || saved === 'dark' ? saved : 'system'; } catch { return 'system'; }
   });
@@ -78,9 +79,11 @@ export function App() {
     };
   }, []);
 
-  function navigate(name: string) {
+  function navigate(destination: string) {
+    const [name, ...parts] = destination.split(':');
     if (name !== selected && document.querySelector('[data-workspace-dirty="true"]')
       && !window.confirm('Kaydedilmemiş değişiklikler var. Bu sayfadan çıkılsın mı?')) return;
+    setTaskIntent(name === 'Tasks' ? parts.join(':') : '');
     setSelected(name);
     setMenuOpen(false);
     requestAnimationFrame(() => pageTitle.current?.focus());
@@ -102,7 +105,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 35 <span>v0.27.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 36 <span>v0.28.0</span></div></div>
       </aside>
 
       <div className="main-layout">
@@ -122,7 +125,7 @@ export function App() {
             <section className="status-grid" aria-label="Temel durumları"><article className="status-card"><span className="card-icon mint"><Activity size={19} /></span><span className="card-caption">Bağlantı</span><h3 aria-live="polite">{status}</h3><p>Yalnızca API sürecinin sağlık kontrolü.</p><button className="text-button" onClick={() => void refresh()} disabled={connection === 'checking'}><RefreshCw size={14} className={connection === 'checking' ? 'spin' : ''} /> Yeniden kontrol et</button></article><StorageCard /><AccountCard /></section>
 
             <ProductOverview navigate={navigate} /><CentralReadCard /><div className="lower-grid"><section className="panel" id="foundation" aria-labelledby="foundation-title"><div className="section-heading"><h2 id="foundation-title">İlk adım, sağlam temel</h2><span className="subtle-label">04 / M0</span></div><p className="section-description">Şimdi kullanabileceklerin</p><ul className="foundation-list"><li><span className="check-icon"><Check size={14} /></span><div><strong>Görevler</strong><p>Projeye bağla, önceliklendir ve tarih planla.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Takvim</strong><p>Tarihli görevlerini aylık görünümde izle.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Notlar ve projeler</strong><p>Fikirlerini kaydet ve çalışmalarını düzenle.</p></div><span className="row-status">Hazır</span></li></ul></section><section className="panel next-panel"><div className="card-icon neutral"><Command size={19} /></div><h2>Çalışma alanına gir.</h2><p>Görevlerini planla, yaklaşan haftayı gör ve projelerini tek alanda yönet. Planlama bilgileri, notlar ve projeler şu anda yalnızca bu cihazda saklanır.</p><div className="workspace-quick-links"><button className="secondary-button" onClick={() => navigate('Tasks')}>Görevleri aç</button><button className="secondary-button" onClick={() => navigate('Calendar')}>Takvimi aç</button></div></section></div>
-          </> : selected === 'Tasks' ? <TasksView onAccount={() => navigate('Dashboard')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard')} onTasks={() => navigate('Tasks')} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
+          </> : selected === 'Tasks' ? <TasksView key={taskIntent} intent={taskIntent} onAccount={() => navigate('Dashboard')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard')} onTasks={(projectId) => navigate(`Tasks:project:${projectId}`)} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
 
           <footer><span><span className={`connection-dot ${connection}`} />{status}{lastChecked ? ` · ${lastChecked}` : ''}</span><span>Ürün modülleri geliştirme aşamasında</span></footer>
         </main>

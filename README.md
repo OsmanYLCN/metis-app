@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 35; masaüstü v0.27.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 36; masaüstü v0.28.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -173,3 +173,5 @@ Proje kökü: C:\Users\Osman\Desktop\Projects\personal-os
 Kaynaklar kökte, sürüm dosyaları outputs/, yerel Rust ve .NET geliştirme araçları work/ altındadır.
 
 M0.35: Notlarda günlük plan/toplantı, projelerde plan şablonu; Ctrl+S ile kayıt, sabit not ve proje durum filtreleri. Hedef ve takvim düzenlemelerinde modül değiştirirken kaydedilmemiş içerik uyarısı. Tema tercihi cihazda kalıcıdır. Filtreler yüklenmiş listeyi kullanır; ek kayıtlar Daha fazla göster ile açılır. Bu dilimde EXE üretilmedi.
+
+M0.36: Projeden proje filtreli görevlere geçiş ve yeni görevde hazır proje seçimi; Dashboard geciken/haftalık görev geçişleri; hızlı görev görünümleri ve filtreleri temizleme; ertelenmiş bildirimleri listeleme ve ertelemeyi kaldırma. Bildirimler mevcut 90 gün geçmiş/30 gün gelecek penceresini kullanır. EXE üretilmedi.

@@ -11,7 +11,7 @@ const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned:
 const fromEntry = (entry: Entry): EntryDraft => ({ title: entry.title, body: entry.body, state: entry.state, pinned: entry.pinned });
 const message = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
 
-export function WorkspaceView({ kind, onAccount, onTasks }: { kind: EntryKind; onAccount: () => void; onTasks: () => void }) {
+export function WorkspaceView({ kind, onAccount, onTasks }: { kind: EntryKind; onAccount: () => void; onTasks: (projectId: string) => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const name = kind === 'note' ? 'Notlarını' : 'Projelerini';
   if (!globalThis.window?.__TAURI__) return <section className="empty-state"><h2>{name} Windows uygulamasında.</h2><p>Tarayıcı önizlemesi kayıt tutmaz.</p></section>;
@@ -21,7 +21,7 @@ export function WorkspaceView({ kind, onAccount, onTasks }: { kind: EntryKind; o
   return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} />;
 }
 
-function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwner; onTasks: () => void }) {
+function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwner; onTasks: (projectId: string) => void }) {
   const notes = kind === 'note';
   const [items, setItems] = useState<Entry[]>([]);
   const [search, setSearch] = useState('');
@@ -144,7 +144,7 @@ function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwne
               : <label>Durum <select value={draft.state} disabled={busy} onChange={event => setDraft({ ...draft, state: event.target.value as EntryDraft['state'] })}><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlandı</option></select></label>}</div>
             <div className="workspace-editor-actions">{editing !== 'new' && <button className="text-button workspace-delete" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Sil</button>}
               <button className="primary-button" type="submit" disabled={busy || !draft.title.trim()}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</button></div>
-            {!notes&&editing!=='new'&&<ProjectTasks key={editing.id} owner={owner} projectId={editing.id} onTasks={onTasks}/>}
+            {!notes&&editing!=='new'&&<ProjectTasks key={editing.id} owner={owner} projectId={editing.id} onTasks={()=>onTasks(editing.id)}/>}
             {confirmDelete && editing !== 'new' && <div className="workspace-confirm"><p><strong>{editing.title}</strong> kalıcı olarak silinsin mi?</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmDelete(false)}>İptal</button><button type="button" className="primary-button" disabled={busy} onClick={() => void remove()}>Evet, sil</button></div></div>}
           </form>}
       </div>
