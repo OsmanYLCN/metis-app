@@ -29,6 +29,7 @@ function TaskList({ owner, intent }: { owner: TaskOwner; intent: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(true);
+  useEffect(()=>{if(loaded&&intent==='new')document.getElementById('task-title')?.focus()},[loaded,intent]);
   const [title, setTitle] = useState('');
   const initialProject = intent.startsWith('project:') ? intent.slice(8) : '';
   const [projectId, setProjectId] = useState(initialProject);
@@ -265,7 +266,7 @@ function TaskList({ owner, intent }: { owner: TaskOwner; intent: string }) {
       {' '}<button className="text-button" disabled={busy || !!action || queued === 0} onClick={() => { autoBlocked.current = false; void runSync(false); }}>Şimdi buluta gönder</button></p>
     <form className="task-form" onSubmit={save}>
       <label htmlFor="task-title">Yeni görev</label>
-      <div className="task-compose"><input id="task-title" value={title} maxLength={200} disabled={busy || !loaded || !!action}
+      <div className="task-compose"><input id="task-title" autoFocus={intent==='new'} value={title} maxLength={200} disabled={busy || !loaded || !!action}
         placeholder="Ne yapmak istiyorsun?" autoComplete="off"
         onChange={event => { setTitle(event.target.value); draftId.current = null; }} />
         <button className="primary-button" disabled={busy || !loaded || !title.trim() || !!action} type="submit"><Plus size={17} /> Görev ekle</button></div>

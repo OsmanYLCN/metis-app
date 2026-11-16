@@ -2,7 +2,7 @@ import { GlobalSearch } from './search/GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity, ArrowUpRight, Bell, CalendarDays, ChartNoAxesCombined,
-  Check, CheckCheck, Circle, Command, Files, FolderKanban,
+  CheckCheck, Circle, Files, FolderKanban,
   House, Layers3, Menu, RefreshCw, Sparkles, StickyNote,
   Sun, Target, Wallet, Workflow, X,
 } from 'lucide-react';
@@ -41,6 +41,8 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(value => !value); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
   const [taskIntent, setTaskIntent] = useState('');
+  const [entryIntent, setEntryIntent] = useState('');
+  const [accountOpen, setAccountOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
     try { const saved = localStorage.getItem('metis-theme'); return saved === 'light' || saved === 'dark' ? saved : 'system'; } catch { return 'system'; }
   });
@@ -87,6 +89,8 @@ export function App() {
     if (name !== selected && document.querySelector('[data-workspace-dirty="true"]')
       && !window.confirm('Kaydedilmemiş değişiklikler var. Bu sayfadan çıkılsın mı?')) return;
     setTaskIntent(name === 'Tasks' ? parts.join(':') : '');
+    setEntryIntent(parts[0] === 'new' ? 'new' : '');
+    if (name === 'Dashboard' && parts[0] === 'account') setAccountOpen(true);
     setSelected(name);
     setMenuOpen(false);
     requestAnimationFrame(() => pageTitle.current?.focus());
@@ -109,7 +113,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 40 <span>v0.32.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 41 <span>v0.33.0</span></div></div>
       </aside>
 
       <div className="main-layout">
@@ -119,17 +123,17 @@ export function App() {
         </header>
 
         <main id="main" tabIndex={-1}>
-          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Her şey için bir başlangıç.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Calendar' ? 'Zamanını ve yaklaşan işlerini tek bakışta gör.' : selected === 'Goals' ? 'Yönünü belirle, ilerlemeni görünür kıl.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : selected === 'Finance' ? 'Gelir, gider ve bütçeni tek yerde izle.' : selected === 'Analytics' ? 'Kayıtlarının sana gösterdiği resmi gör.' : selected === 'Notifications' ? 'Yaklaşan planlarını ve hatırlatmalarını takip et.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
+          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Bugün, senin ritminde.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Calendar' ? 'Zamanını ve yaklaşan işlerini tek bakışta gör.' : selected === 'Goals' ? 'Yönünü belirle, ilerlemeni görünür kıl.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : selected === 'Finance' ? 'Gelir, gider ve bütçeni tek yerde izle.' : selected === 'Analytics' ? 'Kayıtlarının sana gösterdiği resmi gör.' : selected === 'Notifications' ? 'Yaklaşan planlarını ve hatırlatmalarını takip et.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
 
           {selected === 'Dashboard' ? <>
-            <NotificationSummary onOpen={() => navigate('Notifications')} />
-
-            <section className="hero-card" aria-labelledby="hero-title"><div className="hero-copy"><span className="hero-kicker"><span /> TEMEL OLUŞTURULUYOR</span><h2 id="hero-title">Kendi düzenin.<br />Kendi ritmin.</h2><p>Planların, fikirlerin ve günlük hayatın için<br className="desktop-only" /> birlikte büyüyecek bir alan.</p><button className="primary-button" onClick={() => document.getElementById('foundation')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Temeli keşfet <ArrowUpRight size={17} /></button></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="art-core"><Layers3 size={40} strokeWidth={1.3} /></div><div className="art-chip chip-top"><CalendarDays size={19} /></div><div className="art-chip chip-right"><CheckCheck size={20} /></div><div className="art-chip chip-bottom"><StickyNote size={19} /></div><span className="art-spark spark-one" /><span className="art-spark spark-two" /><span className="art-caption">BİR ALAN. BİRÇOK OLASILIK.</span></div></section>
-
+            <div className="dashboard-actions" aria-label="Hızlı oluştur"><button className="primary-button" onClick={()=>navigate('Tasks:new')}><CheckCheck size={17}/> Görev ekle</button><button className="secondary-button" onClick={()=>navigate('Notes:new')}><StickyNote size={17}/> Not yaz</button><button className="secondary-button" onClick={()=>navigate('Projects:new')}><FolderKanban size={17}/> Proje oluştur</button><button className="secondary-button" onClick={()=>navigate('Calendar')}><CalendarDays size={17}/> Takvimi aç</button></div>
+            <ProductOverview navigate={navigate}/>
+            <NotificationSummary onOpen={()=>navigate('Notifications')}/>
+            <details className="dashboard-account" open={accountOpen} onToggle={event=>setAccountOpen(event.currentTarget.open)}><summary>Hesap ve bağlantı · {status}</summary>
             <section className="status-grid" aria-label="Temel durumları"><article className="status-card"><span className="card-icon mint"><Activity size={19} /></span><span className="card-caption">Bağlantı</span><h3 aria-live="polite">{status}</h3><p>Yalnızca API sürecinin sağlık kontrolü.</p><button className="text-button" onClick={() => void refresh()} disabled={connection === 'checking'}><RefreshCw size={14} className={connection === 'checking' ? 'spin' : ''} /> Yeniden kontrol et</button></article><StorageCard /><AccountCard /></section>
-
-            <ProductOverview navigate={navigate} /><CentralReadCard /><div className="lower-grid"><section className="panel" id="foundation" aria-labelledby="foundation-title"><div className="section-heading"><h2 id="foundation-title">İlk adım, sağlam temel</h2><span className="subtle-label">04 / M0</span></div><p className="section-description">Şimdi kullanabileceklerin</p><ul className="foundation-list"><li><span className="check-icon"><Check size={14} /></span><div><strong>Görevler</strong><p>Projeye bağla, önceliklendir ve tarih planla.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Takvim</strong><p>Tarihli görevlerini aylık görünümde izle.</p></div><span className="row-status">Hazır</span></li><li><span className="check-icon"><Check size={14} /></span><div><strong>Notlar ve projeler</strong><p>Fikirlerini kaydet ve çalışmalarını düzenle.</p></div><span className="row-status">Hazır</span></li></ul></section><section className="panel next-panel"><div className="card-icon neutral"><Command size={19} /></div><h2>Çalışma alanına gir.</h2><p>Görevlerini planla, yaklaşan haftayı gör ve projelerini tek alanda yönet. Planlama bilgileri, notlar ve projeler şu anda yalnızca bu cihazda saklanır.</p><div className="workspace-quick-links"><button className="secondary-button" onClick={() => navigate('Tasks')}>Görevleri aç</button><button className="secondary-button" onClick={() => navigate('Calendar')}>Takvimi aç</button></div></section></div>
-          </> : selected === 'Tasks' ? <TasksView key={taskIntent} intent={taskIntent} onAccount={() => navigate('Dashboard')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard')} onTasks={(projectId) => navigate(`Tasks:project:${projectId}`)} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
+              <CentralReadCard/>
+            </details>
+          </> : selected === 'Tasks' ? <TasksView key={taskIntent} intent={taskIntent} onAccount={() => navigate('Dashboard:account')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard:account')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView key={`${selected}:${entryIntent}`} startNew={entryIntent==='new'} kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard:account')} onTasks={(projectId) => navigate(`Tasks:project:${projectId}`)} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
 
           <footer><span><span className={`connection-dot ${connection}`} />{status}{lastChecked ? ` · ${lastChecked}` : ''}</span><span>Ürün modülleri geliştirme aşamasında</span></footer>
         </main>

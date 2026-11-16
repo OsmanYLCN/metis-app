@@ -11,22 +11,22 @@ const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned:
 const fromEntry = (entry: Entry): EntryDraft => ({ title: entry.title, body: entry.body, state: entry.state, pinned: entry.pinned });
 const message = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
 
-export function WorkspaceView({ kind, onAccount, onTasks }: { kind: EntryKind; onAccount: () => void; onTasks: (projectId: string) => void }) {
+export function WorkspaceView({ kind, onAccount, onTasks, startNew = false }: { kind: EntryKind; startNew?: boolean; onAccount: () => void; onTasks: (projectId: string) => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const name = kind === 'note' ? 'Notlarını' : 'Projelerini';
   if (!globalThis.window?.__TAURI__) return <section className="empty-state"><h2>{name} Windows uygulamasında.</h2><p>Tarayıcı önizlemesi kayıt tutmaz.</p></section>;
   if (session.phase !== 'signedIn' || session.expiresAt <= Date.now() || loginSettings.kind !== 'ready')
     return <section className="empty-state"><h2>{name} görmek için giriş yap.</h2><p>Kayıtlar bu cihazda ve hesabına ayrılmış alanda tutulur.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section>;
   const owner = { projectRef: new URL(loginSettings.config.url).hostname.split('.')[0], userId: session.userId.toLowerCase() };
-  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} />;
+  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} startNew={startNew} />;
 }
 
-function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwner; onTasks: (projectId: string) => void }) {
+function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner: TaskOwner; startNew: boolean; onTasks: (projectId: string) => void }) {
   const notes = kind === 'note';
   const [items, setItems] = useState<Entry[]>([]);
   const [search, setSearch] = useState('');
   const [hasMore, setHasMore] = useState(false);
-  const [editing, setEditing] = useState<Entry | 'new' | null>(null);
+  const [editing, setEditing] = useState<Entry | 'new' | null>(startNew ? 'new' : null);
   const [draft, setDraft] = useState<EntryDraft>(blank);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,6 +38,7 @@ function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwne
   const [filter, setFilter] = useState('all');
   const request = useRef(0);
   const newId = useRef<string | null>(null);
+  if (startNew && editing === 'new' && !newId.current) newId.current = crypto.randomUUID().replaceAll('-', '');
   const base = editing === 'new' ? blank() : editing ? fromEntry(editing) : null;
   const dirty = !!base && (draft.title !== base.title || draft.body !== base.body || draft.state !== base.state || draft.pinned !== base.pinned);
 
