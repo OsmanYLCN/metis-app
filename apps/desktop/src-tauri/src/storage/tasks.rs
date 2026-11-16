@@ -61,15 +61,25 @@ fn find(db: &super::sqlite::Connection, owner: &TaskOwner, id: &str) -> Result<T
 pub fn list(path: &Path, owner: &TaskOwner, offset: u32) -> Result<TaskPage, TaskError> {
     list_for_project(path, owner, offset, None)
 }
-pub fn list_for_project(path: &Path, owner: &TaskOwner, offset: u32, project: Option<&str>) -> Result<TaskPage, TaskError> {
-    owner.validate()?;
-    if project.is_some_and(|value|value!="none"&&!valid_id(value)){return Err(TaskError::InvalidInput)}
-    let (db, _) = connect(path)?;
-    let rows = db.query(&format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 AND (?4='' OR (?4='none' AND a.project_id IS NULL) OR a.project_id=?4) ORDER BY t.created_at DESC,t.id DESC LIMIT 101 OFFSET ?3"),
-        &[&owner.project_ref, &owner.user_id, &offset.to_string(),project.unwrap_or("")])?;
-    let has_more = rows.len() > 100;
-    let items = rows.into_iter().take(100).map(decode).collect::<Result<_, _>>()?;
-    Ok(TaskPage { items, has_more })
+#[derive(Clone, Deserialize)]
+#[serde(rename_all="camelCase",deny_unknown_fields)]
+pub struct TaskFilters { pub query:String,pub status:String,pub date:String,pub priority:String,pub sort:String,pub today:String,pub week:String }
+pub fn list_for_project(path:&Path,owner:&TaskOwner,offset:u32,project:Option<&str>)->Result<TaskPage,TaskError>{list_filtered(path,owner,offset,project,None)}
+pub fn list_filtered(path:&Path,owner:&TaskOwner,offset:u32,project:Option<&str>,filters:Option<&TaskFilters>)->Result<TaskPage,TaskError>{
+ owner.validate()?;
+ if project.is_some_and(|value|value!="none"&&!valid_id(value)){return Err(TaskError::InvalidInput)}
+ let default=TaskFilters{query:String::new(),status:"all".into(),date:"all".into(),priority:"all".into(),sort:"newest".into(),today:"2000-01-01".into(),week:"2000-01-08".into()};let f=filters.unwrap_or(&default);
+ if f.query.chars().count()>200||!matches!(f.status.as_str(),"all"|"open"|"done")||!matches!(f.date.as_str(),"all"|"none"|"today"|"week"|"overdue")||!matches!(f.priority.as_str(),"all"|"high"|"critical")||!matches!(f.sort.as_str(),"due"|"priority"|"newest")||f.today.len()!=10||f.week.len()!=10{return Err(TaskError::InvalidInput)}
+ let order=match f.sort.as_str(){"due"=>"a.due_date IS NULL,a.due_date,COALESCE(a.priority,0) DESC,t.id", "priority"=>"COALESCE(a.priority,0) DESC,a.due_date IS NULL,a.due_date,t.id",_=>"t.created_at DESC,t.id DESC"};
+ let(db,_)=connect(path)?;
+ let sql=format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 AND (?3='' OR (?3='none' AND a.project_id IS NULL) OR a.project_id=?3) AND (?4='all' OR (?4='open' AND t.completed=0) OR (?4='done' AND t.completed=1)) AND (?5='all' OR (?5='high' AND a.priority>=2) OR (?5='critical' AND a.priority=3)) AND (?6='all' OR (?6='none' AND a.due_date IS NULL) OR (?6='today' AND a.due_date=?7) OR (?6='week' AND a.due_date>=?7 AND a.due_date<=?8) OR (?6='overdue' AND t.completed=0 AND a.due_date<?7)) ORDER BY {order}");
+ let fold=|text:&str|text.replace('I',"ı").replace('İ',"i").to_lowercase();let query=fold(f.query.trim());
+ let mut found=Vec::new();let mut skipped=0;
+ let sql=if query.is_empty(){format!("{sql} LIMIT 101 OFFSET {offset}")}else{sql};
+ for row in db.query(&sql,&[&owner.project_ref,&owner.user_id,project.unwrap_or(""),&f.status,&f.priority,&f.date,&f.today,&f.week])? {
+ let task=decode(row)?;if !fold(&task.title).contains(&query){continue}if !query.is_empty()&&skipped<offset{skipped+=1;continue}found.push(task);if found.len()==101{break}
+ }
+ let has_more=found.len()>100;found.truncate(100);Ok(TaskPage{items:found,has_more})
 }
 pub fn create(path: &Path, owner: &TaskOwner, id: &str, title: &str) -> Result<Task, TaskError> {
     owner.validate()?;

@@ -69,9 +69,9 @@ async fn local_storage_status(app: tauri::AppHandle) -> Result<storage::StorageS
 }
 
 #[tauri::command]
-async fn tasks_list(app: tauri::AppHandle, owner: TaskOwner, offset: u32, project_filter: Option<String>) -> Result<TaskPage, TaskError> {
+async fn tasks_list(app: tauri::AppHandle, owner: TaskOwner, offset: u32, project_filter: Option<String>, filters: Option<storage::tasks::TaskFilters>) -> Result<TaskPage, TaskError> {
     let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
-    tauri::async_runtime::spawn_blocking(move || match project_filter { Some(project) => storage::tasks::list_for_project(&path, &owner, offset, Some(&project)), None => storage::tasks::list(&path, &owner, offset) })
+    tauri::async_runtime::spawn_blocking(move || if filters.is_some() { storage::tasks::list_filtered(&path,&owner,offset,project_filter.as_deref(),filters.as_ref()) } else { match project_filter { Some(project) => storage::tasks::list_for_project(&path,&owner,offset,Some(&project)), None => storage::tasks::list(&path,&owner,offset) } })
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]

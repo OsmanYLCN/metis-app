@@ -581,3 +581,15 @@ fn project_task_query_filters_before_pagination_and_keeps_owner_scope() {
  assert!(tasks::list_for_project(&temp.db(),&other,0,Some(&project)).unwrap().items.is_empty());
  assert!(tasks::list_for_project(&temp.db(),&owner,0,Some("invalid")).is_err());
 }
+
+#[test]
+fn task_filters_search_turkish_titles_and_filter_dates() {
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let task="d".repeat(32);
+ tasks::create(&temp.db(),&owner,&task,"İSTANBUL işi").unwrap();
+ tasks::set_planning(&temp.db(),&owner,&task,None,Some("2026-11-17"),3).unwrap();
+ let mut f=tasks::TaskFilters{query:"istanbul".into(),status:"open".into(),date:"today".into(),priority:"critical".into(),sort:"due".into(),today:"2026-11-17".into(),week:"2026-11-24".into()};
+ assert_eq!(tasks::list_filtered(&temp.db(),&owner,0,None,Some(&f)).unwrap().items.len(),1);
+ assert!(tasks::list_filtered(&temp.db(),&owner,1,None,Some(&f)).unwrap().items.is_empty());
+ f.date="overdue".into();assert!(tasks::list_filtered(&temp.db(),&owner,0,None,Some(&f)).unwrap().items.is_empty());
+ f.date="all".into();f.status="done".into();assert!(tasks::list_filtered(&temp.db(),&owner,0,None,Some(&f)).unwrap().items.is_empty());
+}

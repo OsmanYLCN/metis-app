@@ -113,7 +113,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 42 <span>v0.34.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 43 <span>v0.35.0</span></div></div>
       </aside>
 
       <div className="main-layout">
