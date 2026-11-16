@@ -177,6 +177,30 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the goals_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-create",
+          "markdownDescription": "Enables the goals_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the goals_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-delete",
+          "markdownDescription": "Enables the goals_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the goals_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-list",
+          "markdownDescription": "Enables the goals_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the goals_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-save",
+          "markdownDescription": "Enables the goals_save command without any pre-configured scope."
+        },
+        {
           "description": "Enables the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-local-storage-status",
@@ -217,6 +241,12 @@
           "type": "string",
           "const": "allow-outbox-statuses",
           "markdownDescription": "Enables the outbox_statuses command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the project_progress command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-project-progress",
+          "markdownDescription": "Enables the project_progress command without any pre-configured scope."
         },
         {
           "description": "Enables the session_vault_clear command without any pre-configured scope.",
@@ -285,10 +315,22 @@
           "markdownDescription": "Enables the tasks_rename command without any pre-configured scope."
         },
         {
+          "description": "Enables the tasks_scheduled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-scheduled",
+          "markdownDescription": "Enables the tasks_scheduled command without any pre-configured scope."
+        },
+        {
           "description": "Enables the tasks_set_completed command without any pre-configured scope.",
           "type": "string",
           "const": "allow-tasks-set-completed",
           "markdownDescription": "Enables the tasks_set_completed command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the tasks_set_planning command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-set-planning",
+          "markdownDescription": "Enables the tasks_set_planning command without any pre-configured scope."
         },
         {
           "description": "Enables the workspace_create command without any pre-configured scope.",
@@ -313,6 +355,30 @@
           "type": "string",
           "const": "allow-workspace-save",
           "markdownDescription": "Enables the workspace_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-create",
+          "markdownDescription": "Denies the goals_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-delete",
+          "markdownDescription": "Denies the goals_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-list",
+          "markdownDescription": "Denies the goals_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-save",
+          "markdownDescription": "Denies the goals_save command without any pre-configured scope."
         },
         {
           "description": "Denies the local_storage_status command without any pre-configured scope.",
@@ -355,6 +421,12 @@
           "type": "string",
           "const": "deny-outbox-statuses",
           "markdownDescription": "Denies the outbox_statuses command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the project_progress command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-project-progress",
+          "markdownDescription": "Denies the project_progress command without any pre-configured scope."
         },
         {
           "description": "Denies the session_vault_clear command without any pre-configured scope.",
@@ -423,10 +495,22 @@
           "markdownDescription": "Denies the tasks_rename command without any pre-configured scope."
         },
         {
+          "description": "Denies the tasks_scheduled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-scheduled",
+          "markdownDescription": "Denies the tasks_scheduled command without any pre-configured scope."
+        },
+        {
           "description": "Denies the tasks_set_completed command without any pre-configured scope.",
           "type": "string",
           "const": "deny-tasks-set-completed",
           "markdownDescription": "Denies the tasks_set_completed command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_set_planning command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-set-planning",
+          "markdownDescription": "Denies the tasks_set_planning command without any pre-configured scope."
         },
         {
           "description": "Denies the workspace_create command without any pre-configured scope.",

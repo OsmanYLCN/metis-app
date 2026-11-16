@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tasks-scheduled"
+description = "Enables the tasks_scheduled command without any pre-configured scope."
+commands.allow = ["tasks_scheduled"]
+
+[[permission]]
+identifier = "deny-tasks-scheduled"
+description = "Denies the tasks_scheduled command without any pre-configured scope."
+commands.deny = ["tasks_scheduled"]

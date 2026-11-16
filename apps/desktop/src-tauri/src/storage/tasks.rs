@@ -15,10 +15,14 @@ impl From<StorageError> for TaskError { fn from(value: StorageError) -> Self { S
 #[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: String, pub title: String, pub completed: bool, pub created_at: String, pub updated_at: String,
+    pub project_id: Option<String>, pub due_date: Option<String>, pub priority: u8,
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskPage { pub items: Vec<Task>, pub has_more: bool }
+#[derive(Debug,Serialize,PartialEq)]
+#[serde(rename_all="camelCase")]
+pub struct ProjectProgress { pub project_id:String,pub total:u32,pub completed:u32,pub overdue:u32 }
 
 impl TaskOwner {
     pub(super) fn validate(&self) -> Result<(), TaskError> {
@@ -34,14 +38,30 @@ impl TaskOwner {
 }
 fn valid_id(id: &str) -> bool { id.len() == 32 && id != "00000000000000000000000000000000" && id.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) }
 fn valid_title(title: &str) -> bool { !title.is_empty() && title.chars().count() <= 200 && !title.chars().any(char::is_control) }
+fn valid_date(value: &str) -> bool {
+    let parts: Vec<_> = value.split('-').collect();
+    if parts.len() != 3 || parts[0].len() != 4 || parts[1].len() != 2 || parts[2].len() != 2 { return false; }
+    let Ok(year) = parts[0].parse::<u32>() else { return false; };
+    let Ok(month) = parts[1].parse::<u32>() else { return false; };
+    let Ok(day) = parts[2].parse::<u32>() else { return false; };
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let max = match month { 1|3|5|7|8|10|12 => 31, 4|6|9|11 => 30, 2 if leap => 29, 2 => 28, _ => return false };
+    day >= 1 && day <= max
+}
+const TASK_SELECT: &str = "SELECT t.id,t.title,t.completed,t.created_at,t.updated_at,COALESCE(a.project_id,''),COALESCE(a.due_date,''),COALESCE(CAST(a.priority AS TEXT),'0') FROM tasks t LEFT JOIN task_attributes a ON a.task_id=t.id";
 fn decode(row: Vec<String>) -> Result<Task, TaskError> {
-    if row.len() != 5 || !valid_id(&row[0]) || !matches!(row[2].as_str(), "0" | "1") { return Err(StorageError::InvalidSchema.into()); }
-    Ok(Task { id: row[0].clone(), title: row[1].clone(), completed: row[2] == "1", created_at: row[3].clone(), updated_at: row[4].clone() })
+    if row.len() != 8 || !valid_id(&row[0]) || !matches!(row[2].as_str(), "0" | "1") || !matches!(row[7].as_str(), "0"|"1"|"2"|"3") { return Err(StorageError::InvalidSchema.into()); }
+    Ok(Task { id: row[0].clone(), title: row[1].clone(), completed: row[2] == "1", created_at: row[3].clone(), updated_at: row[4].clone(),
+        project_id: (!row[5].is_empty()).then(|| row[5].clone()), due_date: (!row[6].is_empty()).then(|| row[6].clone()), priority: row[7].parse().map_err(|_| StorageError::InvalidSchema)? })
+}
+fn find(db: &super::sqlite::Connection, owner: &TaskOwner, id: &str) -> Result<Task, TaskError> {
+    let mut rows = db.query(&format!("{TASK_SELECT} WHERE t.id=?1 AND t.project_ref=?2 AND t.user_id=?3"), &[id,&owner.project_ref,&owner.user_id])?;
+    decode(rows.pop().ok_or(TaskError::NotFound)?)
 }
 pub fn list(path: &Path, owner: &TaskOwner, offset: u32) -> Result<TaskPage, TaskError> {
     owner.validate()?;
     let (db, _) = connect(path)?;
-    let rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE project_ref=?1 AND user_id=?2 ORDER BY created_at DESC,id DESC LIMIT 101 OFFSET ?3",
+    let rows = db.query(&format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 ORDER BY t.created_at DESC,t.id DESC LIMIT 101 OFFSET ?3"),
         &[&owner.project_ref, &owner.user_id, &offset.to_string()])?;
     let has_more = rows.len() > 100;
     let items = rows.into_iter().take(100).map(decode).collect::<Result<_, _>>()?;
@@ -57,9 +77,7 @@ pub fn create(path: &Path, owner: &TaskOwner, id: &str, title: &str) -> Result<T
     let existed = !db.query("SELECT id FROM tasks WHERE id=?1", &[id])?.is_empty();
     db.query("INSERT INTO tasks(id,project_ref,user_id,title) VALUES (?1,?2,?3,?4) ON CONFLICT(id) DO NOTHING",
         &[id, &owner.project_ref, &owner.user_id, title])?;
-    let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
-        &[id, &owner.project_ref, &owner.user_id])?;
-    let task = decode(rows.pop().ok_or(TaskError::Conflict)?)?;
+    let task = find(&db, owner, id).map_err(|error| if error == TaskError::NotFound { TaskError::Conflict } else { error })?;
     if task.title != title { return Err(TaskError::Conflict); }
     if !existed {
         // Create ID is also its stable operation ID. No backfill of pre-existing tasks.
@@ -78,9 +96,7 @@ pub fn set_completed(path: &Path, owner: &TaskOwner, id: &str, completed: bool) 
     if !db.query("SELECT d.sequence FROM outbox_delivery d JOIN task_outbox o ON o.sequence=d.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
     db.query("UPDATE tasks SET completed=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND completed<>?4",
         &[id, &owner.project_ref, &owner.user_id, if completed { "1" } else { "0" }])?;
-    let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
-        &[id, &owner.project_ref, &owner.user_id])?;
-    let task = decode(rows.pop().ok_or(TaskError::NotFound)?)?;
+    let task = find(&db, owner, id)?;
     transaction.commit()?;
     Ok(task)
 }
@@ -92,9 +108,7 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
     if !db.query("SELECT sequence FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
-    let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
-        &[id, &owner.project_ref, &owner.user_id])?;
-    let current = decode(rows.pop().ok_or(TaskError::NotFound)?)?;
+    let current = find(&db, owner, id)?;
     // A lost reply can be retried. A different intervening title must not be overwritten.
     if current.title == title { transaction.commit()?; return Ok(current); }
     if current.title != expected_title { return Err(TaskError::Conflict); }
@@ -116,11 +130,42 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
     }
     db.query("UPDATE tasks SET title=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id, title])?;
-    let mut rows = db.query("SELECT id,title,completed,created_at,updated_at FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3",
-        &[id, &owner.project_ref, &owner.user_id])?;
-    let task = decode(rows.pop().ok_or(TaskError::NotFound)?)?;
+    let task = find(&db, owner, id)?;
     transaction.commit()?;
     Ok(task)
+}
+
+pub fn set_planning(path: &Path, owner: &TaskOwner, id: &str, project_id: Option<&str>, due_date: Option<&str>, priority: u8) -> Result<Task, TaskError> {
+    owner.validate()?;
+    if !valid_id(id) || priority > 3 || due_date.is_some_and(|date| !valid_date(date)) || project_id.is_some_and(|value| !valid_id(value)) { return Err(TaskError::InvalidInput); }
+    let (db, _) = connect(path)?;
+    let transaction = Transaction::begin(&db)?;
+    find(&db, owner, id)?;
+    if let Some(project) = project_id {
+        if db.query("SELECT id FROM workspace_entries WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND kind='project'", &[project,&owner.project_ref,&owner.user_id])?.is_empty() { return Err(TaskError::InvalidInput); }
+    }
+    db.query("INSERT INTO task_attributes(task_id,project_ref,user_id,project_id,due_date,priority) VALUES(?1,?2,?3,NULLIF(?4,''),NULLIF(?5,''),?6) ON CONFLICT(task_id) DO UPDATE SET project_id=excluded.project_id,due_date=excluded.due_date,priority=excluded.priority",
+        &[id,&owner.project_ref,&owner.user_id,project_id.unwrap_or(""),due_date.unwrap_or(""),&priority.to_string()])?;
+    let task = find(&db, owner, id)?;
+    transaction.commit()?;
+    Ok(task)
+}
+
+pub fn scheduled(path: &Path, owner: &TaskOwner, from: &str, to: &str) -> Result<Vec<Task>, TaskError> {
+    owner.validate()?;
+    if !valid_date(from) || !valid_date(to) || from > to { return Err(TaskError::InvalidInput); }
+    let (db, _) = connect(path)?;
+    db.query(&format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 AND a.due_date>=?3 AND a.due_date<=?4 ORDER BY a.due_date ASC,a.priority DESC,t.created_at ASC LIMIT 500"),
+        &[&owner.project_ref,&owner.user_id,from,to])?.into_iter().map(decode).collect()
+}
+
+pub fn project_progress(path:&Path,owner:&TaskOwner,today:&str)->Result<Vec<ProjectProgress>,TaskError>{
+    owner.validate()?; if !valid_date(today){return Err(TaskError::InvalidInput)} let(db,_)=connect(path)?;
+    db.query("SELECT a.project_id,CAST(count(*) AS TEXT),CAST(sum(t.completed) AS TEXT),CAST(sum(CASE WHEN t.completed=0 AND a.due_date IS NOT NULL AND a.due_date<?3 THEN 1 ELSE 0 END) AS TEXT) FROM task_attributes a JOIN tasks t ON t.id=a.task_id WHERE a.project_ref=?1 AND a.user_id=?2 AND a.project_id IS NOT NULL GROUP BY a.project_id ORDER BY a.project_id",&[&owner.project_ref,&owner.user_id,today])?.into_iter().map(|row|{
+        if row.len()!=4||!valid_id(&row[0]){return Err(StorageError::InvalidSchema.into())}
+        let total=row[1].parse().map_err(|_|StorageError::InvalidSchema)?;let completed=row[2].parse().map_err(|_|StorageError::InvalidSchema)?;let overdue=row[3].parse().map_err(|_|StorageError::InvalidSchema)?;
+        Ok(ProjectProgress{project_id:row[0].clone(),total,completed,overdue})
+    }).collect()
 }
 
 pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) -> Result<(), TaskError> {

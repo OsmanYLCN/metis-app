@@ -1,14 +1,19 @@
 import { storageMessage } from '../storage/localStorage';
 
 export type TaskOwner = { projectRef: string; userId: string };
-export type Task = { id: string; title: string; completed: boolean; createdAt: string; updatedAt: string };
+export type TaskPriority = 0 | 1 | 2 | 3;
+export type Task = { id: string; title: string; completed: boolean; createdAt: string; updatedAt: string;
+  projectId: string | null; dueDate: string | null; priority: TaskPriority };
 export type TaskPage = { items: Task[]; hasMore: boolean };
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 function parseTask(value: unknown): Task {
   if (!isObject(value) || typeof value.id !== 'string' || !/^[a-f0-9]{32}$/.test(value.id)
     || typeof value.title !== 'string' || !value.title.trim() || [...value.title].length > 200
     || typeof value.completed !== 'boolean' || typeof value.createdAt !== 'string' || !Number.isFinite(Date.parse(value.createdAt))
-    || typeof value.updatedAt !== 'string' || !Number.isFinite(Date.parse(value.updatedAt)))
+    || typeof value.updatedAt !== 'string' || !Number.isFinite(Date.parse(value.updatedAt))
+    || !(value.projectId === null || (typeof value.projectId === 'string' && /^[a-f0-9]{32}$/.test(value.projectId)))
+    || !(value.dueDate === null || (typeof value.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.dueDate)))
+    || ![0, 1, 2, 3].includes(value.priority as number))
     throw new Error('Görev kaydı okunamadı. Listeyi yenile.');
   return value as Task;
 }
@@ -121,6 +126,20 @@ export async function createTask(owner: TaskOwner, id: string, title: string): P
 }
 export async function completeTask(owner: TaskOwner, id: string, completed: boolean): Promise<Task> {
   return parseTask(await invoke('tasks_set_completed', { owner, id, completed }));
+}
+export async function setTaskPlanning(owner: TaskOwner, id: string, projectId: string | null, dueDate: string | null, priority: TaskPriority): Promise<Task> {
+  return parseTask(await invoke('tasks_set_planning', { owner, id, projectId, dueDate, priority }));
+}
+export async function scheduledTasks(owner: TaskOwner, from: string, to: string): Promise<Task[]> {
+  const value = await invoke('tasks_scheduled', { owner, from, to });
+  if (!Array.isArray(value) || value.length > 500) throw new Error('Takvim görevleri okunamadı. Tekrar dene.');
+  return value.map(parseTask);
+}
+export type ProjectProgress = { projectId: string; total: number; completed: number; overdue: number };
+export async function projectProgress(owner: TaskOwner, today: string): Promise<ProjectProgress[]> {
+  const value=await invoke('project_progress',{owner,today});
+  if(!Array.isArray(value)||value.length>200||value.some(item=>!isObject(item)||typeof item.projectId!=='string'||!/^[a-f0-9]{32}$/.test(item.projectId)||![item.total,item.completed,item.overdue].every(number=>Number.isSafeInteger(number)&&Number(number)>=0)||Number(item.completed)>Number(item.total))) throw new Error('Proje ilerlemesi okunamadı.');
+  return value as ProjectProgress[];
 }
 export async function renameTask(owner: TaskOwner, task: Task, title: string): Promise<Task> {
   return parseTask(await invoke('tasks_rename', { owner, id: task.id, title, expectedTitle: task.title }));

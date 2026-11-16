@@ -87,8 +87,8 @@ try {
   await expect(page.getByRole('heading', { name: 'Yerel alan hazır' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Hesap bağlantısı kurulmadı' })).toBeVisible();
   const first = await page.evaluate(() => window.__TAURI__.core.invoke('local_storage_status'));
-  expect(first.schemaVersion).toBe(6);
-  expect(first.migrationCount).toBe(6);
+  expect(first.schemaVersion).toBe(8);
+  expect(first.migrationCount).toBe(8);
   await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_write', { projectRef: 'native-test', token: 'synthetic-native-refresh' }));
   expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'native-test' }))).toBe('synthetic-native-refresh');
   expect(await page.evaluate(() => window.__TAURI__.core.invoke('session_vault_read', { projectRef: 'another-test' }))).toBeNull();

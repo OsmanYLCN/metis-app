@@ -133,6 +133,11 @@ footer > span:first-child { display: flex; align-items: center; gap: 6px; }
 .tasks-panel .section-description { line-height: 1.7; }
 .task-form { display: grid; gap: 9px; margin: 8px 0 16px; }
 .task-form label { font-size: 13px; font-weight: 550; }
+.task-planning-fields { display: grid; grid-template-columns: minmax(160px,1fr) minmax(150px,.7fr) minmax(130px,.55fr); gap: 10px; }
+.task-planning-fields label { display: grid !important; gap: 6px; }
+.task-planning-fields input, .task-planning-fields select { width: 100% !important; min-height: 40px; margin: 0 !important; padding: 8px 10px !important; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); color: var(--text); }
+.task-title-block { display: grid; gap: 2px; min-width: 0; }
+.task-title-block .task-meta { color: var(--muted); font-size: 11px; font-weight: 450; text-decoration: none !important; }
 .task-compose { display: flex; gap: 10px; }
 .task-compose input { flex: 1; min-width: 0; border: 1px solid var(--border-strong); border-radius: 8px; padding: 12px; color: var(--text); background: var(--page); }
 .task-compose input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -152,6 +157,62 @@ footer > span:first-child { display: flex; align-items: center; gap: 6px; }
 .task-list .is-complete label span { color: var(--muted); text-decoration: line-through; }
 .task-list .small-tag { flex-shrink: 0; }
 @media (max-width: 600px) { .task-compose { flex-direction: column; }.task-compose .primary-button { justify-content: center; }.task-list li { gap: 8px; } }
+@media (max-width: 700px) { .task-planning-fields { grid-template-columns: 1fr; } }
+
+/* Planning overview and calendar */
+.product-overview { display: grid; gap: 18px; margin: 24px 0; }
+.overview-metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.overview-metrics button { display: flex; align-items: center; gap: 13px; min-height: 82px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); color: var(--text); text-align: left; }
+.overview-metrics button:hover { border-color: var(--border-strong); background: var(--accent-soft); }
+.overview-metrics svg { color: var(--muted); }
+.overview-metrics span { display: grid; color: var(--muted); font-size: 12px; }
+.overview-metrics strong { color: var(--text); font-size: 24px; font-weight: 570; }
+.overview-columns { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+.overview-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.overview-list li { display: grid; grid-template-columns: 82px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.overview-list li span { color: var(--muted); }
+.overview-list.projects li { grid-template-columns: 1fr auto; }
+.calendar-layout { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 18px; align-items: start; }
+.calendar-panel { padding: 20px; overflow: hidden; }
+.calendar-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 20px; }
+.calendar-toolbar h2 { margin: 0; font-size: 22px; text-transform: capitalize; }
+.calendar-toolbar p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.calendar-toolbar > div:last-child { display: flex; gap: 7px; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); }
+.calendar-weekdays span { padding: 8px; color: var(--muted); font-size: 10px; text-align: center; }
+.calendar-grid { border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+.calendar-grid > button { min-height: 104px; padding: 8px; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; overflow: hidden; }
+.calendar-grid > button:hover, .calendar-grid > button.selected { background: var(--accent-soft); }
+.calendar-grid > button.outside { color: var(--muted); opacity: .52; }
+.calendar-grid > button.today > span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: var(--text); color: var(--page); }
+.calendar-grid button div { display: grid; gap: 4px; margin-top: 7px; }
+.calendar-grid i { overflow: hidden; padding: 3px 5px; border-radius: 4px; background: var(--surface-raised, var(--surface)); color: var(--text); font-size: 10px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-grid i.done, .calendar-agenda .done { color: var(--muted); text-decoration: line-through; }
+.calendar-grid small { color: var(--muted); font-size: 9px; }
+.calendar-agenda { position: sticky; top: 85px; }
+.calendar-agenda h2 { margin: 10px 0 18px; font-size: 20px; text-transform: capitalize; }
+.calendar-agenda > p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.calendar-agenda ul { list-style: none; padding: 0; margin: 0 0 20px; }
+.calendar-agenda li { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border); }
+.calendar-agenda li div { display: grid; gap: 4px; min-width: 0; }
+.calendar-agenda li strong { font-size: 13px; overflow-wrap: anywhere; }
+.calendar-agenda li small { color: var(--muted); font-size: 11px; }
+.priority { width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
+.priority-2 { background: #b49b74; }.priority-3 { background: #b97878; }
+@media (max-width: 1000px) { .calendar-layout { grid-template-columns: 1fr; }.calendar-agenda { position: static; }.overview-columns { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .overview-metrics { grid-template-columns: 1fr; }.calendar-panel { padding: 12px; }.calendar-grid > button { min-height: 70px; }.calendar-grid i { display: none; } }
+
+/* Goals and project progress */
+.project-mini-progress,.goal-progress,.project-progress-track { display:block;height:5px;border-radius:999px;background:var(--accent-soft);overflow:hidden; }
+.project-mini-progress i,.goal-progress i,.project-progress-track i { display:block;height:100%;border-radius:inherit;background:var(--accent); }
+.project-progress-card { display:grid;grid-template-columns:1fr auto;gap:8px;padding:14px;border:1px solid var(--border);border-radius:9px;background:var(--page); }
+.project-progress-card div:first-child { display:grid;gap:4px; }.project-progress-card span { color:var(--muted);font-size:11px; }.project-progress-value { font-size:20px!important;color:var(--text)!important;font-weight:570; }.project-progress-track { grid-column:1/-1; }
+.goals-board { max-width:1180px; }.goals-layout { display:grid;grid-template-columns:minmax(270px,.85fr) minmax(0,1.45fr);gap:18px;align-items:start; }
+.goal-cards { display:grid;gap:10px; }.goal-card { display:grid;gap:10px;width:100%;padding:17px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);text-align:left; }
+.goal-card:hover,.goal-card.selected { border-color:var(--border-strong);background:var(--accent-soft); }.goal-card-head { display:flex;align-items:center;gap:8px;color:var(--muted); }.goal-card-head em { margin-left:auto;font-size:10px;font-style:normal;text-transform:uppercase;letter-spacing:.08em; }.goal-card>strong { font-size:15px;font-weight:570; }.goal-target,.goal-card small { color:var(--muted);font-size:11px; }
+.goal-editor { min-height:540px; }.goal-editor form { display:grid;gap:15px; }.goal-editor label { display:grid;gap:7px;color:var(--muted);font-size:12px;font-weight:550; }.goal-editor input:not([type=range]),.goal-editor textarea,.goal-editor select { width:100%;padding:11px;border:1px solid var(--border-strong);border-radius:8px;background:var(--page);color:var(--text);font:inherit; }.goal-editor textarea { min-height:190px;resize:vertical; }.goal-fields { display:grid;grid-template-columns:1fr 1fr;gap:12px; }.goal-range { grid-template-columns:1fr auto; }.goal-range input { grid-column:1/-1;width:100%;accent-color:var(--accent); }.goal-range strong { color:var(--text); }
+@media(max-width:1050px){.overview-metrics{grid-template-columns:repeat(2,1fr)}.goals-layout{grid-template-columns:1fr}.goal-cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.goal-cards,.goal-fields{grid-template-columns:1fr}}
 
 .task-list li { flex-wrap: wrap; }
 .task-list > li > label { flex-basis: 180px; }

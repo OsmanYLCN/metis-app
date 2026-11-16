@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { FolderKanban, Plus, Search, StickyNote, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
-import type { TaskOwner } from '../tasks/client';
+import { projectProgress, type ProjectProgress, type TaskOwner } from '../tasks/client';
 import { createEntry, deleteEntry, listEntries, saveEntry, type Entry, type EntryDraft, type EntryKind } from './client';
 
 const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned: false });
@@ -30,6 +30,7 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [progress, setProgress] = useState<Record<string, ProjectProgress>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const request = useRef(0);
   const newId = useRef<string | null>(null);
@@ -40,10 +41,12 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
     const attempt = ++request.current;
     setLoading(true); setError('');
     try {
-      const page = await listEntries(owner, kind, query.trim(), append ? items.length : 0);
+      const today=new Date(); const todayIso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+      const [page,stats] = await Promise.all([listEntries(owner, kind, query.trim(), append ? items.length : 0),notes?Promise.resolve([]):projectProgress(owner,todayIso)]);
       if (attempt !== request.current) return;
       setItems(previous => append ? [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))] : page.items);
       setHasMore(page.hasMore);
+      if(!notes)setProgress(Object.fromEntries(stats.map(item=>[item.projectId,item])));
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) setLoading(false); }
   }
@@ -102,7 +105,7 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
         <div className="workspace-list" role="list">
           {items.map(entry => <div role="listitem" key={entry.id}><button className={`workspace-item ${editing !== 'new' && editing?.id === entry.id ? 'selected' : ''}`} onClick={() => open(entry)}>
             <span className="workspace-item-icon">{notes ? <StickyNote size={17} /> : <FolderKanban size={17} />}</span>
-            <span className="workspace-item-copy"><strong>{entry.title}</strong><small>{entry.body.trim().slice(0, 90) || (notes ? 'Boş not' : 'Açıklama yok')}</small><em>{new Date(entry.updatedAt).toLocaleDateString('tr-TR')}{!notes ? ` · ${entry.state === 'active' ? 'Aktif' : entry.state === 'paused' ? 'Beklemede' : 'Tamamlandı'}` : ''}</em></span>
+            <span className="workspace-item-copy"><strong>{entry.title}</strong><small>{entry.body.trim().slice(0, 90) || (notes ? 'Boş not' : 'Açıklama yok')}</small>{!notes&&progress[entry.id]&&<span className="project-mini-progress"><i style={{width:`${Math.round(progress[entry.id].completed/progress[entry.id].total*100)}%`}}/></span>}<em>{new Date(entry.updatedAt).toLocaleDateString('tr-TR')}{!notes ? ` · ${entry.state === 'active' ? 'Aktif' : entry.state === 'paused' ? 'Beklemede' : 'Tamamlandı'}${progress[entry.id]?` · ${progress[entry.id].completed}/${progress[entry.id].total} görev`:''}` : ''}</em></span>
             {entry.pinned && <span className="workspace-pin">Sabit</span>}
           </button></div>)}
           {!loading && !items.length && <div className="workspace-list-empty">{search ? 'Aramana uygun kayıt yok.' : notes ? 'İlk notunu oluştur.' : 'İlk projeni oluştur.'}</div>}
@@ -117,6 +120,7 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
             <input id="workspace-title" autoFocus value={draft.title} maxLength={200} disabled={busy} placeholder={notes ? 'Başlıksız not' : 'Projene bir ad ver'} onChange={event => setDraft({ ...draft, title: event.target.value })} />
             <label htmlFor="workspace-body">{notes ? 'İçerik' : 'Açıklama'}</label>
             <textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />
+            {!notes&&editing!=='new'&&<div className="project-progress-card"><div><strong>{progress[editing.id]?.total??0} görev</strong><span>{progress[editing.id]?.completed??0} tamamlandı · {progress[editing.id]?.overdue??0} geciken</span></div><span className="project-progress-value">{progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%</span><div className="project-progress-track"><i style={{width:`${progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%`}}/></div></div>}
             <div className="workspace-editor-options">{notes ? <label className="workspace-check"><input type="checkbox" checked={draft.pinned} disabled={busy} onChange={event => setDraft({ ...draft, pinned: event.target.checked })} /> Önemli not olarak sabitle</label>
               : <label>Durum <select value={draft.state} disabled={busy} onChange={event => setDraft({ ...draft, state: event.target.value as EntryDraft['state'] })}><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlandı</option></select></label>}</div>
             <div className="workspace-editor-actions">{editing !== 'new' && <button className="text-button workspace-delete" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Sil</button>}

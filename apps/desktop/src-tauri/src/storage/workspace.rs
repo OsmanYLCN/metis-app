@@ -86,6 +86,7 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, kind: &str, expected_rev
     let rows=db.query("SELECT revision FROM workspace_entries WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND kind=?4", &[id,&owner.project_ref,&owner.user_id,kind])?;
     if let Some(row)=rows.first() {
         if row[0]!=expected_revision.to_string() { return Err(TaskError::Conflict); }
+        if kind=="project" { db.query("UPDATE task_attributes SET project_id=NULL WHERE project_id=?1 AND project_ref=?2 AND user_id=?3",&[id,&owner.project_ref,&owner.user_id])?; }
         db.query("DELETE FROM workspace_entries WHERE id=?1 AND project_ref=?2 AND user_id=?3 AND kind=?4 AND revision=?5",
             &[id,&owner.project_ref,&owner.user_id,kind,&expected_revision.to_string()])?;
     }

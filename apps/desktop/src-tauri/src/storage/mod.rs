@@ -2,6 +2,7 @@ mod sqlite;
 pub mod tasks;
 pub mod outbox;
 pub mod workspace;
+pub mod goals;
 #[cfg(test)]
 mod tests;
 
@@ -10,7 +11,7 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 6;
+const VERSION: u32 = 8;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
@@ -18,6 +19,8 @@ const OUTBOX_MIGRATION: &str = include_str!("../../migrations/0003_local_outbox.
 const DELIVERY_MIGRATION: &str = include_str!("../../migrations/0004_outbox_delivery.sql");
 const ACTION_MIGRATION: &str = include_str!("../../migrations/0005_task_actions.sql");
 const WORKSPACE_MIGRATION: &str = include_str!("../../migrations/0006_workspace_entries.sql");
+const TASK_PLANNING_MIGRATION: &str = include_str!("../../migrations/0007_task_planning.sql");
+const GOALS_MIGRATION: &str = include_str!("../../migrations/0008_goals.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,6 +139,18 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
     }
     if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=6 AND name='workspace_entries'")? != workspace_checksum { return Err(StorageError::InvalidSchema); }
     connection.query("SELECT id,project_ref,user_id,kind,title,body,state,pinned,revision,created_at,updated_at FROM workspace_entries LIMIT 0", &[])?;
+    let planning_checksum = format!("{:x}", Sha256::digest(TASK_PLANNING_MIGRATION.replace("\r\n", "\n").as_bytes()));
+    if old_version < 7 {
+        connection.execute(TASK_PLANNING_MIGRATION).map_err(|_| StorageError::MigrationFailed)?;
+        connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(7,'task_planning','{planning_checksum}'); PRAGMA user_version=7;"))
+            .map_err(|_| StorageError::MigrationFailed)?;
+    }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=7 AND name='task_planning'")? != planning_checksum { return Err(StorageError::InvalidSchema); }
+    connection.query("SELECT task_id,project_ref,user_id,project_id,due_date,priority FROM task_attributes LIMIT 0", &[])?;
+    let goals_checksum=format!("{:x}",Sha256::digest(GOALS_MIGRATION.replace("\r\n","\n").as_bytes()));
+    if old_version<8 { connection.execute(GOALS_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(8,'goals','{goals_checksum}'); PRAGMA user_version=8;")).map_err(|_|StorageError::MigrationFailed)?; }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=8 AND name='goals'")?!=goals_checksum{return Err(StorageError::InvalidSchema)}
+    connection.query("SELECT id,project_ref,user_id,title,description,state,target_date,progress,revision,created_at,updated_at FROM goals LIMIT 0",&[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

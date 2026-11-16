@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-goals-save"
+description = "Enables the goals_save command without any pre-configured scope."
+commands.allow = ["goals_save"]
+
+[[permission]]
+identifier = "deny-goals-save"
+description = "Denies the goals_save command without any pre-configured scope."
+commands.deny = ["goals_save"]

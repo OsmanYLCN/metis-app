@@ -9,15 +9,16 @@ async function setup(page: Page) {
   let deleteCalls = 0;
   let delayNextList = false;
   let releaseList: (() => void) | undefined;
-  const rows = new Map<string, { id: string; title: string; completed: boolean; createdAt: string; updatedAt: string }>();
+  const rows = new Map<string, { id: string; title: string; completed: boolean; createdAt: string; updatedAt: string; projectId: string | null; dueDate: string | null; priority: number }>();
   const createIds: string[] = [];
-  await page.exposeFunction('taskBridge', (command: string, args: { owner?: { userId: string }; id?: string; title?: string; completed?: boolean; expectedTitle?: string; taskIds?: string[] }) => {
+  await page.exposeFunction('taskBridge', (command: string, args: { owner?: { userId: string }; id?: string; title?: string; completed?: boolean; expectedTitle?: string; taskIds?: string[]; projectId?: string | null; dueDate?: string | null; priority?: number }) => {
     if (command === 'session_vault_read') return null;
     if (command.startsWith('session_vault_')) return;
-    if (command === 'local_storage_status') return { engine: 'sqlite', schemaVersion: 6, migrationCount: 6, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00Z' };
+    if (command === 'local_storage_status') return { engine: 'sqlite', schemaVersion: 8, migrationCount: 8, storageId: '0123456789abcdef0123456789abcdef', createdAt: '2026-11-04T08:00:00Z' };
     if (command === 'outbox_count') return 0;
     if (command === 'outbox_pending' || command === 'task_actions_pending') return [];
     if (command === 'outbox_statuses') return (args.taskIds ?? []).map(taskId => ({ taskId, phase: 'localOnly', revision: null }));
+    if (command === 'workspace_list') return { items: [], hasMore: false };
     const prefix = `${args.owner!.userId}:`;
     const key = `${prefix}${args.id}`;
     if (command === 'tasks_list') {
@@ -28,13 +29,16 @@ async function setup(page: Page) {
     if (command === 'tasks_create') {
       createIds.push(args.id!);
       // Write succeeds but IPC reply is lost: retry must use the same request ID.
-      if (!rows.has(key)) rows.set(key, { id: args.id!, title: args.title!.trim(), completed: false, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z' });
+      if (!rows.has(key)) rows.set(key, { id: args.id!, title: args.title!.trim(), completed: false, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z', projectId: null, dueDate: null, priority: 0 });
       if (failCreate) { failCreate = false; throw new Error('Synthetic lost reply'); }
       return rows.get(key);
     }
     if (command === 'tasks_set_completed') {
       if (failComplete) { failComplete = false; throw new Error('Synthetic storage failure'); }
       const task = rows.get(key)!; task.completed = args.completed!; return task;
+    }
+    if (command === 'tasks_set_planning') {
+      const task = rows.get(key)!; task.projectId = args.projectId ?? null; task.dueDate = args.dueDate ?? null; task.priority = args.priority ?? 0; return task;
     }
     if (command === 'tasks_rename') {
       if (failRename) { failRename = false; throw new Error('Synthetic edit failure'); }
@@ -111,7 +115,7 @@ test('local tasks retry safely, complete/reopen, survive navigation and hide on 
 test('a late list reply cannot display a previous account after logout (mock IPC/auth)', async ({ page }) => {
   const state = await setup(page);
   state.rows.set(`11111111-1111-4111-8111-111111111111:${'a'.repeat(32)}`, {
-    id: 'a'.repeat(32), title: 'Önceki hesabın görevi', completed: false, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z',
+    id: 'a'.repeat(32), title: 'Önceki hesabın görevi', completed: false, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z', projectId: null, dueDate: null, priority: 0,
   });
   state.delayList(); await login(page);
   await expect.poll(state.pending).toBe(true);
@@ -129,7 +133,7 @@ test('a late list reply cannot display a previous account after logout (mock IPC
 test('edit retains failed drafts; delete requires confirmation and safely retries a lost reply (mock IPC/auth)', async ({ page }) => {
   const state = await setup(page);
   state.rows.set(`11111111-1111-4111-8111-111111111111:${'b'.repeat(32)}`, {
-    id: 'b'.repeat(32), title: 'Eski görev', completed: true, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z',
+    id: 'b'.repeat(32), title: 'Eski görev', completed: true, createdAt: '2026-11-07T10:00:00Z', updatedAt: '2026-11-07T10:00:00Z', projectId: null, dueDate: null, priority: 0,
   });
   await login(page);
   const editButton = page.getByRole('button', { name: 'Eski görev: düzenle', exact: true });

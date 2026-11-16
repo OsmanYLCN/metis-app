@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 25; masaüstü v0.17.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite, Supabase JWT doğrulaması ve masaüstü giriş akışı. Ürünün adı Metis. Repoda varsayılan sağlayıcı kapalıdır; bu çalışma ortamında public Supabase Auth ile ayrı reader/writer bağlantıları yerel, Git dışı ayarlarda yapılandırıldı. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 27; masaüstü v0.19.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev planlama, aylık takvim, notlar, projeler, görevlerden hesaplanan proje ilerlemesi, hedef takibi ve gerçek verili Dashboard sunar. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 

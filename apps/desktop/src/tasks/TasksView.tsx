@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { CheckCheck, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
-import { beginLocalDelivery, beginTaskAction, cloudStatuses, completeTask, confirmLocalDelivery, confirmTaskAction, createTask, deleteTask, listTasks, pendingCount, prepareTaskAction, renameTask, type CloudStatus, type Task, type TaskOwner } from './client';
+import { beginLocalDelivery, beginTaskAction, cloudStatuses, completeTask, confirmLocalDelivery, confirmTaskAction, createTask, deleteTask, listTasks, pendingCount, prepareTaskAction, renameTask, setTaskPlanning, type CloudStatus, type Task, type TaskOwner, type TaskPriority } from './client';
 import { syncPendingTasks } from './sync';
+import { listEntries, type Entry } from '../workspace/client';
 
 export function TasksView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
@@ -29,6 +30,10 @@ function TaskList({ owner }: { owner: TaskOwner }) {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(true);
   const [title, setTitle] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [priority, setPriority] = useState<TaskPriority>(0);
+  const [projects, setProjects] = useState<Entry[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [queued, setQueued] = useState<number | null>(null);
@@ -38,7 +43,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     if (!busy) void pendingCount(owner).then(value => { if (active) setQueued(value); }).catch(() => { if (active) setQueued(null); });
     return () => { active = false; };
   }, [busy, items, owner.projectRef, owner.userId]);
-  const [action, setAction] = useState<{ kind: 'edit' | 'delete'; task: Task; draft: string } | null>(null);
+  const [action, setAction] = useState<{ kind: 'edit' | 'delete'; task: Task; draft: string; projectId: string; dueDate: string; priority: TaskPriority } | null>(null);
   const [actionError, setActionError] = useState('');
   const actionTrigger = useRef<HTMLButtonElement | null>(null);
   const request = useRef(0);
@@ -92,7 +97,7 @@ function TaskList({ owner }: { owner: TaskOwner }) {
   function beginAction(kind: 'edit' | 'delete', task: Task, trigger: HTMLButtonElement) {
     if (inFlight.current || action) return;
     actionTrigger.current = trigger;
-    setAction({ kind, task, draft: task.title }); setActionError(''); setNotice(''); setError('');
+    setAction({ kind, task, draft: task.title, projectId: task.projectId ?? '', dueDate: task.dueDate ?? '', priority: task.priority }); setActionError(''); setNotice(''); setError('');
   }
   async function applyAction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,12 +110,13 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     inFlight.current = true; setBusy(true); setActionError(''); setNotice('');
     try {
       if (action.kind === 'edit') {
-        const saved = await renameTask(owner, action.task, trimmed);
+        const renamed = trimmed === action.task.title ? action.task : await renameTask(owner, action.task, trimmed);
+        const saved = await setTaskPlanning(owner, renamed.id, action.projectId || null, action.dueDate || null, action.priority);
         if (attempt !== request.current) return;
         setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
         if (cloud[saved.id]?.phase === 'sent') setCloud(previous => ({ ...previous, [saved.id]: { taskId: saved.id, phase: 'pendingRename', revision: null } }));
-        setNotice(cloud[saved.id]?.phase === 'sent' ? 'Başlık bu cihazda kaydedildi; buluta gönderilecek.' : 'Görev başlığı kaydedildi.');
-        scheduleAutoSync();
+        setNotice(cloud[saved.id]?.phase === 'sent' && trimmed !== action.task.title ? 'Görev planı kaydedildi; başlık buluta gönderilecek.' : 'Görev planı kaydedildi.');
+        if (trimmed !== action.task.title) scheduleAutoSync();
       } else {
         if (cloud[action.task.id]?.phase === 'sent' || cloud[action.task.id]?.phase === 'pendingDelete')
           await sendAction(action.task, 'delete', null, attempt);
@@ -129,13 +135,13 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     inFlight.current = true; setBusy(true);
     if (clearMessages) { setError(''); setNotice(''); }
     try {
-      const result = await listTasks(owner, offset);
+      const [result, projectPage] = await Promise.all([listTasks(owner, offset), listEntries(owner, 'project')]);
       const statuses = await cloudStatuses(owner, result.items.map(task => task.id));
       if (attempt !== request.current) return;
       setItems(previous => offset ? [...previous, ...result.items.filter(task => !previous.some(old => old.id === task.id))] : result.items);
       setCloud(previous => offset ? { ...previous, ...Object.fromEntries(statuses.map(status => [status.taskId, status])) }
         : Object.fromEntries(statuses.map(status => [status.taskId, status])));
-      setHasMore(result.hasMore); setLoaded(true);
+      setHasMore(result.hasMore); setLoaded(true); setProjects(projectPage.items);
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { setBusy(false); inFlight.current = false; } }
   }
@@ -157,11 +163,12 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     const attempt = ++request.current;
     inFlight.current = true; setBusy(true); setError(''); setNotice('');
     try {
-      const task = await createTask(owner, draftId.current, trimmed);
+      const created = await createTask(owner, draftId.current, trimmed);
+      const task = await setTaskPlanning(owner, created.id, projectId || null, dueDate || null, priority);
       if (attempt !== request.current) return;
       setItems(previous => [task, ...previous.filter(old => old.id !== task.id)]);
       setCloud(previous => ({ ...previous, [task.id]: { taskId: task.id, phase: 'pendingCreate', revision: null } }));
-      setTitle(''); draftId.current = null; setNotice('Görev bu cihaza kaydedildi.');
+      setTitle(''); setProjectId(''); setDueDate(''); setPriority(0); draftId.current = null; setNotice('Görev ve planı bu cihaza kaydedildi.');
       scheduleAutoSync();
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
@@ -242,13 +249,18 @@ function TaskList({ owner }: { owner: TaskOwner }) {
         placeholder="Ne yapmak istiyorsun?" autoComplete="off"
         onChange={event => { setTitle(event.target.value); draftId.current = null; }} />
         <button className="primary-button" disabled={busy || !loaded || !title.trim() || !!action} type="submit"><Plus size={17} /> Görev ekle</button></div>
+      <div className="task-planning-fields">
+        <label>Proje<select value={projectId} disabled={busy || !!action} onChange={event => setProjectId(event.target.value)}><option value="">Projesiz</option>{projects.filter(item => item.state !== 'done').map(project => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label>
+        <label>Son tarih<input type="date" value={dueDate} disabled={busy || !!action} onChange={event => setDueDate(event.target.value)} /></label>
+        <label>Öncelik<select value={priority} disabled={busy || !!action} onChange={event => setPriority(Number(event.target.value) as TaskPriority)}><option value={0}>Normal</option><option value={1}>Düşük</option><option value={2}>Yüksek</option><option value={3}>Kritik</option></select></label>
+      </div>
     </form>
     {error && <p className="task-message" role="alert">{error}</p>}
     <p className="task-feedback" role="status">{busy ? 'İşleniyor…' : notice || (loaded ? `${items.length} görev listeleniyor` : 'Görevler yüklenemedi. Listeyi yenileyebilirsin.')}</p>
     {loaded && items.length === 0 && !hasMore && <div className="tasks-empty"><CheckCheck size={28} /><h3>İlk görevine yer aç.</h3><p>Yukarıya bir başlık yaz; küçük bir adımla başla.</p></div>}
     <ul className="task-list">{items.map(task => <li key={task.id} className={task.completed ? 'is-complete' : ''}>
       <label><input type="checkbox" checked={task.completed} disabled={busy || !!action || ['pendingRename', 'pendingComplete', 'pendingDelete', 'conflict'].includes(cloud[task.id]?.phase ?? '')} onChange={() => void toggle(task)}
-        aria-label={`${task.title}: ${task.completed ? 'yeniden aç' : 'tamamla'}`} /><span>{task.title}</span></label>
+        aria-label={`${task.title}: ${task.completed ? 'yeniden aç' : 'tamamla'}`} /><span className="task-title-block"><span>{task.title}</span><span className="task-meta">{[task.projectId && projects.find(project => project.id === task.projectId)?.title, task.dueDate && new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('tr-TR'), task.priority > 1 && (task.priority === 3 ? 'Kritik' : 'Yüksek')].filter(Boolean).join(' · ') || 'Plansız'}</span></span></label>
       <span className="small-tag">{task.completed ? 'Tamamlandı' : 'Açık'}</span>
       <span className="small-tag">{cloud[task.id]?.phase === 'sent' ? 'Bulutta'
         : cloud[task.id]?.phase === 'pendingComplete' ? 'Durum gönderimi bekliyor'
@@ -270,7 +282,8 @@ function TaskList({ owner }: { owner: TaskOwner }) {
         onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) closeAction(); } }}>
         {action.kind === 'edit' ? <><label htmlFor="task-edit-title">Görev başlığı</label>
           <input id="task-edit-title" autoFocus value={action.draft} maxLength={200} disabled={busy}
-            onChange={event => setAction({ ...action, draft: event.target.value })} /></>
+            onChange={event => setAction({ ...action, draft: event.target.value })} />
+          <div className="task-planning-fields"><label>Proje<select value={action.projectId} onChange={event => setAction({ ...action, projectId: event.target.value })}><option value="">Projesiz</option>{projects.map(project => <option key={project.id} value={project.id}>{project.title}</option>)}</select></label><label>Son tarih<input type="date" value={action.dueDate} onChange={event => setAction({ ...action, dueDate: event.target.value })} /></label><label>Öncelik<select value={action.priority} onChange={event => setAction({ ...action, priority: Number(event.target.value) as TaskPriority })}><option value={0}>Normal</option><option value={1}>Düşük</option><option value={2}>Yüksek</option><option value={3}>Kritik</option></select></label></div></>
           : <><h3>Bu görev silinsin mi?</h3><p className="task-delete-title">{action.task.title}</p><p>Bu cihazdaki kayıt kalıcı olarak silinecek. Bu işlem geri alınamaz.</p></>}
         {actionError && <p className="task-message" role="alert">{actionError}</p>}
         <div className="task-editor-actions">
