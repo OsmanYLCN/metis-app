@@ -37,7 +37,9 @@ const modules = [
 
 export function App() {
   const [selected, setSelected] = useState('Dashboard');
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    try { const saved = localStorage.getItem('metis-theme'); return saved === 'light' || saved === 'dark' ? saved : 'system'; } catch { return 'system'; }
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [connection, setConnection] = useState<'checking' | 'online' | 'offline'>('checking');
   const [lastChecked, setLastChecked] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function App() {
   }
 
   useEffect(() => { void refresh(); return () => request.current?.abort(); }, []);
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem('metis-theme', theme); } catch { /* The selected theme still works for this session. */ } }, [theme]);
   useEffect(() => { document.title = `${current.label} · Metis`; }, [current.label]);
   useEffect(() => {
     loginStore.start();
@@ -100,7 +102,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 34 <span>v0.26.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 35 <span>v0.27.0</span></div></div>
       </aside>
 
       <div className="main-layout">

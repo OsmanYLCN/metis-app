@@ -35,6 +35,7 @@ function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwne
   const [progress, setProgress] = useState<Record<string, ProjectProgress>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [filter, setFilter] = useState('all');
   const request = useRef(0);
   const newId = useRef<string | null>(null);
   const base = editing === 'new' ? blank() : editing ? fromEntry(editing) : null;
@@ -64,6 +65,16 @@ function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwne
     if (entry === 'new') newId.current = crypto.randomUUID().replaceAll('-', '');
   }
   function discard() { setEditing(null); setDraft(blank()); setConfirmDelete(false); setPreview(false); setError(''); newId.current = null; }
+  function template(name: string) {
+    if (dirty || busy) { setError('Önce açık kaydı kaydet veya vazgeç.'); return; }
+    open('new');
+    const templates: Record<string, EntryDraft> = {
+      daily: { ...blank(), title: 'Günlük plan', body: '# Bugün\n- [ ] Öncelikli iş\n- [ ] İkinci iş\n\n## Günün notları\n\n## Gün sonunda\n' },
+      meeting: { ...blank(), title: 'Toplantı notu', body: '# Gündem\n- \n\n## Kararlar\n- \n\n## Yapılacaklar\n- [ ] \n' },
+      project: { ...blank(), title: 'Yeni proje planı', body: '# Amaç\n\n## Kapsam\n\n## Aşamalar\n- [ ] Hazırlık\n- [ ] Uygulama\n- [ ] Değerlendirme\n' },
+    };
+    setDraft(templates[name]);
+  }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !editing) return;
@@ -95,23 +106,27 @@ function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwne
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
   }
-  return <section className="workspace-board" data-workspace-dirty={dirty} aria-label={notes ? 'Notlar çalışma alanı' : 'Projeler çalışma alanı'}>
+  const visible = items.filter(item => filter === 'all' || (notes ? item.pinned : item.state === filter));
+  return <section className="workspace-board" data-workspace-dirty={dirty} aria-label={notes ? 'Notlar çalışma alanı' : 'Projeler çalışma alanı'} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); event.currentTarget.querySelector<HTMLFormElement>('form.workspace-editor')?.requestSubmit(); } }}>
     <div className="workspace-toolbar"><div><h2>{notes ? 'Fikirlerin için bir alan' : 'Üzerinde çalıştıkların'}</h2><p>{notes ? 'Yaz, düzenle ve önemli notları sabitle.' : 'Projelerini tanımla, durumlarını güncelle ve ilerlemeyi takip et.'}</p></div>
       <button className="primary-button" disabled={busy} onClick={() => open('new')}><Plus size={16} /> {notes ? 'Yeni not' : 'Yeni proje'}</button></div>
     <p className="workspace-local-note">Bu kayıtlar yalnızca bu cihazda tutulur. Bulut eşitlemesi henüz yok.</p>
+    <div className="workspace-quick-links">{notes ? <><button className="secondary-button" disabled={busy} onClick={()=>template('daily')}>Günlük plan şablonu</button><button className="secondary-button" disabled={busy} onClick={()=>template('meeting')}>Toplantı şablonu</button></> : <button className="secondary-button" disabled={busy} onClick={()=>template('project')}>Proje planı şablonu</button>}<span className="section-description">Ctrl+S ile kaydet</span></div>
     {notice && <p className="workspace-notice" role="status">{notice}</p>}
     {error && <p className="workspace-error" role="alert">{error}</p>}
     <div className="workspace-columns">
       <div className="workspace-list-panel">
         <label className="workspace-search"><Search size={17} /><span className="sr-only">{notes ? 'Notlarda ara' : 'Projelerde ara'}</span><input aria-label={notes ? 'Notlarda ara' : 'Projelerde ara'} value={search} maxLength={100} placeholder={notes ? 'Notlarda ara' : 'Projelerde ara'} onChange={event => setSearch(event.target.value)} /></label>
         <div className="workspace-list-head"><span>{loading ? 'Yükleniyor…' : `${items.length} ${notes ? 'not' : 'proje'}`}</span><button className="text-button" onClick={() => void load()} disabled={loading}>Yenile</button></div>
+        <label className="workspace-search">Göster<select aria-label="Kayıt filtresi" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">Tümü</option>{notes?<option value="pinned">Sabit notlar</option>:<><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlanan</option></>}</select></label>
         <div className="workspace-list" role="list">
-          {items.map(entry => <div role="listitem" key={entry.id}><button className={`workspace-item ${editing !== 'new' && editing?.id === entry.id ? 'selected' : ''}`} onClick={() => open(entry)}>
+          {visible.map(entry => <div role="listitem" key={entry.id}><button className={`workspace-item ${editing !== 'new' && editing?.id === entry.id ? 'selected' : ''}`} onClick={() => open(entry)}>
             <span className="workspace-item-icon">{notes ? <StickyNote size={17} /> : <FolderKanban size={17} />}</span>
             <span className="workspace-item-copy"><strong>{entry.title}</strong><small>{entry.body.trim().slice(0, 90) || (notes ? 'Boş not' : 'Açıklama yok')}</small>{!notes&&progress[entry.id]&&<span className="project-mini-progress"><i style={{width:`${Math.round(progress[entry.id].completed/progress[entry.id].total*100)}%`}}/></span>}<em>{new Date(entry.updatedAt).toLocaleDateString('tr-TR')}{!notes ? ` · ${entry.state === 'active' ? 'Aktif' : entry.state === 'paused' ? 'Beklemede' : 'Tamamlandı'}${progress[entry.id]?` · ${progress[entry.id].completed}/${progress[entry.id].total} görev`:''}` : ''}</em></span>
             {entry.pinned && <span className="workspace-pin">Sabit</span>}
           </button></div>)}
           {!loading && !items.length && <div className="workspace-list-empty">{search ? 'Aramana uygun kayıt yok.' : notes ? 'İlk notunu oluştur.' : 'İlk projeni oluştur.'}</div>}
+          {!loading && items.length>0 && !visible.length && <div className="workspace-list-empty">Bu filtrede kayıt yok.{hasMore?' Diğer kayıtları yükleyebilirsin.':''}</div>}
         </div>
         {hasMore && <button className="text-button workspace-more" disabled={loading} onClick={() => void load(search, true)}>Daha fazla göster</button>}
       </div>
