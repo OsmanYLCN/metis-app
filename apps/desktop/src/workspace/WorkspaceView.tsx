@@ -4,22 +4,24 @@ import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
 import { projectProgress, type ProjectProgress, type TaskOwner } from '../tasks/client';
 import { createEntry, deleteEntry, listEntries, saveEntry, type Entry, type EntryDraft, type EntryKind } from './client';
+import { NotePreview } from './NotePreview';
+import { ProjectTasks } from './ProjectTasks';
 
 const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned: false });
 const fromEntry = (entry: Entry): EntryDraft => ({ title: entry.title, body: entry.body, state: entry.state, pinned: entry.pinned });
 const message = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
 
-export function WorkspaceView({ kind, onAccount }: { kind: EntryKind; onAccount: () => void }) {
+export function WorkspaceView({ kind, onAccount, onTasks }: { kind: EntryKind; onAccount: () => void; onTasks: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const name = kind === 'note' ? 'Notlarını' : 'Projelerini';
   if (!globalThis.window?.__TAURI__) return <section className="empty-state"><h2>{name} Windows uygulamasında.</h2><p>Tarayıcı önizlemesi kayıt tutmaz.</p></section>;
   if (session.phase !== 'signedIn' || session.expiresAt <= Date.now() || loginSettings.kind !== 'ready')
     return <section className="empty-state"><h2>{name} görmek için giriş yap.</h2><p>Kayıtlar bu cihazda ve hesabına ayrılmış alanda tutulur.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section>;
   const owner = { projectRef: new URL(loginSettings.config.url).hostname.split('.')[0], userId: session.userId.toLowerCase() };
-  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} />;
+  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} />;
 }
 
-function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
+function EntryBoard({ kind, owner, onTasks }: { kind: EntryKind; owner: TaskOwner; onTasks: () => void }) {
   const notes = kind === 'note';
   const [items, setItems] = useState<Entry[]>([]);
   const [search, setSearch] = useState('');
@@ -32,6 +34,7 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
   const [notice, setNotice] = useState('');
   const [progress, setProgress] = useState<Record<string, ProjectProgress>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [preview, setPreview] = useState(false);
   const request = useRef(0);
   const newId = useRef<string | null>(null);
   const base = editing === 'new' ? blank() : editing ? fromEntry(editing) : null;
@@ -56,11 +59,11 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
   }, [kind, owner.projectRef, owner.userId, search]);
   function open(entry: Entry | 'new') {
     if (dirty) { setError('Önce açık kaydı kaydet veya vazgeç.'); return; }
-    setEditing(entry); setDraft(entry === 'new' ? blank() : fromEntry(entry));
+    setEditing(entry); setDraft(entry === 'new' ? blank() : fromEntry(entry)); setPreview(false);
     setConfirmDelete(false); setError(''); setNotice('');
     if (entry === 'new') newId.current = crypto.randomUUID().replaceAll('-', '');
   }
-  function discard() { setEditing(null); setDraft(blank()); setConfirmDelete(false); setError(''); newId.current = null; }
+  function discard() { setEditing(null); setDraft(blank()); setConfirmDelete(false); setPreview(false); setError(''); newId.current = null; }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !editing) return;
@@ -118,13 +121,15 @@ function EntryBoard({ kind, owner }: { kind: EntryKind; owner: TaskOwner }) {
             <div className="workspace-editor-head"><span>{editing === 'new' ? notes ? 'YENİ NOT' : 'YENİ PROJE' : `SON GÜNCELLEME · ${new Date(editing.updatedAt).toLocaleString('tr-TR')}`}{dirty ? ' · KAYDEDİLMEDİ' : ''}</span><button type="button" className="text-button" disabled={busy} onClick={discard}>{dirty ? 'Vazgeç' : 'Kapat'}</button></div>
             <label htmlFor="workspace-title">{notes ? 'Not başlığı' : 'Proje adı'}</label>
             <input id="workspace-title" autoFocus value={draft.title} maxLength={200} disabled={busy} placeholder={notes ? 'Başlıksız not' : 'Projene bir ad ver'} onChange={event => setDraft({ ...draft, title: event.target.value })} />
-            <label htmlFor="workspace-body">{notes ? 'İçerik' : 'Açıklama'}</label>
-            <textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />
+            <div className="workspace-body-heading"><label htmlFor="workspace-body">{notes ? 'İçerik' : 'Açıklama'}</label>{notes&&<button type="button" className="text-button" aria-pressed={preview} onClick={()=>setPreview(value=>!value)}>{preview?'Düzenle':'Önizle'}</button>}</div>
+            {notes&&preview?<NotePreview body={draft.body}/>:<textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />}
+            {notes&&<p className="note-count">{draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0} kelime · {draft.body.length}/20.000 karakter · Başlık için #, madde için - kullanabilirsin.</p>}
             {!notes&&editing!=='new'&&<div className="project-progress-card"><div><strong>{progress[editing.id]?.total??0} görev</strong><span>{progress[editing.id]?.completed??0} tamamlandı · {progress[editing.id]?.overdue??0} geciken</span></div><span className="project-progress-value">{progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%</span><div className="project-progress-track"><i style={{width:`${progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%`}}/></div></div>}
             <div className="workspace-editor-options">{notes ? <label className="workspace-check"><input type="checkbox" checked={draft.pinned} disabled={busy} onChange={event => setDraft({ ...draft, pinned: event.target.checked })} /> Önemli not olarak sabitle</label>
               : <label>Durum <select value={draft.state} disabled={busy} onChange={event => setDraft({ ...draft, state: event.target.value as EntryDraft['state'] })}><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlandı</option></select></label>}</div>
             <div className="workspace-editor-actions">{editing !== 'new' && <button className="text-button workspace-delete" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Sil</button>}
               <button className="primary-button" type="submit" disabled={busy || !draft.title.trim()}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</button></div>
+            {!notes&&editing!=='new'&&<ProjectTasks key={editing.id} owner={owner} projectId={editing.id} onTasks={onTasks}/>}
             {confirmDelete && editing !== 'new' && <div className="workspace-confirm"><p><strong>{editing.title}</strong> kalıcı olarak silinsin mi?</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmDelete(false)}>İptal</button><button type="button" className="primary-button" disabled={busy} onClick={() => void remove()}>Evet, sil</button></div></div>}
           </form>}
       </div>
