@@ -7,6 +7,8 @@ fn main() {
             "task_actions_pending", "task_action_prepare", "task_action_begin", "task_action_acknowledge",
             "workspace_list", "workspace_create", "workspace_save", "workspace_delete",
             "project_progress", "goals_list", "goals_create", "goals_save", "goals_delete",
+            "finance_list", "finance_create", "finance_delete",
+            "events_list", "events_create", "events_save", "events_delete",
         ]),
     )).expect("Tauri permission manifest could not be built");
 }

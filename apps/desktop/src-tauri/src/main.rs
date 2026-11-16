@@ -9,6 +9,8 @@ use std::path::PathBuf;
 use tauri::Manager;
 use storage::tasks::{Task, TaskOwner, TaskPage, TaskError, ProjectProgress};
 use storage::goals::Goal;
+use storage::finance::FinanceEntry;
+use storage::calendar::Event;
 use storage::workspace::{Entry, EntryPage};
 use storage::outbox::{PendingOperation, PendingAction, TaskCloudStatus};
 use session_vault::{SessionVault, VaultError, Secret};
@@ -118,10 +120,24 @@ async fn goals_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:Strin
 async fn goals_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,description:String,state:String,target_date:Option<String>,progress:u8)->Result<Goal,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::save(&path,&owner,&id,expected_revision,&title,&description,&state,target_date.as_deref(),progress)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
 async fn goals_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn finance_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<FinanceEntry>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::list(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn finance_create(app:tauri::AppHandle,owner:TaskOwner,id:String,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<FinanceEntry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::create(&path,&owner,&id,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn finance_delete(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::delete(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn events_list(app:tauri::AppHandle,owner:TaskOwner,from:String,to:String)->Result<Vec<Event>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::list(&path,&owner,&from,&to)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn events_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::create(&path,&owner,&id,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn events_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::save(&path,&owner,&id,expected_revision,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn events_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete])
+        .invoke_handler(tauri::generate_handler![workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_list, finance_create, finance_delete, events_list, events_create, events_save, events_delete])
         .run(tauri::generate_context!())
         .expect("Metis could not start");
 }

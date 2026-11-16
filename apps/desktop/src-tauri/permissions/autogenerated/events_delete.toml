@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-events-delete"
+description = "Enables the events_delete command without any pre-configured scope."
+commands.allow = ["events_delete"]
+
+[[permission]]
+identifier = "deny-events-delete"
+description = "Denies the events_delete command without any pre-configured scope."
+commands.deny = ["events_delete"]

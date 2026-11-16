@@ -177,6 +177,48 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the events_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-create",
+          "markdownDescription": "Enables the events_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the events_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-delete",
+          "markdownDescription": "Enables the events_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the events_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-list",
+          "markdownDescription": "Enables the events_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the events_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-save",
+          "markdownDescription": "Enables the events_save command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finance_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-create",
+          "markdownDescription": "Enables the finance_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finance_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-delete",
+          "markdownDescription": "Enables the finance_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finance_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-list",
+          "markdownDescription": "Enables the finance_list command without any pre-configured scope."
+        },
+        {
           "description": "Enables the goals_create command without any pre-configured scope.",
           "type": "string",
           "const": "allow-goals-create",
@@ -355,6 +397,48 @@
           "type": "string",
           "const": "allow-workspace-save",
           "markdownDescription": "Enables the workspace_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the events_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-create",
+          "markdownDescription": "Denies the events_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the events_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-delete",
+          "markdownDescription": "Denies the events_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the events_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-list",
+          "markdownDescription": "Denies the events_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the events_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-save",
+          "markdownDescription": "Denies the events_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finance_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-create",
+          "markdownDescription": "Denies the finance_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finance_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-delete",
+          "markdownDescription": "Denies the finance_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finance_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-list",
+          "markdownDescription": "Denies the finance_list command without any pre-configured scope."
         },
         {
           "description": "Denies the goals_create command without any pre-configured scope.",

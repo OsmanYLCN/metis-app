@@ -1,0 +1,9 @@
+import type { TaskOwner } from '../tasks/client';
+export type CalendarEvent={id:string;title:string;details:string;eventDate:string;startTime:string|null;endTime:string|null;revision:number;createdAt:string;updatedAt:string};
+export type EventDraft=Pick<CalendarEvent,'title'|'details'|'eventDate'|'startTime'|'endTime'>;
+function parse(value:unknown):CalendarEvent{const v=value as CalendarEvent;if(!v||!/^[a-f0-9]{32}$/.test(v.id)||typeof v.title!=='string'||!v.title.trim()||typeof v.details!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(v.eventDate)||!Number.isSafeInteger(v.revision)||v.revision<1)throw new Error('Etkinlik okunamadı.');return v}
+async function call(command:string,args:Record<string,unknown>){const invoke=window.__TAURI__?.core.invoke;if(!invoke)throw new Error('Windows uygulamasını aç.');try{return await invoke(command,args)}catch(error){if(error==='invalidInput')throw new Error('Tarih, saat ve başlığı kontrol et.');if(error==='conflict')throw new Error('Etkinlik değişmiş. Takvimi yenile.');throw new Error('Etkinlik işlemi tamamlanamadı.')}}
+export async function listEvents(owner:TaskOwner,from:string,to:string):Promise<CalendarEvent[]>{const value=await call('events_list',{owner,from,to});if(!Array.isArray(value)||value.length>500)throw new Error('Etkinlik listesi okunamadı.');return value.map(parse)}
+export async function createEvent(owner:TaskOwner,id:string,draft:EventDraft){return parse(await call('events_create',{owner,id,...draft}))}
+export async function saveEvent(owner:TaskOwner,event:CalendarEvent,draft:EventDraft){return parse(await call('events_save',{owner,id:event.id,expectedRevision:event.revision,...draft}))}
+export async function deleteEvent(owner:TaskOwner,event:CalendarEvent){const value=await call('events_delete',{owner,id:event.id,expectedRevision:event.revision});if(value!==null)throw new Error('Silme doğrulanamadı.')}
