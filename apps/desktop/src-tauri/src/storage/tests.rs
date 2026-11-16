@@ -565,3 +565,19 @@ fn persists_across_separate_process_restarts() {
     assert_eq!(first.len(), 32);
     assert_eq!(first, run());
 }
+
+#[test]
+fn project_task_query_filters_before_pagination_and_keeps_owner_scope() {
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ let project="a".repeat(32);let task="b".repeat(32);let loose="c".repeat(32);
+ workspace::create(&temp.db(),&owner,&project,"project","Project","","active",false).unwrap();
+ tasks::create(&temp.db(),&owner,&task,"Assigned").unwrap();
+ tasks::create(&temp.db(),&owner,&loose,"Loose").unwrap();
+ tasks::set_planning(&temp.db(),&owner,&task,Some(&project),None,0).unwrap();
+ let page=tasks::list_for_project(&temp.db(),&owner,0,Some(&project)).unwrap();
+ assert_eq!(page.items.len(),1);assert_eq!(page.items[0].id,task);
+ assert!(tasks::list_for_project(&temp.db(),&owner,1,Some(&project)).unwrap().items.is_empty());
+ assert_eq!(tasks::list_for_project(&temp.db(),&owner,0,Some("none")).unwrap().items[0].id,loose);
+ assert!(tasks::list_for_project(&temp.db(),&other,0,Some(&project)).unwrap().items.is_empty());
+ assert!(tasks::list_for_project(&temp.db(),&owner,0,Some("invalid")).is_err());
+}

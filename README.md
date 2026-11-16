@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 41; masaüstü v0.33.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 42; masaüstü v0.34.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -185,3 +185,5 @@ M0.39: Ctrl+K veya üst çubuktan hesap kapsamlı yerel arama: görev, not, proj
 M0.40: Takvimde haftalık görünüm ve hafta geçişleri; etkinliği yeni taslak olarak kopyalama; kayıt tarihinde seçili ayı güncelleme; yeni etkinlik tekrarlarında sabit kayıt kimliği. Kopya ancak Kaydet ile yazılır. EXE üretilmedi.
 
 M0.41: Günlük kullanıma odaklı Dashboard; görev/not/proje oluşturma kısayolları, üstte günlük plan ve hatırlatmalar, açılır hesap/bağlantı kontrolleri. Giriş isteyen modüller hesap bölümünü açık getirir. EXE üretilmedi.
+
+M0.42: Proje görevleri doğrudan hesap/proje kapsamlı sorguyla sayfalanır; ilk 1000 genel görev tarama sınırı kaldırıldı. Görev ekranında proje/projesiz filtresi veritabanında uygulanır. Diğer görev filtreleri yüklenmiş kayıtları kullanır. EXE üretilmedi.

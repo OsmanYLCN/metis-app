@@ -59,10 +59,14 @@ fn find(db: &super::sqlite::Connection, owner: &TaskOwner, id: &str) -> Result<T
     decode(rows.pop().ok_or(TaskError::NotFound)?)
 }
 pub fn list(path: &Path, owner: &TaskOwner, offset: u32) -> Result<TaskPage, TaskError> {
+    list_for_project(path, owner, offset, None)
+}
+pub fn list_for_project(path: &Path, owner: &TaskOwner, offset: u32, project: Option<&str>) -> Result<TaskPage, TaskError> {
     owner.validate()?;
+    if project.is_some_and(|value|value!="none"&&!valid_id(value)){return Err(TaskError::InvalidInput)}
     let (db, _) = connect(path)?;
-    let rows = db.query(&format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 ORDER BY t.created_at DESC,t.id DESC LIMIT 101 OFFSET ?3"),
-        &[&owner.project_ref, &owner.user_id, &offset.to_string()])?;
+    let rows = db.query(&format!("{TASK_SELECT} WHERE t.project_ref=?1 AND t.user_id=?2 AND (?4='' OR (?4='none' AND a.project_id IS NULL) OR a.project_id=?4) ORDER BY t.created_at DESC,t.id DESC LIMIT 101 OFFSET ?3"),
+        &[&owner.project_ref, &owner.user_id, &offset.to_string(),project.unwrap_or("")])?;
     let has_more = rows.len() > 100;
     let items = rows.into_iter().take(100).map(decode).collect::<Result<_, _>>()?;
     Ok(TaskPage { items, has_more })

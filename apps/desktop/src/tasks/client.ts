@@ -34,8 +34,8 @@ async function invoke(command: string, args: Record<string, unknown>): Promise<u
     throw new Error('İşlem doğrulanamadı. Aynı işlemi tekrar deneyebilir veya listeyi yenileyebilirsin.');
   } finally { clearTimeout(timer); }
 }
-export async function listTasks(owner: TaskOwner, offset = 0): Promise<TaskPage> {
-  const value = await invoke('tasks_list', { owner, offset });
+export async function listTasks(owner: TaskOwner, offset = 0, projectFilter: string | null = null): Promise<TaskPage> {
+  const value = await invoke('tasks_list', { owner, offset, projectFilter });
   if (!isObject(value) || !Array.isArray(value.items) || value.items.length > 100 || typeof value.hasMore !== 'boolean')
     throw new Error('Görev listesi okunamadı. Tekrar dene.');
   const items = value.items.map(parseTask);
