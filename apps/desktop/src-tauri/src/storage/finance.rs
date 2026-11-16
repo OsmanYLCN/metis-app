@@ -18,3 +18,16 @@ pub fn create(path:&Path,owner:&TaskOwner,id:&str,kind:&str,title:&str,category:
 pub fn delete(path:&Path,owner:&TaskOwner,id:&str)->Result<(),TaskError>{owner.validate()?;if !valid_id(id){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;db.query("DELETE FROM finance_entries WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[id,&owner.project_ref,&owner.user_id])?;Ok(())}
 pub fn budgets(path:&Path,owner:&TaskOwner,month:&str)->Result<Vec<Budget>,TaskError>{owner.validate()?;if month.len()!=7||!valid_date(&format!("{month}-01")){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;db.query("SELECT b.month,b.category,b.limit_cents,COALESCE((SELECT SUM(e.amount_cents) FROM finance_entries e WHERE e.project_ref=b.project_ref AND e.user_id=b.user_id AND substr(e.entry_date,1,7)=b.month AND e.kind='expense' AND e.category=b.category),0) FROM finance_budgets b WHERE b.project_ref=?1 AND b.user_id=?2 AND b.month=?3 ORDER BY b.category LIMIT 200",&[&owner.project_ref,&owner.user_id,month])?.into_iter().map(|row|{if row.len()!=4{return Err(StorageError::InvalidSchema.into())}let cents=row[2].parse().map_err(|_|StorageError::InvalidSchema)?;let spent=row[3].parse().map_err(|_|StorageError::InvalidSchema)?;Ok(Budget{month:row[0].clone(),category:row[1].clone(),limit_cents:cents,spent_cents:spent})}).collect()}
 pub fn set_budget(path:&Path,owner:&TaskOwner,month:&str,category:&str,cents:i64)->Result<(),TaskError>{owner.validate()?;let category=category.trim();if month.len()!=7||!valid_date(&format!("{month}-01"))||category.is_empty()||category.chars().count()>60||category.chars().any(char::is_control)||!(0..=999999999999).contains(&cents){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;if cents==0{db.query("DELETE FROM finance_budgets WHERE project_ref=?1 AND user_id=?2 AND month=?3 AND category=?4",&[&owner.project_ref,&owner.user_id,month,category])?;}else{db.query("INSERT INTO finance_budgets(project_ref,user_id,month,category,limit_cents) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(project_ref,user_id,month,category) DO UPDATE SET limit_cents=excluded.limit_cents",&[&owner.project_ref,&owner.user_id,month,category,&cents.to_string()])?;}Ok(())}
+
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct FinanceTotal { pub kind:String,pub category:String,pub amount_cents:i64,pub count:i64 }
+pub fn totals(path:&Path,owner:&TaskOwner,month:&str)->Result<Vec<FinanceTotal>,TaskError>{
+ owner.validate()?;
+ if month.len()!=7||!valid_date(&format!("{month}-01")){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;
+ db.query("SELECT kind,category,SUM(amount_cents),COUNT(*) FROM finance_entries WHERE project_ref=?1 AND user_id=?2 AND substr(entry_date,1,7)=?3 GROUP BY kind,category",&[&owner.project_ref,&owner.user_id,month])?.into_iter().map(|row|{
+ if row.len()!=4{return Err(StorageError::InvalidSchema.into())}
+ Ok(FinanceTotal{kind:row[0].clone(),category:row[1].clone(),amount_cents:row[2].parse().map_err(|_|StorageError::InvalidSchema)?,count:row[3].parse().map_err(|_|StorageError::InvalidSchema)?})
+ }).collect()
+}

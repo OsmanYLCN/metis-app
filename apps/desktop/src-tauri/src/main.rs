@@ -124,6 +124,8 @@ async fn goals_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_re
 #[tauri::command]
 async fn finance_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<FinanceEntry>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::list(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
+async fn finance_totals(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<storage::finance::FinanceTotal>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::totals(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
 async fn finance_create(app:tauri::AppHandle,owner:TaskOwner,id:String,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<FinanceEntry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::create(&path,&owner,&id,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
 async fn finance_delete(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::delete(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
@@ -146,7 +148,7 @@ async fn budgets_set(app:tauri::AppHandle,owner:TaskOwner,month:String,category:
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_list, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
+        .invoke_handler(tauri::generate_handler![workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_list, finance_totals, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
         .run(tauri::generate_context!())
         .expect("Metis could not start");
 }
