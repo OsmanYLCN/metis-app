@@ -100,7 +100,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 32 <span>v0.24.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 33 <span>v0.25.0</span></div></div>
       </aside>
 
       <div className="main-layout">
@@ -110,7 +110,7 @@ export function App() {
         </header>
 
         <main id="main" tabIndex={-1}>
-          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Her şey için bir başlangıç.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Calendar' ? 'Zamanını ve yaklaşan işlerini tek bakışta gör.' : selected === 'Goals' ? 'Yönünü belirle, ilerlemeni görünür kıl.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
+          <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Her şey için bir başlangıç.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Calendar' ? 'Zamanını ve yaklaşan işlerini tek bakışta gör.' : selected === 'Goals' ? 'Yönünü belirle, ilerlemeni görünür kıl.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : selected === 'Finance' ? 'Gelir, gider ve bütçeni tek yerde izle.' : selected === 'Analytics' ? 'Kayıtlarının sana gösterdiği resmi gör.' : selected === 'Notifications' ? 'Yaklaşan planlarını ve hatırlatmalarını takip et.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
 
           {selected === 'Dashboard' ? <>
             <NotificationSummary onOpen={() => navigate('Notifications')} />

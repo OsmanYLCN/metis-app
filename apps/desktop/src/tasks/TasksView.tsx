@@ -34,6 +34,12 @@ function TaskList({ owner }: { owner: TaskOwner }) {
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<TaskPriority>(0);
   const [projects, setProjects] = useState<Entry[]>([]);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'open' | 'done' | 'all'>('open');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week' | 'none'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'critical'>('all');
+  const [sort, setSort] = useState<'due' | 'priority' | 'newest'>('due');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [queued, setQueued] = useState<number | null>(null);
@@ -237,6 +243,19 @@ function TaskList({ owner }: { owner: TaskOwner }) {
     } catch (failure) { if (attempt === request.current) setError(message(failure)); }
     finally { if (attempt === request.current) { inFlight.current = false; setBusy(false); } }
   }
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const nextWeek = new Date(today); nextWeek.setDate(today.getDate()+7);
+  const weekKey = `${nextWeek.getFullYear()}-${String(nextWeek.getMonth()+1).padStart(2,'0')}-${String(nextWeek.getDate()).padStart(2,'0')}`;
+  const visible = items.filter(task => task.id === action?.task.id || (
+    (statusFilter === 'all' || task.completed === (statusFilter === 'done'))
+    && (projectFilter === 'all' || (projectFilter === 'none' ? !task.projectId : task.projectId === projectFilter))
+    && (priorityFilter === 'all' || task.priority >= (priorityFilter === 'critical' ? 3 : 2))
+    && (dateFilter === 'all' || (dateFilter === 'none' ? !task.dueDate : dateFilter === 'overdue' ? !!task.dueDate && task.dueDate < todayKey && !task.completed : dateFilter === 'today' ? task.dueDate === todayKey : !!task.dueDate && task.dueDate >= todayKey && task.dueDate <= weekKey))
+    && task.title.toLocaleLowerCase('tr-TR').includes(query.trim().toLocaleLowerCase('tr-TR'))
+  )).sort((a, b) => sort === 'priority' ? b.priority - a.priority || (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999')
+    : sort === 'newest' ? b.createdAt.localeCompare(a.createdAt)
+    : (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') || b.priority - a.priority);
   return <section className="panel tasks-panel" aria-label="Yerel görevler" aria-busy={busy}>
     <div className="section-heading"><div><h2>Bir sonraki küçük adımın</h2>
       <p className="section-description">Görevlerin bu cihazda saklanır. Açık oturumda bekleyen değişiklikler buluta gönderilir; buluttan indirme henüz yok.</p></div>
@@ -256,9 +275,11 @@ function TaskList({ owner }: { owner: TaskOwner }) {
       </div>
     </form>
     {error && <p className="task-message" role="alert">{error}</p>}
-    <p className="task-feedback" role="status">{busy ? 'İşleniyor…' : notice || (loaded ? `${items.length} görev listeleniyor` : 'Görevler yüklenemedi. Listeyi yenileyebilirsin.')}</p>
+    <div className="task-filters" aria-label="Görev filtreleri"><label>Görev ara<input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Başlıkta ara" /></label><label>Durum<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value as typeof statusFilter)}><option value="open">Açık</option><option value="done">Tamamlanan</option><option value="all">Tümü</option></select></label><label>Tarih<select value={dateFilter} onChange={event=>setDateFilter(event.target.value as typeof dateFilter)}><option value="all">Tüm tarihler</option><option value="overdue">Geciken</option><option value="today">Bugün</option><option value="week">7 gün içinde</option><option value="none">Tarihsiz</option></select></label><label>Proje<select value={projectFilter} onChange={event=>setProjectFilter(event.target.value)}><option value="all">Tüm projeler</option><option value="none">Projesiz</option>{projects.map(project=><option value={project.id} key={project.id}>{project.title}</option>)}</select></label><label>Öncelik<select value={priorityFilter} onChange={event=>setPriorityFilter(event.target.value as typeof priorityFilter)}><option value="all">Tüm öncelikler</option><option value="high">Yüksek ve kritik</option><option value="critical">Yalnızca kritik</option></select></label><label>Sırala<select value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="due">Son tarih</option><option value="priority">Öncelik</option><option value="newest">En yeni</option></select></label></div>
+    <p className="task-feedback" role="status">{busy ? 'İşleniyor…' : notice || (loaded ? `${visible.length} görev gösteriliyor${hasMore ? ' · Diğer kayıtlar için “Daha fazla göster”' : ''}` : 'Görevler yüklenemedi. Listeyi yenileyebilirsin.')}</p>
     {loaded && items.length === 0 && !hasMore && <div className="tasks-empty"><CheckCheck size={28} /><h3>İlk görevine yer aç.</h3><p>Yukarıya bir başlık yaz; küçük bir adımla başla.</p></div>}
-    <ul className="task-list">{items.map(task => <li key={task.id} className={task.completed ? 'is-complete' : ''}>
+    {loaded && items.length > 0 && visible.length === 0 && <p className="section-description">Bu filtrelerde görev bulunamadı.{hasMore ? ' Daha fazla görev yükleyebilirsin.' : ''}</p>}
+    <ul className="task-list">{visible.map(task => <li key={task.id} className={task.completed ? 'is-complete' : ''}>
       <label><input type="checkbox" checked={task.completed} disabled={busy || !!action || ['pendingRename', 'pendingComplete', 'pendingDelete', 'conflict'].includes(cloud[task.id]?.phase ?? '')} onChange={() => void toggle(task)}
         aria-label={`${task.title}: ${task.completed ? 'yeniden aç' : 'tamamla'}`} /><span className="task-title-block"><span>{task.title}</span><span className="task-meta">{[task.projectId && projects.find(project => project.id === task.projectId)?.title, task.dueDate && new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('tr-TR'), task.priority > 1 && (task.priority === 3 ? 'Kritik' : 'Yüksek')].filter(Boolean).join(' · ') || 'Plansız'}</span></span></label>
       <span className="small-tag">{task.completed ? 'Tamamlandı' : 'Açık'}</span>
