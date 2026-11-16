@@ -271,7 +271,7 @@ fn outbox_upgrade_preserves_v2_tasks() {
     db.execute("INSERT INTO tasks(id,project_ref,user_id,title) VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','project-a','11111111-1111-4111-8111-111111111111','Keep me')").unwrap();
     drop(db);
     let (db, status) = connect(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 10);
+    assert_eq!(status.schema_version, 12);
     assert_eq!(db.scalar("SELECT title FROM tasks").unwrap(), "Keep me");
     assert_eq!(db.scalar("SELECT count(*) FROM task_outbox").unwrap(), "0");
 }
@@ -298,7 +298,7 @@ fn upgrades_v1_without_changing_identity_and_failed_v2_rolls_back() {
     drop(db);
     let status = open_storage(&temp.db()).unwrap();
     assert_eq!(status.storage_id, id);
-    assert_eq!(status.schema_version, 10);
+    assert_eq!(status.schema_version, 12);
 }
 
 fn task_owner(project: &str, user: char) -> tasks::TaskOwner {
@@ -430,7 +430,7 @@ impl Drop for TestDirectory {
 fn first_open_creates_real_sqlite_and_foundation_and_tasks_tables() {
     let temp = TestDirectory::new();
     let status = open_storage(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 10);
+    assert_eq!(status.schema_version, 12);
     assert_eq!(&fs::read(temp.db()).unwrap()[..16], b"SQLite format 3\0");
     let db = Connection::open(&temp.db()).unwrap();
     assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_action_outbox,task_outbox,tasks,workspace_entries");

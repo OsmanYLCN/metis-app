@@ -5,6 +5,7 @@ pub mod workspace;
 pub mod goals;
 pub mod finance;
 pub mod calendar;
+pub mod notifications;
 #[cfg(test)]
 mod tests;
 
@@ -13,7 +14,7 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 10;
+const VERSION: u32 = 12;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
@@ -25,6 +26,8 @@ const TASK_PLANNING_MIGRATION: &str = include_str!("../../migrations/0007_task_p
 const GOALS_MIGRATION: &str = include_str!("../../migrations/0008_goals.sql");
 const FINANCE_MIGRATION: &str = include_str!("../../migrations/0009_finance.sql");
 const CALENDAR_MIGRATION: &str = include_str!("../../migrations/0010_calendar_events.sql");
+const NOTIFICATION_MIGRATION: &str = include_str!("../../migrations/0011_notification_state.sql");
+const BUDGET_MIGRATION: &str = include_str!("../../migrations/0012_finance_budgets.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -163,6 +166,14 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
     if old_version<10 { connection.execute(CALENDAR_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(10,'calendar_events','{calendar_checksum}'); PRAGMA user_version=10;")).map_err(|_|StorageError::MigrationFailed)?; }
     if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=10 AND name='calendar_events'")?!=calendar_checksum{return Err(StorageError::InvalidSchema)}
     connection.query("SELECT id,project_ref,user_id,title,details,event_date,start_time,end_time,revision,created_at,updated_at FROM calendar_events LIMIT 0",&[])?;
+    let notification_checksum=format!("{:x}",Sha256::digest(NOTIFICATION_MIGRATION.replace("\r\n","\n").as_bytes()));
+    if old_version<11 { connection.execute(NOTIFICATION_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(11,'notification_state','{notification_checksum}'); PRAGMA user_version=11;")).map_err(|_|StorageError::MigrationFailed)?; }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=11 AND name='notification_state'")?!=notification_checksum{return Err(StorageError::InvalidSchema)}
+    connection.query("SELECT project_ref,user_id,source_kind,source_id,due_date,is_read,snoozed_until FROM notification_state LIMIT 0",&[])?;
+    let budget_checksum=format!("{:x}",Sha256::digest(BUDGET_MIGRATION.replace("\r\n","\n").as_bytes()));
+    if old_version<12 { connection.execute(BUDGET_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(12,'finance_budgets','{budget_checksum}'); PRAGMA user_version=12;")).map_err(|_|StorageError::MigrationFailed)?; }
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=12 AND name='finance_budgets'")?!=budget_checksum{return Err(StorageError::InvalidSchema)}
+    connection.query("SELECT project_ref,user_id,month,category,limit_cents FROM finance_budgets LIMIT 0",&[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

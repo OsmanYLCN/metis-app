@@ -177,6 +177,18 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the budgets_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-budgets-list",
+          "markdownDescription": "Enables the budgets_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the budgets_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-budgets-set",
+          "markdownDescription": "Enables the budgets_set command without any pre-configured scope."
+        },
+        {
           "description": "Enables the events_create command without any pre-configured scope.",
           "type": "string",
           "const": "allow-events-create",
@@ -247,6 +259,18 @@
           "type": "string",
           "const": "allow-local-storage-status",
           "markdownDescription": "Enables the local_storage_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the notifications_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notifications-list",
+          "markdownDescription": "Enables the notifications_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the notifications_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notifications-set",
+          "markdownDescription": "Enables the notifications_set command without any pre-configured scope."
         },
         {
           "description": "Enables the outbox_acknowledge command without any pre-configured scope.",
@@ -399,6 +423,18 @@
           "markdownDescription": "Enables the workspace_save command without any pre-configured scope."
         },
         {
+          "description": "Denies the budgets_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-budgets-list",
+          "markdownDescription": "Denies the budgets_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the budgets_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-budgets-set",
+          "markdownDescription": "Denies the budgets_set command without any pre-configured scope."
+        },
+        {
           "description": "Denies the events_create command without any pre-configured scope.",
           "type": "string",
           "const": "deny-events-create",
@@ -469,6 +505,18 @@
           "type": "string",
           "const": "deny-local-storage-status",
           "markdownDescription": "Denies the local_storage_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notifications_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notifications-list",
+          "markdownDescription": "Denies the notifications_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notifications_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notifications-set",
+          "markdownDescription": "Denies the notifications_set command without any pre-configured scope."
         },
         {
           "description": "Denies the outbox_acknowledge command without any pre-configured scope.",

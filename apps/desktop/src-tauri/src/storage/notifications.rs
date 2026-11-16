@@ -1,0 +1,11 @@
+use super::{connect,tasks::{TaskError,TaskOwner},StorageError};
+use serde::Serialize;
+use std::path::Path;
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct NotificationState { pub source_kind:String,pub source_id:String,pub due_date:String,pub is_read:bool,pub snoozed_until:Option<String> }
+fn valid_id(s:&str)->bool{s.len()==32&&s!="00000000000000000000000000000000"&&s.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())}
+fn date(s:&str)->bool{let p:Vec<_>=s.split('-').collect();if p.len()!=3||p[0].len()!=4||p[1].len()!=2||p[2].len()!=2{return false}let(Ok(y),Ok(m),Ok(d))=(p[0].parse::<u32>(),p[1].parse::<u32>(),p[2].parse::<u32>())else{return false};let leap=y%4==0&&(y%100!=0||y%400==0);let max=match m{1|3|5|7|8|10|12=>31,4|6|9|11=>30,2 if leap=>29,2=>28,_=>return false};d>0&&d<=max}
+fn valid(kind:&str,id:&str,due:&str,snooze:Option<&str>)->bool{matches!(kind,"task"|"event"|"goal")&&valid_id(id)&&date(due)&&snooze.is_none_or(date)}
+pub fn list(path:&Path,owner:&TaskOwner)->Result<Vec<NotificationState>,TaskError>{owner.validate()?;let(db,_)=connect(path)?;db.query("SELECT source_kind,source_id,due_date,is_read,COALESCE(snoozed_until,'') FROM notification_state WHERE project_ref=?1 AND user_id=?2 ORDER BY due_date DESC LIMIT 2000",&[&owner.project_ref,&owner.user_id])?.into_iter().map(|r|{if r.len()!=5||!valid(&r[0],&r[1],&r[2],(!r[4].is_empty()).then_some(r[4].as_str()))||!matches!(r[3].as_str(),"0"|"1"){return Err(StorageError::InvalidSchema.into())}Ok(NotificationState{source_kind:r[0].clone(),source_id:r[1].clone(),due_date:r[2].clone(),is_read:r[3]=="1",snoozed_until:(!r[4].is_empty()).then(||r[4].clone())})}).collect()}
+pub fn set(path:&Path,owner:&TaskOwner,kind:&str,id:&str,due:&str,read:bool,snooze:Option<&str>)->Result<(),TaskError>{owner.validate()?;if !valid(kind,id,due,snooze){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;db.query("INSERT INTO notification_state(project_ref,user_id,source_kind,source_id,due_date,is_read,snoozed_until) VALUES(?1,?2,?3,?4,?5,?6,NULLIF(?7,'')) ON CONFLICT(project_ref,user_id,source_kind,source_id,due_date) DO UPDATE SET is_read=excluded.is_read,snoozed_until=excluded.snoozed_until",&[&owner.project_ref,&owner.user_id,kind,id,due,if read{"1"}else{"0"},snooze.unwrap_or("")])?;Ok(())}
