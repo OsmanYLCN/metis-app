@@ -200,3 +200,20 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) ->
     transaction.commit()?;
     Ok(())
 }
+
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct WorkspaceSummary {
+ pub total:u64,pub completed:u64,pub overdue:u64,pub today:u64,pub upcoming:u64,pub unscheduled:u64,
+ pub active_projects:u64,pub paused_projects:u64,pub done_projects:u64,pub today_events:u64,
+}
+pub fn summary(path:&Path,owner:&TaskOwner,today:&str,week:&str)->Result<WorkspaceSummary,TaskError>{
+ owner.validate()?;if !valid_date(today)||!valid_date(week)||week<today{return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;
+ let rows=db.query("SELECT COUNT(*),COALESCE(SUM(t.completed),0),COALESCE(SUM(t.completed=0 AND a.due_date<?3),0),COALESCE(SUM(t.completed=0 AND a.due_date=?3),0),COALESCE(SUM(t.completed=0 AND a.due_date>=?3 AND a.due_date<=?4),0),COALESCE(SUM(t.completed=0 AND a.due_date IS NULL),0) FROM tasks t LEFT JOIN task_attributes a ON a.task_id=t.id WHERE t.project_ref=?1 AND t.user_id=?2",&[&owner.project_ref,&owner.user_id,today,week])?;
+ let projects=db.query("SELECT COALESCE(SUM(state='active'),0),COALESCE(SUM(state='paused'),0),COALESCE(SUM(state='done'),0) FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND kind='project'",&[&owner.project_ref,&owner.user_id])?;
+ let events=db.query("SELECT COUNT(*) FROM calendar_events WHERE project_ref=?1 AND user_id=?2 AND event_date=?3",&[&owner.project_ref,&owner.user_id,today])?;
+ let n=|rows:&Vec<Vec<String>>,i:usize|->Result<u64,TaskError>{rows.first().and_then(|r|r.get(i)).ok_or(StorageError::InvalidSchema)?.parse().map_err(|_|StorageError::InvalidSchema.into())};
+ let result=WorkspaceSummary{total:n(&rows,0)?,completed:n(&rows,1)?,overdue:n(&rows,2)?,today:n(&rows,3)?,upcoming:n(&rows,4)?,unscheduled:n(&rows,5)?,active_projects:n(&projects,0)?,paused_projects:n(&projects,1)?,done_projects:n(&projects,2)?,today_events:n(&events,0)?};
+ tx.commit()?;Ok(result)
+}

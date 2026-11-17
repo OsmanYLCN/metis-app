@@ -674,3 +674,23 @@ fn goal_summary_counts_beyond_list_limit_and_scopes_accounts(){
  assert_eq!(goals::summary(&temp.db(),&other,"2026-11-17").unwrap().total,0);
  assert!(goals::summary(&temp.db(),&owner,"2026-02-30").is_err());
 }
+
+#[test]
+fn workspace_summary_counts_all_records_and_date_boundaries(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ let(db,_)=connect(&temp.db()).unwrap();let tx=Transaction::begin(&db).unwrap();
+ for i in 1..=1005 {db.query("INSERT INTO tasks(id,project_ref,user_id,title,completed) VALUES(?1,?2,?3,'Task',0)",&[&format!("{i:032x}"),&owner.project_ref,&owner.user_id]).unwrap();}
+ for i in 1..=105 {db.query("INSERT INTO workspace_entries(id,project_ref,user_id,kind,title,body,state,pinned) VALUES(?1,?2,?3,'project','Project','','active',0)",&[&format!("{i:032x}"),&owner.project_ref,&owner.user_id]).unwrap();}
+ db.query("UPDATE tasks SET completed=1 WHERE id=?1",&[&format!("{:032x}",1)]).unwrap();
+ tx.commit().unwrap();
+ tasks::set_planning(&temp.db(),&owner,&format!("{:032x}",2),None,Some("2020-01-01"),0).unwrap();
+ tasks::set_planning(&temp.db(),&owner,&format!("{:032x}",3),None,Some("2026-11-17"),0).unwrap();
+ tasks::set_planning(&temp.db(),&owner,&format!("{:032x}",4),None,Some("2026-11-24"),0).unwrap();
+ calendar::create(&temp.db(),&owner,&"f".repeat(32),"Today","","2026-11-17",None,None).unwrap();
+ let result=tasks::summary(&temp.db(),&owner,"2026-11-17","2026-11-24").unwrap();
+ assert_eq!(result.total,1005);assert_eq!(result.completed,1);assert_eq!(result.overdue,1);assert_eq!(result.today,1);assert_eq!(result.upcoming,2);assert_eq!(result.unscheduled,1001);assert_eq!(result.active_projects,105);assert_eq!(result.today_events,1);
+ assert_eq!(tasks::summary(&temp.db(),&other,"2026-11-17","2026-11-24").unwrap().total,0);
+ assert_eq!(tasks::summary(&temp.db(),&other,"2026-11-17","2026-11-24").unwrap().active_projects,0);
+ assert!(tasks::summary(&temp.db(),&owner,"2026-02-30","2026-11-24").is_err());
+ assert!(tasks::summary(&temp.db(),&owner,"2026-11-24","2026-11-17").is_err());
+}
