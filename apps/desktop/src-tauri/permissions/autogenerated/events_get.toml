@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-events-get"
+description = "Enables the events_get command without any pre-configured scope."
+commands.allow = ["events_get"]
+
+[[permission]]
+identifier = "deny-events-get"
+description = "Denies the events_get command without any pre-configured scope."
+commands.deny = ["events_get"]

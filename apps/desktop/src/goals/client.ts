@@ -9,3 +9,5 @@ export async function listGoals(owner:TaskOwner):Promise<Goal[]>{const value=awa
 export async function createGoal(owner:TaskOwner,id:string,draft:GoalDraft):Promise<Goal>{return parse(await invoke('goals_create',{owner,id,...draft}))}
 export async function saveGoal(owner:TaskOwner,goal:Goal,draft:GoalDraft):Promise<Goal>{return parse(await invoke('goals_save',{owner,id:goal.id,expectedRevision:goal.revision,...draft}))}
 export async function deleteGoal(owner:TaskOwner,goal:Goal):Promise<void>{const value=await invoke('goals_delete',{owner,id:goal.id,expectedRevision:goal.revision});if(value!==null)throw new Error('Silme işlemi doğrulanamadı.')}
+
+export async function getGoal(owner:TaskOwner,id:string):Promise<Goal>{return parse(await invoke('goals_get',{owner,id}))}

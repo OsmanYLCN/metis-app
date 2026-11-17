@@ -201,6 +201,12 @@
           "markdownDescription": "Enables the events_delete command without any pre-configured scope."
         },
         {
+          "description": "Enables the events_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-get",
+          "markdownDescription": "Enables the events_get command without any pre-configured scope."
+        },
+        {
           "description": "Enables the events_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-events-list",
@@ -253,6 +259,12 @@
           "type": "string",
           "const": "allow-goals-delete",
           "markdownDescription": "Enables the goals_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the goals_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-get",
+          "markdownDescription": "Enables the goals_get command without any pre-configured scope."
         },
         {
           "description": "Enables the goals_list command without any pre-configured scope.",
@@ -471,6 +483,12 @@
           "markdownDescription": "Denies the events_delete command without any pre-configured scope."
         },
         {
+          "description": "Denies the events_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-get",
+          "markdownDescription": "Denies the events_get command without any pre-configured scope."
+        },
+        {
           "description": "Denies the events_list command without any pre-configured scope.",
           "type": "string",
           "const": "deny-events-list",
@@ -523,6 +541,12 @@
           "type": "string",
           "const": "deny-goals-delete",
           "markdownDescription": "Denies the goals_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-get",
+          "markdownDescription": "Denies the goals_get command without any pre-configured scope."
         },
         {
           "description": "Denies the goals_list command without any pre-configured scope.",

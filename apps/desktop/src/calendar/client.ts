@@ -7,3 +7,5 @@ export async function listEvents(owner:TaskOwner,from:string,to:string):Promise<
 export async function createEvent(owner:TaskOwner,id:string,draft:EventDraft){return parse(await call('events_create',{owner,id,...draft}))}
 export async function saveEvent(owner:TaskOwner,event:CalendarEvent,draft:EventDraft){return parse(await call('events_save',{owner,id:event.id,expectedRevision:event.revision,...draft}))}
 export async function deleteEvent(owner:TaskOwner,event:CalendarEvent){const value=await call('events_delete',{owner,id:event.id,expectedRevision:event.revision});if(value!==null)throw new Error('Silme doğrulanamadı.')}
+
+export async function getEvent(owner:TaskOwner,id:string):Promise<CalendarEvent>{return parse(await call('events_get',{owner,id}))}

@@ -638,3 +638,15 @@ fn direct_entry_lookup_checks_owner_and_kind(){
  assert_eq!(workspace::get_entry(&temp.db(),&owner,"project",&id),Err(tasks::TaskError::NotFound));
  assert_eq!(workspace::get_entry(&temp.db(),&owner,"note","invalid"),Err(tasks::TaskError::InvalidInput));
 }
+
+#[test]
+fn target_lookup_keeps_goals_and_events_account_scoped(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');let id="a".repeat(32);
+ goals::create(&temp.db(),&owner,&id,"Goal","","active",None,0).unwrap();
+ calendar::create(&temp.db(),&owner,&id,"Event","","2026-11-17",None,None).unwrap();
+ assert_eq!(goals::get_record(&temp.db(),&owner,&id).unwrap().title,"Goal");
+ assert_eq!(calendar::get_record(&temp.db(),&owner,&id).unwrap().title,"Event");
+ assert!(goals::get_record(&temp.db(),&other,&id).is_err());
+ assert!(calendar::get_record(&temp.db(),&other,&id).is_err());
+ assert!(calendar::get_record(&temp.db(),&owner,"invalid").is_err());
+}
