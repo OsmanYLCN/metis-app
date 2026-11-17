@@ -2,6 +2,7 @@ mod sqlite;
 pub mod tasks;
 pub mod outbox;
 pub mod workspace;
+pub mod search;
 pub mod goals;
 pub mod finance;
 pub mod calendar;

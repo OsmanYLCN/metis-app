@@ -615,3 +615,16 @@ fn workspace_filter_sort_and_page(){
  assert!(workspace::list_filtered(&temp.db(),&owner,"note","",1,"pinned","title").unwrap().items.is_empty());
  assert!(workspace::list_filtered(&temp.db(),&owner,"note","",0,"done","title").is_err());
 }
+
+#[test]
+fn global_search_covers_sources_and_account_scope(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ tasks::create(&temp.db(),&owner,&"a".repeat(32),"İSTANBUL").unwrap();
+ workspace::create(&temp.db(),&owner,&"b".repeat(32),"note","Not","İstanbul planı","active",false).unwrap();
+ finance::create(&temp.db(),&owner,&"c".repeat(32),"expense","Ulaşım","İstanbul",100,"2026-11-17").unwrap();
+ let results=search::search(&temp.db(),&owner,"istanbul","all",0).unwrap();assert_eq!(results.total,3);assert_eq!(results.items[0].kind,"task");
+ assert_eq!(search::search(&temp.db(),&owner,"istanbul","finance",0).unwrap().total,1);
+ assert!(search::search(&temp.db(),&other,"istanbul","all",0).unwrap().items.is_empty());
+ assert!(search::search(&temp.db(),&owner,"istanbul","all",3).unwrap().items.is_empty());
+ assert!(search::search(&temp.db(),&owner,"istanbul","invalid",0).is_err());
+}
