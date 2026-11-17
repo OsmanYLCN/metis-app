@@ -30,3 +30,16 @@ pub fn page(path:&Path,owner:&TaskOwner,query:&str,state:&str,sort:&str,offset:u
  for row in db.query(&format!("SELECT {FIELDS} FROM goals WHERE project_ref=?1 AND user_id=?2 AND (?3='all' OR state=?3) ORDER BY {order}"),&[&owner.project_ref,&owner.user_id,state])?{let goal=decode(&row)?;if fold(&format!("{} {}",goal.title,goal.description)).contains(&needle){results.push(goal)}}
  let total=results.len();Ok(GoalPage{items:results.into_iter().skip(offset as usize).take(100).collect(),total,has_more:total.saturating_sub(offset as usize)>100})
 }
+
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct GoalSummary { pub total:u64, pub active:u64, pub paused:u64, pub done:u64, pub overdue:u64, pub average_progress:u64, pub upcoming:Vec<Goal> }
+pub fn summary(path:&Path,owner:&TaskOwner,today:&str)->Result<GoalSummary,TaskError>{
+ owner.validate()?;if !date(today){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;
+ let rows=db.query("SELECT COUNT(*),COALESCE(SUM(state='active'),0),COALESCE(SUM(state='paused'),0),COALESCE(SUM(state='done'),0),COALESCE(SUM(state='active' AND target_date<?3),0),COALESCE(CAST(ROUND(AVG(CASE WHEN state='active' THEN progress END)) AS INTEGER),0) FROM goals WHERE project_ref=?1 AND user_id=?2",&[&owner.project_ref,&owner.user_id,today])?;
+ let row=rows.first().ok_or(StorageError::InvalidSchema)?;
+ let n=|i:usize|->Result<u64,TaskError>{row.get(i).ok_or(StorageError::InvalidSchema)?.parse().map_err(|_|StorageError::InvalidSchema.into())};
+ let upcoming=db.query(&format!("SELECT {FIELDS} FROM goals WHERE project_ref=?1 AND user_id=?2 AND state='active' ORDER BY target_date IS NULL,target_date,id LIMIT 5"),&[&owner.project_ref,&owner.user_id])?.into_iter().map(|row|decode(&row)).collect::<Result<Vec<_>,_>>()?;
+ let result=GoalSummary{total:n(0)?,active:n(1)?,paused:n(2)?,done:n(3)?,overdue:n(4)?,average_progress:n(5)?,upcoming};tx.commit()?;Ok(result)
+}

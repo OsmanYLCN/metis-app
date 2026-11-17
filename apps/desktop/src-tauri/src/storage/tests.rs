@@ -661,3 +661,16 @@ fn goals_page_filters_orders_and_keeps_account_scope(){
  assert_eq!(goals::page(&temp.db(),&owner,"istanbul","all","progress",1).unwrap().items[0].title,"Second");
  assert_eq!(goals::page(&temp.db(),&other,"istanbul","all","progress",0).unwrap().total,0);
 }
+
+#[test]
+fn goal_summary_counts_beyond_list_limit_and_scopes_accounts(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ for i in 1..=205 {goals::create(&temp.db(),&owner,&format!("{i:032x}"),"Goal","","active",Some("2026-11-16"),40).unwrap();}
+ goals::create(&temp.db(),&owner,&"f".repeat(32),"Done","","done",Some("2026-11-16"),100).unwrap();
+ goals::create(&temp.db(),&owner,&"e".repeat(32),"Paused","","paused",Some("2026-11-16"),80).unwrap();
+ goals::create(&temp.db(),&owner,&"d".repeat(32),"Today","","active",Some("2026-11-17"),40).unwrap();
+ let result=goals::summary(&temp.db(),&owner,"2026-11-17").unwrap();
+ assert_eq!(result.total,208);assert_eq!(result.active,206);assert_eq!(result.done,1);assert_eq!(result.paused,1);assert_eq!(result.overdue,205);assert_eq!(result.average_progress,40);assert_eq!(result.upcoming.len(),5);
+ assert_eq!(goals::summary(&temp.db(),&other,"2026-11-17").unwrap().total,0);
+ assert!(goals::summary(&temp.db(),&owner,"2026-02-30").is_err());
+}

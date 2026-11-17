@@ -285,6 +285,12 @@
           "markdownDescription": "Enables the goals_save command without any pre-configured scope."
         },
         {
+          "description": "Enables the goals_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-summary",
+          "markdownDescription": "Enables the goals_summary command without any pre-configured scope."
+        },
+        {
           "description": "Enables the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-local-storage-status",
@@ -571,6 +577,12 @@
           "type": "string",
           "const": "deny-goals-save",
           "markdownDescription": "Denies the goals_save command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_summary command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-summary",
+          "markdownDescription": "Denies the goals_summary command without any pre-configured scope."
         },
         {
           "description": "Denies the local_storage_status command without any pre-configured scope.",

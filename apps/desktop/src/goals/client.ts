@@ -13,3 +13,11 @@ export async function deleteGoal(owner:TaskOwner,goal:Goal):Promise<void>{const 
 export async function getGoal(owner:TaskOwner,id:string):Promise<Goal>{return parse(await invoke('goals_get',{owner,id}))}
 
 export async function goalPage(owner:TaskOwner,query:string,state:string,sort:string,offset:number):Promise<{items:Goal[];total:number;hasMore:boolean}>{const v=await invoke('goals_page',{owner,query,state,sort,offset});if(!object(v)||!Array.isArray(v.items)||v.items.length>100||!Number.isSafeInteger(v.total)||Number(v.total)<0||typeof v.hasMore!=='boolean')throw new Error('Hedef sayfası okunamadı.');return {items:v.items.map(parse),total:Number(v.total),hasMore:v.hasMore}}
+
+export type GoalSummary={total:number;active:number;paused:number;done:number;overdue:number;averageProgress:number;upcoming:Goal[]};
+export async function goalSummary(owner:TaskOwner):Promise<GoalSummary>{
+ const now=new Date();const today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+ const v=await invoke('goals_summary',{owner,today});
+ if(!object(v)||!['total','active','paused','done','overdue','averageProgress'].every(k=>Number.isSafeInteger(v[k])&&Number(v[k])>=0)||Number(v.averageProgress)>100||!Array.isArray(v.upcoming)||v.upcoming.length>5)throw new Error('Hedef özeti okunamadı.');
+ return {...v,upcoming:v.upcoming.map(parse)} as GoalSummary;
+}

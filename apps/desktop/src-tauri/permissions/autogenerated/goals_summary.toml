@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-goals-summary"
+description = "Enables the goals_summary command without any pre-configured scope."
+commands.allow = ["goals_summary"]
+
+[[permission]]
+identifier = "deny-goals-summary"
+description = "Denies the goals_summary command without any pre-configured scope."
+commands.deny = ["goals_summary"]
