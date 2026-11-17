@@ -36,8 +36,8 @@ async function invoke(command: string, args: Record<string, unknown>): Promise<u
     throw new Error('Yerel kayıt açılamadı. Uygulamayı yeniden dene.');
   } finally { clearTimeout(timer); }
 }
-export async function listEntries(owner: TaskOwner, kind: EntryKind, query = '', offset = 0): Promise<EntryPage> {
-  const value = await invoke('workspace_list', { owner, kind, query, offset });
+export async function listEntries(owner: TaskOwner, kind: EntryKind, query = '', offset = 0, filter = 'all', sort = 'updated'): Promise<EntryPage> {
+  const value = await invoke('workspace_list', { owner, kind, query, offset, filter, sort });
   if (!object(value) || !Array.isArray(value.items) || value.items.length > 100 || typeof value.hasMore !== 'boolean')
     throw new Error('Liste okunamadı. Yeniden dene.');
   return { items: value.items.map(item => parse(item, kind)), hasMore: value.hasMore };

@@ -156,9 +156,9 @@ fn main() {
 }
 
 #[tauri::command]
-async fn workspace_list(app: tauri::AppHandle, owner: TaskOwner, kind: String, query: String, offset: u32) -> Result<EntryPage, TaskError> {
+async fn workspace_list(app: tauri::AppHandle, owner: TaskOwner, kind: String, query: String, offset: u32, filter: Option<String>, sort: Option<String>) -> Result<EntryPage, TaskError> {
     let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
-    tauri::async_runtime::spawn_blocking(move || storage::workspace::list(&path,&owner,&kind,&query,offset))
+    tauri::async_runtime::spawn_blocking(move || if filter.is_none()&&sort.is_none(){storage::workspace::list(&path,&owner,&kind,&query,offset)}else{storage::workspace::list_filtered(&path,&owner,&kind,&query,offset,filter.as_deref().unwrap_or("all"),sort.as_deref().unwrap_or("updated"))})
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]

@@ -39,12 +39,17 @@ fn decode(row: &[String]) -> Result<Entry,TaskError> {
 const FIELDS: &str = "id,kind,title,body,pinned,revision,state,created_at,updated_at";
 
 pub fn list(path: &Path, owner: &TaskOwner, kind: &str, query: &str, offset: u32) -> Result<EntryPage,TaskError> {
+    list_filtered(path,owner,kind,query,offset,"all","updated")
+}
+pub fn list_filtered(path:&Path,owner:&TaskOwner,kind:&str,query:&str,offset:u32,filter:&str,sort:&str)->Result<EntryPage,TaskError>{
     owner.validate()?;
+    if !matches!(sort,"updated"|"created"|"title") || !(filter=="all" || (kind=="note"&&filter=="pinned") || (kind=="project"&&matches!(filter,"active"|"paused"|"done"))){return Err(TaskError::InvalidInput)}
     if !matches!(kind,"note"|"project") || query.chars().count()>100 || query.chars().any(char::is_control)
         || offset>10000 { return Err(TaskError::InvalidInput); }
     let (db,_) = connect(path)?;
-    let sql=format!("SELECT {FIELDS} FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND kind=?3 AND (?4='' OR title LIKE '%'||?4||'%' OR body LIKE '%'||?4||'%') ORDER BY pinned DESC,updated_at DESC,id DESC LIMIT 101 OFFSET ?5");
-    let rows=db.query(&sql,&[&owner.project_ref,&owner.user_id,kind,query,&offset.to_string()])?;
+    let order=match sort{"title"=>"title COLLATE NOCASE,id","created"=>"created_at DESC,id DESC",_=>"pinned DESC,updated_at DESC,id DESC"};
+    let sql=format!("SELECT {FIELDS} FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND kind=?3 AND (?4='' OR title LIKE '%'||?4||'%' OR body LIKE '%'||?4||'%') AND (?6='all' OR (?6='pinned' AND pinned=1) OR state=?6) ORDER BY {order} LIMIT 101 OFFSET ?5");
+    let rows=db.query(&sql,&[&owner.project_ref,&owner.user_id,kind,query,&offset.to_string(),filter])?;
     let has_more=rows.len()>100;
     Ok(EntryPage { items:rows.into_iter().take(100).map(|row|decode(&row)).collect::<Result<_,_>>()?,has_more })
 }

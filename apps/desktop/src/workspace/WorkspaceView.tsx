@@ -48,7 +48,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
     setLoading(true); setError('');
     try {
       const today=new Date(); const todayIso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-      const [page,stats] = await Promise.all([listEntries(owner, kind, query.trim(), append ? items.length : 0),notes?Promise.resolve([]):projectProgress(owner,todayIso)]);
+      const [page,stats] = await Promise.all([listEntries(owner, kind, query.trim(), append ? items.length : 0, filter, sort),notes?Promise.resolve([]):projectProgress(owner,todayIso)]);
       if (attempt !== request.current) return;
       setItems(previous => append ? [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))] : page.items);
       setHasMore(page.hasMore);
@@ -59,7 +59,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
   useEffect(() => {
     const timer = setTimeout(() => void load(search, false), 250);
     return () => { clearTimeout(timer); ++request.current; };
-  }, [kind, owner.projectRef, owner.userId, search]);
+  }, [kind, owner.projectRef, owner.userId, search, filter, sort]);
   function open(entry: Entry | 'new') {
     if (dirty) { setError('Önce açık kaydı kaydet veya vazgeç.'); return; }
     setEditing(entry); setDraft(entry === 'new' ? blank() : fromEntry(entry)); setPreview(false);
@@ -108,6 +108,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
       setItems(previous => [saved, ...previous.filter(item => item.id !== saved.id)]);
       setEditing(saved); setDraft(fromEntry(saved)); newId.current = null;
       setNotice(notes ? 'Not kaydedildi.' : 'Proje kaydedildi.');
+      await load();
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
   }
@@ -122,7 +123,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
   }
-  const visible = items.filter(item => filter === 'all' || (notes ? item.pinned : item.state === filter)).sort((a,b)=>sort==='title'?a.title.localeCompare(b.title,'tr'):sort==='created'?b.createdAt.localeCompare(a.createdAt):Number(b.pinned)-Number(a.pinned)||b.updatedAt.localeCompare(a.updatedAt));
+  const visible = items;
   return <section className="workspace-board" data-workspace-dirty={dirty} aria-label={notes ? 'Notlar çalışma alanı' : 'Projeler çalışma alanı'} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); event.currentTarget.querySelector<HTMLFormElement>('form.workspace-editor')?.requestSubmit(); } }}>
     <div className="workspace-toolbar"><div><h2>{notes ? 'Fikirlerin için bir alan' : 'Üzerinde çalıştıkların'}</h2><p>{notes ? 'Yaz, düzenle ve önemli notları sabitle.' : 'Projelerini tanımla, durumlarını güncelle ve ilerlemeyi takip et.'}</p></div>
       <button className="primary-button" disabled={busy} onClick={() => open('new')}><Plus size={16} /> {notes ? 'Yeni not' : 'Yeni proje'}</button></div>
@@ -135,7 +136,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
         <label className="workspace-search"><Search size={17} /><span className="sr-only">{notes ? 'Notlarda ara' : 'Projelerde ara'}</span><input aria-label={notes ? 'Notlarda ara' : 'Projelerde ara'} value={search} maxLength={100} placeholder={notes ? 'Notlarda ara' : 'Projelerde ara'} onChange={event => setSearch(event.target.value)} /></label>
         <div className="workspace-list-head"><span>{loading ? 'Yükleniyor…' : `${items.length} ${notes ? 'not' : 'proje'}`}</span><button className="text-button" onClick={() => void load()} disabled={loading}>Yenile</button></div>
         <label className="workspace-search">Göster<select aria-label="Kayıt filtresi" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">Tümü</option>{notes?<option value="pinned">Sabit notlar</option>:<><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlanan</option></>}</select></label>
-        <label className="workspace-search">Sırala<select aria-label="Kayıt sıralaması" value={sort} onChange={event=>setSort(event.target.value)}><option value="updated">Son güncellenen / sabit</option><option value="created">Yeni oluşturulan</option><option value="title">Ada göre</option></select></label><p className="section-description">Sıralama yüklenen kayıtları kapsar.</p><div className="workspace-list" role="list">
+        <label className="workspace-search">Sırala<select aria-label="Kayıt sıralaması" value={sort} onChange={event=>setSort(event.target.value)}><option value="updated">Son güncellenen / sabit</option><option value="created">Yeni oluşturulan</option><option value="title">Ada göre</option></select></label><p className="section-description">Filtreleme ve sıralama tüm kayıtları kapsar.</p><div className="workspace-list" role="list">
           {visible.map(entry => <div role="listitem" key={entry.id}><button className={`workspace-item ${editing !== 'new' && editing?.id === entry.id ? 'selected' : ''}`} onClick={() => open(entry)}>
             <span className="workspace-item-icon">{notes ? <StickyNote size={17} /> : <FolderKanban size={17} />}</span>
             <span className="workspace-item-copy"><strong>{entry.title}</strong><small>{entry.body.trim().slice(0, 90) || (notes ? 'Boş not' : 'Açıklama yok')}</small>{!notes&&progress[entry.id]&&<span className="project-mini-progress"><i style={{width:`${Math.round(progress[entry.id].completed/progress[entry.id].total*100)}%`}}/></span>}<em>{new Date(entry.updatedAt).toLocaleDateString('tr-TR')}{!notes ? ` · ${entry.state === 'active' ? 'Aktif' : entry.state === 'paused' ? 'Beklemede' : 'Tamamlandı'}${progress[entry.id]?` · ${progress[entry.id].completed}/${progress[entry.id].total} görev`:''}` : ''}</em></span>

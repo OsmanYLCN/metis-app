@@ -604,3 +604,14 @@ fn finance_page_search_and_owner_scope(){
  assert!(finance::page(&temp.db(),&other,"2026-11","","all",0).unwrap().items.is_empty());
  assert!(finance::page(&temp.db(),&owner,"2026-10","","all",0).unwrap().items.is_empty());
 }
+
+#[test]
+fn workspace_filter_sort_and_page(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');
+ workspace::create(&temp.db(),&owner,&"a".repeat(32),"note","Zeta","","active",true).unwrap();
+ workspace::create(&temp.db(),&owner,&"b".repeat(32),"note","Alpha","","active",false).unwrap();
+ let pinned=workspace::list_filtered(&temp.db(),&owner,"note","",0,"pinned","title").unwrap();assert_eq!(pinned.items.len(),1);assert_eq!(pinned.items[0].title,"Zeta");
+ assert_eq!(workspace::list_filtered(&temp.db(),&owner,"note","",0,"all","title").unwrap().items[0].title,"Alpha");
+ assert!(workspace::list_filtered(&temp.db(),&owner,"note","",1,"pinned","title").unwrap().items.is_empty());
+ assert!(workspace::list_filtered(&temp.db(),&owner,"note","",0,"done","title").is_err());
+}

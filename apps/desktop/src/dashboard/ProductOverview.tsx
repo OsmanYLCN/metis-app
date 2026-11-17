@@ -19,6 +19,7 @@ export function ProductOverview({ navigate }: { navigate: (name: string) => void
 function Board({ owner, navigate }: { owner: TaskOwner; navigate: (name: string) => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [notes, setNotes] = useState<Entry[]>([]);
   const [projects, setProjects] = useState<Entry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +31,8 @@ function Board({ owner, navigate }: { owner: TaskOwner; navigate: (name: string)
     setLoading(true); setError('');
     const now = new Date(), past = new Date(now), future = new Date(now);
     past.setDate(now.getDate() - 90); future.setDate(now.getDate() + 7);
-    Promise.all([scheduledTasks(owner, iso(past), iso(future)), listEvents(owner, iso(now), iso(future)), listEntries(owner, 'project'), listGoals(owner)])
-      .then(([taskItems, eventItems, projectPage, goalItems]) => { if (active) { setTasks(taskItems); setEvents(eventItems); setProjects(projectPage.items); setGoals(goalItems); setLimited(taskItems.length === 500 || eventItems.length === 500 || projectPage.hasMore || goalItems.length === 200); } })
+    Promise.all([scheduledTasks(owner, iso(past), iso(future)), listEvents(owner, iso(now), iso(future)), listEntries(owner, 'project'), listGoals(owner), listEntries(owner, 'note', '', 0, 'pinned')])
+      .then(([taskItems, eventItems, projectPage, goalItems, notePage]) => { if (active) { setNotes(notePage.items); setTasks(taskItems); setEvents(eventItems); setProjects(projectPage.items); setGoals(goalItems); setLimited(taskItems.length === 500 || eventItems.length === 500 || projectPage.hasMore || goalItems.length === 200); } })
       .catch(() => { if (active) setError('Genel bakış yüklenemedi. Yeniden dene.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -54,6 +55,7 @@ function Board({ owner, navigate }: { owner: TaskOwner; navigate: (name: string)
       <div className="overview-metrics"><button onClick={() => navigate('Calendar')}><CalendarClock/><span><strong>{todayTasks.length + todayEvents.length}</strong> bugün</span></button><button onClick={() => navigate('Tasks:overdue')}><CheckCheck/><span><strong>{overdue.length}</strong> son 90 gün geciken</span></button><button onClick={() => navigate('Projects')}><FolderKanban/><span><strong>{activeProjects.length}</strong> aktif proje</span></button><button onClick={() => navigate('Goals')}><Target/><span><strong>{activeGoals.length}</strong> aktif hedef</span></button></div>
       <div className="overview-columns"><article className="panel"><div className="section-heading"><h2>Bugünün planı</h2><button className="text-button" onClick={() => navigate('Calendar')}>Takvim <ArrowRight size={14}/></button></div>{todayTasks.length || todayEvents.length ? <ul className="overview-list">{todayEvents.slice(0,5).map(event => <li key={`event-${event.id}`}><span>{event.startTime ?? 'Tüm gün'}</span><strong>{event.title}</strong></li>)}{todayTasks.slice(0,5).map(task => <li key={`task-${task.id}`}><span>Görev</span><strong>{task.title}</strong></li>)}</ul> : <p className="section-description">Bugün için plan yok.</p>}{(todayTasks.length > 5 || todayEvents.length > 5) && <p className="section-description">Tüm planları takvimde görebilirsin.</p>}</article>
       <article className="panel"><div className="section-heading"><h2>Sıradaki işler</h2><button className="text-button" onClick={() => navigate('Tasks:week')}>Görevler <ArrowRight size={14}/></button></div>{soon.length ? <ul className="overview-list">{soon.slice(0, 5).map(task => <li key={task.id}><span>{new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span><strong>{task.title}</strong></li>)}</ul> : <p className="section-description">Önümüzdeki yedi günde görev yok.</p>}</article></div>
+      <article className="panel analytics-goals"><div className="section-heading"><h2>Sabit notlar</h2><button className="text-button" onClick={()=>navigate('Notes')}>Notları aç <ArrowRight size={14}/></button></div>{notes.length?<ul className="overview-list projects">{notes.slice(0,5).map(note=><li key={note.id}><strong>{note.title}</strong><span>{new Date(note.updatedAt).toLocaleDateString('tr-TR')}</span></li>)}</ul>:<p className="section-description">Önemli notlarını sabitle; burada görünsün.</p>}</article>
       <article className="panel analytics-goals"><div className="section-heading"><h2>Aktif hedefler</h2><button className="text-button" onClick={() => navigate('Goals')}>Tümü <ArrowRight size={14}/></button></div>{activeGoals.length ? <ul className="overview-list projects">{activeGoals.slice(0, 5).map(goal => <li key={goal.id}><strong>{goal.title}</strong><span>%{goal.progress}</span></li>)}</ul> : <p className="section-description">İlk hedefin için alan hazır.</p>}</article>
     </>}
   </section>;

@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 45; masaüstü v0.37.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 46; masaüstü v0.38.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -193,3 +193,5 @@ M0.43: Görevlerde başlık araması, durum/tarih/öncelik/proje filtreleri ve s
 M0.44: Finans geçmişinde 100 kayıtlık sayfalama; başlık/kategori araması ve gelir/gider filtresi tüm aylık kayıtlar üzerinde uygulanır. Ara düğmesi sorguyu uygular. Önceki 500 kayıt gösterim sınırı kaldırıldı. EXE üretilmedi.
 
 M0.45: Not/proje kopyalama (yeni taslak), yüklenen listeyi sıralama; notlarda seçili satırlar için başlık/madde/kontrol listesi araçları. Hedef kopyalama, açıklamada arama, tarih/ilerleme/ad sıralaması, hızlı ilerleme ve Ctrl+S. Proje görevleri kopyalanmaz; hedef kopyasında tarih/ilerleme sıfırlanır. Yeni taslaklar Kaydet ile yazılır. EXE üretilmedi.
+
+M0.46: Not/proje filtreleri ve sıralaması veritabanında sayfalama öncesinde uygulanır. Dashboard en son güncellenen beş sabit notu gösterir. Not/proje kaydından sonra liste seçili filtreye göre yenilenir. EXE üretilmedi.
