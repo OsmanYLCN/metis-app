@@ -36,6 +36,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [preview, setPreview] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState('updated');
   const request = useRef(0);
   const newId = useRef<string | null>(null);
   if (startNew && editing === 'new' && !newId.current) newId.current = crypto.randomUUID().replaceAll('-', '');
@@ -64,6 +65,20 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
     setEditing(entry); setDraft(entry === 'new' ? blank() : fromEntry(entry)); setPreview(false);
     setConfirmDelete(false); setError(''); setNotice('');
     if (entry === 'new') newId.current = crypto.randomUUID().replaceAll('-', '');
+  }
+  function duplicate() {
+    if(busy||!editing||editing==='new')return;
+    if(dirty){setError('Kopyalamadan önce değişikliklerini kaydet veya vazgeç.');return;}
+    const copy={...fromEntry(editing),title:(editing.title+' — Kopya').slice(0,200),state:'active' as const,pinned:false};
+    newId.current=crypto.randomUUID().replaceAll('-','');setEditing('new');setDraft(copy);setConfirmDelete(false);setPreview(false);setNotice(notes?'Not kopyası hazır. Kaydet ile oluştur.':'Proje açıklaması kopyalandı. Bağlı görevler kopyalanmaz; Kaydet ile oluştur.');
+  }
+  function formatLines(prefix:string){
+    const input=document.getElementById('workspace-body') as HTMLTextAreaElement|null;if(!input||busy)return;
+    const start=input.selectionStart===0?0:draft.body.lastIndexOf('\n',input.selectionStart-1)+1;
+    const endIndex=draft.body.indexOf('\n',input.selectionEnd);const end=endIndex<0?draft.body.length:endIndex;
+    const changed=draft.body.slice(0,start)+draft.body.slice(start,end).split('\n').map(line=>prefix+line).join('\n')+draft.body.slice(end);
+    if(changed.length>20000){setError('İçerik 20.000 karakter sınırını aşıyor.');return;}
+    setDraft({...draft,body:changed});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(start,end+changed.length-draft.body.length)});
   }
   function discard() { setEditing(null); setDraft(blank()); setConfirmDelete(false); setPreview(false); setError(''); newId.current = null; }
   function template(name: string) {
@@ -107,7 +122,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
   }
-  const visible = items.filter(item => filter === 'all' || (notes ? item.pinned : item.state === filter));
+  const visible = items.filter(item => filter === 'all' || (notes ? item.pinned : item.state === filter)).sort((a,b)=>sort==='title'?a.title.localeCompare(b.title,'tr'):sort==='created'?b.createdAt.localeCompare(a.createdAt):Number(b.pinned)-Number(a.pinned)||b.updatedAt.localeCompare(a.updatedAt));
   return <section className="workspace-board" data-workspace-dirty={dirty} aria-label={notes ? 'Notlar çalışma alanı' : 'Projeler çalışma alanı'} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); event.currentTarget.querySelector<HTMLFormElement>('form.workspace-editor')?.requestSubmit(); } }}>
     <div className="workspace-toolbar"><div><h2>{notes ? 'Fikirlerin için bir alan' : 'Üzerinde çalıştıkların'}</h2><p>{notes ? 'Yaz, düzenle ve önemli notları sabitle.' : 'Projelerini tanımla, durumlarını güncelle ve ilerlemeyi takip et.'}</p></div>
       <button className="primary-button" disabled={busy} onClick={() => open('new')}><Plus size={16} /> {notes ? 'Yeni not' : 'Yeni proje'}</button></div>
@@ -120,7 +135,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
         <label className="workspace-search"><Search size={17} /><span className="sr-only">{notes ? 'Notlarda ara' : 'Projelerde ara'}</span><input aria-label={notes ? 'Notlarda ara' : 'Projelerde ara'} value={search} maxLength={100} placeholder={notes ? 'Notlarda ara' : 'Projelerde ara'} onChange={event => setSearch(event.target.value)} /></label>
         <div className="workspace-list-head"><span>{loading ? 'Yükleniyor…' : `${items.length} ${notes ? 'not' : 'proje'}`}</span><button className="text-button" onClick={() => void load()} disabled={loading}>Yenile</button></div>
         <label className="workspace-search">Göster<select aria-label="Kayıt filtresi" value={filter} onChange={event=>setFilter(event.target.value)}><option value="all">Tümü</option>{notes?<option value="pinned">Sabit notlar</option>:<><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlanan</option></>}</select></label>
-        <div className="workspace-list" role="list">
+        <label className="workspace-search">Sırala<select aria-label="Kayıt sıralaması" value={sort} onChange={event=>setSort(event.target.value)}><option value="updated">Son güncellenen / sabit</option><option value="created">Yeni oluşturulan</option><option value="title">Ada göre</option></select></label><p className="section-description">Sıralama yüklenen kayıtları kapsar.</p><div className="workspace-list" role="list">
           {visible.map(entry => <div role="listitem" key={entry.id}><button className={`workspace-item ${editing !== 'new' && editing?.id === entry.id ? 'selected' : ''}`} onClick={() => open(entry)}>
             <span className="workspace-item-icon">{notes ? <StickyNote size={17} /> : <FolderKanban size={17} />}</span>
             <span className="workspace-item-copy"><strong>{entry.title}</strong><small>{entry.body.trim().slice(0, 90) || (notes ? 'Boş not' : 'Açıklama yok')}</small>{!notes&&progress[entry.id]&&<span className="project-mini-progress"><i style={{width:`${Math.round(progress[entry.id].completed/progress[entry.id].total*100)}%`}}/></span>}<em>{new Date(entry.updatedAt).toLocaleDateString('tr-TR')}{!notes ? ` · ${entry.state === 'active' ? 'Aktif' : entry.state === 'paused' ? 'Beklemede' : 'Tamamlandı'}${progress[entry.id]?` · ${progress[entry.id].completed}/${progress[entry.id].total} görev`:''}` : ''}</em></span>
@@ -135,9 +150,10 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
         {!editing ? <div className="workspace-editor-empty">{notes ? <StickyNote size={31} /> : <FolderKanban size={31} />}<h3>{notes ? 'Bir not seç veya yeni bir not yaz.' : 'Bir proje seç veya yenisini oluştur.'}</h3><p>Yazdıkların kaydettiğinde bu cihazda kalıcı olur.</p></div>
           : <form onSubmit={save} className="workspace-editor">
             <div className="workspace-editor-head"><span>{editing === 'new' ? notes ? 'YENİ NOT' : 'YENİ PROJE' : `SON GÜNCELLEME · ${new Date(editing.updatedAt).toLocaleString('tr-TR')}`}{dirty ? ' · KAYDEDİLMEDİ' : ''}</span><button type="button" className="text-button" disabled={busy} onClick={discard}>{dirty ? 'Vazgeç' : 'Kapat'}</button></div>
-            <label htmlFor="workspace-title">{notes ? 'Not başlığı' : 'Proje adı'}</label>
+            <div className="workspace-quick-links">{editing!=='new'&&<button type="button" className="secondary-button" disabled={busy} onClick={duplicate}>Kopyasını oluştur</button>}</div><label htmlFor="workspace-title">{notes ? 'Not başlığı' : 'Proje adı'}</label>
             <input id="workspace-title" autoFocus value={draft.title} maxLength={200} disabled={busy} placeholder={notes ? 'Başlıksız not' : 'Projene bir ad ver'} onChange={event => setDraft({ ...draft, title: event.target.value })} />
             <div className="workspace-body-heading"><label htmlFor="workspace-body">{notes ? 'İçerik' : 'Açıklama'}</label>{notes&&<button type="button" className="text-button" aria-pressed={preview} onClick={()=>setPreview(value=>!value)}>{preview?'Düzenle':'Önizle'}</button>}</div>
+            {notes&&!preview&&<div className="note-tools" role="group" aria-label="Not biçimlendirme"><button type="button" disabled={busy} onClick={()=>formatLines('# ')}>Başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('## ')}>Alt başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('- ')}>Madde</button><button type="button" disabled={busy} onClick={()=>formatLines('- [ ] ')}>Kontrol listesi</button></div>}
             {notes&&preview?<NotePreview body={draft.body}/>:<textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />}
             {notes&&<p className="note-count">{draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0} kelime · {draft.body.length}/20.000 karakter · Başlık için #, madde için - kullanabilirsin.</p>}
             {!notes&&editing!=='new'&&<div className="project-progress-card"><div><strong>{progress[editing.id]?.total??0} görev</strong><span>{progress[editing.id]?.completed??0} tamamlandı · {progress[editing.id]?.overdue??0} geciken</span></div><span className="project-progress-value">{progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%</span><div className="project-progress-track"><i style={{width:`${progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%`}}/></div></div>}
