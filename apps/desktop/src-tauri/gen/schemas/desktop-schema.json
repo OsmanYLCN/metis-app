@@ -273,6 +273,12 @@
           "markdownDescription": "Enables the goals_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the goals_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-goals-page",
+          "markdownDescription": "Enables the goals_page command without any pre-configured scope."
+        },
+        {
           "description": "Enables the goals_save command without any pre-configured scope.",
           "type": "string",
           "const": "allow-goals-save",
@@ -553,6 +559,12 @@
           "type": "string",
           "const": "deny-goals-list",
           "markdownDescription": "Denies the goals_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the goals_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-goals-page",
+          "markdownDescription": "Denies the goals_page command without any pre-configured scope."
         },
         {
           "description": "Denies the goals_save command without any pre-configured scope.",

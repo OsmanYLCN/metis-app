@@ -19,3 +19,14 @@ pub fn save(path:&Path,owner:&TaskOwner,id_value:&str,expected:i64,title:&str,de
 pub fn delete(path:&Path,owner:&TaskOwner,id_value:&str,expected:i64)->Result<(),TaskError>{ owner.validate()?;if !id(id_value)||expected<1{return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;let rows=db.query("SELECT revision FROM goals WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[id_value,&owner.project_ref,&owner.user_id])?;if let Some(row)=rows.first(){if row[0]!=expected.to_string(){return Err(TaskError::Conflict)}db.query("DELETE FROM goals WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[id_value,&owner.project_ref,&owner.user_id])?;}tx.commit()?;Ok(())}
 
 pub fn get_record(path:&Path,owner:&TaskOwner,key:&str)->Result<Goal,TaskError>{owner.validate()?;if !id(key){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;get(&db,owner,key)}
+
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct GoalPage {pub items:Vec<Goal>,pub total:usize,pub has_more:bool}
+pub fn page(path:&Path,owner:&TaskOwner,query:&str,state:&str,sort:&str,offset:u32)->Result<GoalPage,TaskError>{
+ owner.validate()?;if query.chars().count()>100||!matches!(state,"all"|"active"|"paused"|"done")||!matches!(sort,"date"|"progress"|"title"){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let order=match sort{"progress"=>"progress DESC,id","title"=>"title COLLATE NOCASE,id",_=>"target_date IS NULL,target_date,id"};
+ let fold=|s:&str|s.replace('I',"ı").replace('İ',"i").to_lowercase();let needle=fold(query.trim());let mut results=Vec::new();
+ for row in db.query(&format!("SELECT {FIELDS} FROM goals WHERE project_ref=?1 AND user_id=?2 AND (?3='all' OR state=?3) ORDER BY {order}"),&[&owner.project_ref,&owner.user_id,state])?{let goal=decode(&row)?;if fold(&format!("{} {}",goal.title,goal.description)).contains(&needle){results.push(goal)}}
+ let total=results.len();Ok(GoalPage{items:results.into_iter().skip(offset as usize).take(100).collect(),total,has_more:total.saturating_sub(offset as usize)>100})
+}

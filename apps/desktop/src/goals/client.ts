@@ -11,3 +11,5 @@ export async function saveGoal(owner:TaskOwner,goal:Goal,draft:GoalDraft):Promis
 export async function deleteGoal(owner:TaskOwner,goal:Goal):Promise<void>{const value=await invoke('goals_delete',{owner,id:goal.id,expectedRevision:goal.revision});if(value!==null)throw new Error('Silme işlemi doğrulanamadı.')}
 
 export async function getGoal(owner:TaskOwner,id:string):Promise<Goal>{return parse(await invoke('goals_get',{owner,id}))}
+
+export async function goalPage(owner:TaskOwner,query:string,state:string,sort:string,offset:number):Promise<{items:Goal[];total:number;hasMore:boolean}>{const v=await invoke('goals_page',{owner,query,state,sort,offset});if(!object(v)||!Array.isArray(v.items)||v.items.length>100||!Number.isSafeInteger(v.total)||Number(v.total)<0||typeof v.hasMore!=='boolean')throw new Error('Hedef sayfası okunamadı.');return {items:v.items.map(parse),total:Number(v.total),hasMore:v.hasMore}}

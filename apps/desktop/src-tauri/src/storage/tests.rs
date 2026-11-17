@@ -650,3 +650,14 @@ fn target_lookup_keeps_goals_and_events_account_scoped(){
  assert!(calendar::get_record(&temp.db(),&other,&id).is_err());
  assert!(calendar::get_record(&temp.db(),&owner,"invalid").is_err());
 }
+
+#[test]
+fn goals_page_filters_orders_and_keeps_account_scope(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ goals::create(&temp.db(),&owner,&"a".repeat(32),"Second","İSTANBUL","active",None,20).unwrap();
+ goals::create(&temp.db(),&owner,&"b".repeat(32),"First","İSTANBUL","done",None,100).unwrap();
+ let page=goals::page(&temp.db(),&owner,"istanbul","all","progress",0).unwrap();assert_eq!(page.total,2);assert_eq!(page.items[0].title,"First");
+ assert_eq!(goals::page(&temp.db(),&owner,"istanbul","active","date",0).unwrap().total,1);
+ assert_eq!(goals::page(&temp.db(),&owner,"istanbul","all","progress",1).unwrap().items[0].title,"Second");
+ assert_eq!(goals::page(&temp.db(),&other,"istanbul","all","progress",0).unwrap().total,0);
+}

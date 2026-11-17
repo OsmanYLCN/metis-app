@@ -1,6 +1,6 @@
 # Metis
 
-**M0 / Foundation — Dilim 49; masaüstü v0.41.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
+**M0 / Foundation — Dilim 50; masaüstü v0.42.0.** Windows masaüstü için Tauri 2 + React + TypeScript + Vite; ASP.NET Core 10 API, yerel SQLite ve Supabase oturum/görev bağlantısı. Metis; görev, takvim etkinlikleri, not, proje, hedef, gelir/gider, kategori bütçeleri, analiz ve uygulama içi hatırlatmalar sunar. Görevlerde arama/filtreleme/sıralama, takvimde aylık ajanda, hedeflerde filtreleme, proje detayında bağlı görevler, notta güvenli biçimlendirme önizlemesi vardır. Dashboard bugünün planını, geciken işleri ve yaklaşan hatırlatmaları gösterir. Finans ve hatırlatma kayıtları cihazda tutulur; sistem bildirimi ve arka plan uyarısı henüz yoktur. Public Supabase ve veritabanı bağlantıları Git dışı yerel ayarlarda tutulur. Tam ürün veya tamamlanmış M0 değildir.
 
 M0.7: Windows için seçime bağlı şifreli oturum saklama, geri yükleme ve token yenileme etkin. Varsayılan giriş bellek oturumudur. [ADR-0007](docs/adr/0007-remembered-session.md), [doğrulama](docs/verification-m0.7.md).
 
@@ -201,3 +201,5 @@ M0.47: Ortak arama altı modülde (görev/not/proje/hedef/etkinlik/finans) tüm 
 M0.48: Aramadan not/proje detayına ve Dashboard sabit notlarından doğrudan not düzenleyicisine geçiş. Kayıt kimliği, türü ve hesap kapsamı yerel katmanda doğrulanır; liste sayfasına bağlı değildir. Aynı modülde kayıt değiştirirken kaydedilmemiş taslak uyarısı korunur. Diğer arama türleri ilgili modülü açar. EXE üretilmedi.
 
 M0.49: Arama/bildirim/Dashboard hedef ve etkinlik sonuçları doğrudan hesap kapsamlı detayı açar. Etkinlikte takvim ayı da güncellenir. Finans araması ilgili ayı açar; henüz tek finans satırını seçmez. Finans taslağıyla modül geçişinde uyarı eklendi. EXE üretilmedi.
+
+M0.50: Hedefler ekranında tüm kayıtları kapsayan başlık/açıklama araması, durum filtresi, tarih/ilerleme/ad sıralaması ve 100 kayıtlık sayfalama. Sonuç sayısı gösterilir. Dashboard/analiz/hatırlatma özetleri eski sınırlı liste çağrısını kullanmaya devam eder. EXE üretilmedi.
