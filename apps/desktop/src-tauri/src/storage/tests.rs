@@ -593,3 +593,14 @@ fn task_filters_search_turkish_titles_and_filter_dates() {
  f.date="overdue".into();assert!(tasks::list_filtered(&temp.db(),&owner,0,None,Some(&f)).unwrap().items.is_empty());
  f.date="all".into();f.status="done".into();assert!(tasks::list_filtered(&temp.db(),&owner,0,None,Some(&f)).unwrap().items.is_empty());
 }
+
+#[test]
+fn finance_page_search_and_owner_scope(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ finance::create(&temp.db(),&owner,&"e".repeat(32),"expense","İŞ","Market",1234,"2026-11-17").unwrap();
+ assert_eq!(finance::page(&temp.db(),&owner,"2026-11","iş","expense",0).unwrap().items.len(),1);
+ assert!(finance::page(&temp.db(),&owner,"2026-11","iş","expense",1).unwrap().items.is_empty());
+ assert!(finance::page(&temp.db(),&owner,"2026-11","","income",0).unwrap().items.is_empty());
+ assert!(finance::page(&temp.db(),&other,"2026-11","","all",0).unwrap().items.is_empty());
+ assert!(finance::page(&temp.db(),&owner,"2026-10","","all",0).unwrap().items.is_empty());
+}

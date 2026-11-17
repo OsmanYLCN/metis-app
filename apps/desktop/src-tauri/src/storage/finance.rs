@@ -31,3 +31,16 @@ pub fn totals(path:&Path,owner:&TaskOwner,month:&str)->Result<Vec<FinanceTotal>,
  Ok(FinanceTotal{kind:row[0].clone(),category:row[1].clone(),amount_cents:row[2].parse().map_err(|_|StorageError::InvalidSchema)?,count:row[3].parse().map_err(|_|StorageError::InvalidSchema)?})
  }).collect()
 }
+
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct FinancePage { pub items:Vec<FinanceEntry>,pub has_more:bool }
+pub fn page(path:&Path,owner:&TaskOwner,month:&str,query:&str,kind:&str,offset:u32)->Result<FinancePage,TaskError>{
+ owner.validate()?;if month.len()!=7||!valid_date(&format!("{month}-01"))||query.chars().count()>200||!matches!(kind,"all"|"income"|"expense"){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let fold=|s:&str|s.replace('I',"ı").replace('İ',"i").to_lowercase();let needle=fold(query.trim());
+ let mut sql=format!("SELECT {FIELDS} FROM finance_entries WHERE project_ref=?1 AND user_id=?2 AND substr(entry_date,1,7)=?3 AND (?4='all' OR kind=?4) ORDER BY entry_date DESC,created_at DESC,id DESC");
+ if needle.is_empty(){sql.push_str(&format!(" LIMIT 101 OFFSET {offset}"));}
+ let mut items=Vec::new();let mut skipped=0;
+ for row in db.query(&sql,&[&owner.project_ref,&owner.user_id,month,kind])?{let entry=decode(row)?;if !needle.is_empty(){if !fold(&format!("{} {}",entry.title,entry.category)).contains(&needle){continue}if skipped<offset{skipped+=1;continue}}items.push(entry);if items.len()==101{break}}
+ let has_more=items.len()>100;items.truncate(100);Ok(FinancePage{items,has_more})
+}

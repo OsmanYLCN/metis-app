@@ -231,6 +231,12 @@
           "markdownDescription": "Enables the finance_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the finance_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-page",
+          "markdownDescription": "Enables the finance_page command without any pre-configured scope."
+        },
+        {
           "description": "Enables the finance_totals command without any pre-configured scope.",
           "type": "string",
           "const": "allow-finance-totals",
@@ -481,6 +487,12 @@
           "type": "string",
           "const": "deny-finance-list",
           "markdownDescription": "Denies the finance_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finance_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-page",
+          "markdownDescription": "Denies the finance_page command without any pre-configured scope."
         },
         {
           "description": "Denies the finance_totals command without any pre-configured scope.",
