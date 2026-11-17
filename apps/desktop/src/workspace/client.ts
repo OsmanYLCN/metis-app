@@ -52,3 +52,5 @@ export async function deleteEntry(owner: TaskOwner, entry: Entry): Promise<void>
   const value = await invoke('workspace_delete', { owner, kind: entry.kind, id: entry.id, expectedRevision: entry.revision });
   if (value !== null) throw new Error('Silme işlemi doğrulanamadı.');
 }
+
+export async function getEntry(owner:TaskOwner,kind:EntryKind,id:string):Promise<Entry>{return parse(await invoke('workspace_get',{owner,kind,id}),kind)}

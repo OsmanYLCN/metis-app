@@ -423,6 +423,12 @@
           "markdownDescription": "Enables the workspace_delete command without any pre-configured scope."
         },
         {
+          "description": "Enables the workspace_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-get",
+          "markdownDescription": "Enables the workspace_get command without any pre-configured scope."
+        },
+        {
           "description": "Enables the workspace_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-workspace-list",
@@ -685,6 +691,12 @@
           "type": "string",
           "const": "deny-workspace-delete",
           "markdownDescription": "Denies the workspace_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-get",
+          "markdownDescription": "Denies the workspace_get command without any pre-configured scope."
         },
         {
           "description": "Denies the workspace_list command without any pre-configured scope.",

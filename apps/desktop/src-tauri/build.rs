@@ -5,7 +5,7 @@ fn main() {
             "tasks_list", "tasks_create", "tasks_set_completed", "tasks_rename", "tasks_delete", "tasks_set_planning", "tasks_scheduled",
             "outbox_count", "outbox_statuses", "outbox_pending", "outbox_pending_for_task", "outbox_begin", "outbox_acknowledge",
             "task_actions_pending", "task_action_prepare", "task_action_begin", "task_action_acknowledge",
-            "workspace_search", "workspace_list", "workspace_create", "workspace_save", "workspace_delete",
+            "workspace_search", "workspace_get", "workspace_list", "workspace_create", "workspace_save", "workspace_delete",
             "project_progress", "goals_list", "goals_create", "goals_save", "goals_delete",
             "finance_page", "finance_list", "finance_totals", "finance_create", "finance_delete",
             "events_list", "events_create", "events_save", "events_delete",

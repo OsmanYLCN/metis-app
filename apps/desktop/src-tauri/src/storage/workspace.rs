@@ -97,3 +97,9 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, kind: &str, expected_rev
     }
     tx.commit()?; Ok(())
 }
+
+pub fn get_entry(path:&Path,owner:&TaskOwner,kind:&str,id:&str)->Result<Entry,TaskError>{
+ owner.validate()?;if !valid_id(id)||!matches!(kind,"note"|"project"){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let rows=db.query(&format!("SELECT {FIELDS} FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND kind=?3 AND id=?4"),&[&owner.project_ref,&owner.user_id,kind,id])?;
+ decode(rows.first().ok_or(TaskError::NotFound)?)
+}

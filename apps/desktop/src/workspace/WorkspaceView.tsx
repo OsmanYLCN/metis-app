@@ -3,7 +3,7 @@ import { FolderKanban, Plus, Search, StickyNote, Trash2 } from 'lucide-react';
 import { loginStore } from '../identity/login';
 import { loginSettings } from '../identity/config';
 import { projectProgress, type ProjectProgress, type TaskOwner } from '../tasks/client';
-import { createEntry, deleteEntry, listEntries, saveEntry, type Entry, type EntryDraft, type EntryKind } from './client';
+import { getEntry, createEntry, deleteEntry, listEntries, saveEntry, type Entry, type EntryDraft, type EntryKind } from './client';
 import { NotePreview } from './NotePreview';
 import { ProjectTasks } from './ProjectTasks';
 
@@ -11,17 +11,17 @@ const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned:
 const fromEntry = (entry: Entry): EntryDraft => ({ title: entry.title, body: entry.body, state: entry.state, pinned: entry.pinned });
 const message = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
 
-export function WorkspaceView({ kind, onAccount, onTasks, startNew = false }: { kind: EntryKind; startNew?: boolean; onAccount: () => void; onTasks: (projectId: string) => void }) {
+export function WorkspaceView({ kind, onAccount, onTasks, startNew = false, initialId = '' }: { kind: EntryKind; startNew?: boolean; initialId?: string; onAccount: () => void; onTasks: (projectId: string) => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const name = kind === 'note' ? 'Notlarını' : 'Projelerini';
   if (!globalThis.window?.__TAURI__) return <section className="empty-state"><h2>{name} Windows uygulamasında.</h2><p>Tarayıcı önizlemesi kayıt tutmaz.</p></section>;
   if (session.phase !== 'signedIn' || session.expiresAt <= Date.now() || loginSettings.kind !== 'ready')
     return <section className="empty-state"><h2>{name} görmek için giriş yap.</h2><p>Kayıtlar bu cihazda ve hesabına ayrılmış alanda tutulur.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section>;
   const owner = { projectRef: new URL(loginSettings.config.url).hostname.split('.')[0], userId: session.userId.toLowerCase() };
-  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} startNew={startNew} />;
+  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} startNew={startNew} initialId={initialId} />;
 }
 
-function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner: TaskOwner; startNew: boolean; onTasks: (projectId: string) => void }) {
+function EntryBoard({ kind, owner, onTasks, startNew, initialId }: { kind: EntryKind; owner: TaskOwner; startNew: boolean; initialId: string; onTasks: (projectId: string) => void }) {
   const notes = kind === 'note';
   const [items, setItems] = useState<Entry[]>([]);
   const [search, setSearch] = useState('');
@@ -31,6 +31,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [targetError,setTargetError]=useState('');
   const [notice, setNotice] = useState('');
   const [progress, setProgress] = useState<Record<string, ProjectProgress>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -43,6 +44,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
   const base = editing === 'new' ? blank() : editing ? fromEntry(editing) : null;
   const dirty = !!base && (draft.title !== base.title || draft.body !== base.body || draft.state !== base.state || draft.pinned !== base.pinned);
 
+  useEffect(()=>{if(!initialId)return;let active=true;setBusy(true);setTargetError('');getEntry(owner,kind,initialId).then(entry=>{if(active){setEditing(entry);setDraft(fromEntry(entry));}}).catch(failure=>{if(active)setTargetError(message(failure));}).finally(()=>{if(active)setBusy(false)});return()=>{active=false}},[owner.projectRef,owner.userId,kind,initialId]);
   async function load(query = search, append = false) {
     const attempt = ++request.current;
     setLoading(true); setError('');
@@ -61,6 +63,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
     return () => { clearTimeout(timer); ++request.current; };
   }, [kind, owner.projectRef, owner.userId, search, filter, sort]);
   function open(entry: Entry | 'new') {
+    if(busy)return;
     if (dirty) { setError('Önce açık kaydı kaydet veya vazgeç.'); return; }
     setEditing(entry); setDraft(entry === 'new' ? blank() : fromEntry(entry)); setPreview(false);
     setConfirmDelete(false); setError(''); setNotice('');
@@ -129,6 +132,7 @@ function EntryBoard({ kind, owner, onTasks, startNew }: { kind: EntryKind; owner
       <button className="primary-button" disabled={busy} onClick={() => open('new')}><Plus size={16} /> {notes ? 'Yeni not' : 'Yeni proje'}</button></div>
     <p className="workspace-local-note">Bu kayıtlar yalnızca bu cihazda tutulur. Bulut eşitlemesi henüz yok.</p>
     <div className="workspace-quick-links">{notes ? <><button className="secondary-button" disabled={busy} onClick={()=>template('daily')}>Günlük plan şablonu</button><button className="secondary-button" disabled={busy} onClick={()=>template('meeting')}>Toplantı şablonu</button></> : <button className="secondary-button" disabled={busy} onClick={()=>template('project')}>Proje planı şablonu</button>}<span className="section-description">Ctrl+S ile kaydet</span></div>
+    {targetError&&<p className="workspace-error" role="alert">{targetError}</p>}
     {notice && <p className="workspace-notice" role="status">{notice}</p>}
     {error && <p className="workspace-error" role="alert">{error}</p>}
     <div className="workspace-columns">

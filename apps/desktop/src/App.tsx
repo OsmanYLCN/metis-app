@@ -86,10 +86,10 @@ export function App() {
 
   function navigate(destination: string) {
     const [name, ...parts] = destination.split(':');
-    if (name !== selected && document.querySelector('[data-workspace-dirty="true"]')
+    if ((name !== selected || parts.length > 0 || entryIntent || taskIntent) && document.querySelector('[data-workspace-dirty="true"]')
       && !window.confirm('Kaydedilmemiş değişiklikler var. Bu sayfadan çıkılsın mı?')) return;
     setTaskIntent(name === 'Tasks' ? parts.join(':') : '');
-    setEntryIntent(parts[0] === 'new' ? 'new' : '');
+    setEntryIntent(parts[0] === 'new' ? 'new' : parts[0] === 'record' && /^[a-f0-9]{32}$/.test(parts[1] ?? '') ? parts[1] : '');
     if (name === 'Dashboard' && parts[0] === 'account') setAccountOpen(true);
     setSelected(name);
     setMenuOpen(false);
@@ -113,7 +113,7 @@ export function App() {
             <Icon size={18} /><span>{label}</span>{!['Dashboard', 'Calendar', 'Tasks', 'Projects', 'Notes', 'Goals', 'Finance', 'Analytics', 'Notifications'].includes(name) && <span className="planned-dot" title="Planlandı" aria-label="Planlandı" />}
           </button>
         ))}</nav>
-        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 47 <span>v0.39.0</span></div></div>
+        <div className="sidebar-bottom"><span className="foundation-tag"><span /> FOUNDATION</span><p>Önce sağlam bir temel.<br />Sonra, senin ritminde.</p><div className="build-label">M0 · Dilim 48 <span>v0.40.0</span></div></div>
       </aside>
 
       <div className="main-layout">
@@ -133,7 +133,7 @@ export function App() {
             <section className="status-grid" aria-label="Temel durumları"><article className="status-card"><span className="card-icon mint"><Activity size={19} /></span><span className="card-caption">Bağlantı</span><h3 aria-live="polite">{status}</h3><p>Yalnızca API sürecinin sağlık kontrolü.</p><button className="text-button" onClick={() => void refresh()} disabled={connection === 'checking'}><RefreshCw size={14} className={connection === 'checking' ? 'spin' : ''} /> Yeniden kontrol et</button></article><StorageCard /><AccountCard /></section>
               <CentralReadCard/>
             </details>
-          </> : selected === 'Tasks' ? <TasksView key={taskIntent} intent={taskIntent} onAccount={() => navigate('Dashboard:account')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard:account')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView key={`${selected}:${entryIntent}`} startNew={entryIntent==='new'} kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard:account')} onTasks={(projectId) => navigate(`Tasks:project:${projectId}`)} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
+          </> : selected === 'Tasks' ? <TasksView key={taskIntent} intent={taskIntent} onAccount={() => navigate('Dashboard:account')} /> : selected === 'Calendar' ? <CalendarView onAccount={() => navigate('Dashboard:account')} onTasks={() => navigate('Tasks')} /> : selected === 'Goals' ? <GoalsView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Finance' ? <FinanceView onAccount={() => navigate('Dashboard:account')} /> : selected === 'Analytics' ? <AnalyticsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notifications' ? <NotificationsView onAccount={() => navigate('Dashboard:account')} navigate={navigate} /> : selected === 'Notes' || selected === 'Projects' ? <WorkspaceView key={`${selected}:${entryIntent}`} startNew={entryIntent==='new'} initialId={entryIntent==='new'?'':entryIntent} kind={selected === 'Notes' ? 'note' : 'project'} onAccount={() => navigate('Dashboard:account')} onTasks={(projectId) => navigate(`Tasks:project:${projectId}`)} /> : <section className="empty-state"><span className="empty-icon"><current.icon size={32} strokeWidth={1.4} /></span><span className="small-tag">Planlandı</span><h2>{current.label} için yerimiz hazır.</h2><p>Bu bölüm şu an yalnızca gezinme iskeletidir.<br />Gerçek kayıtlar ve işlemler, ilgili geliştirme diliminde eklenecek.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Genel bakışa dön <ArrowUpRight size={17} /></button></section>}
 
           <footer><span><span className={`connection-dot ${connection}`} />{status}{lastChecked ? ` · ${lastChecked}` : ''}</span><span>Ürün modülleri geliştirme aşamasında</span></footer>
         </main>

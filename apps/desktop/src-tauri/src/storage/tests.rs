@@ -628,3 +628,13 @@ fn global_search_covers_sources_and_account_scope(){
  assert!(search::search(&temp.db(),&owner,"istanbul","all",3).unwrap().items.is_empty());
  assert!(search::search(&temp.db(),&owner,"istanbul","invalid",0).is_err());
 }
+
+#[test]
+fn direct_entry_lookup_checks_owner_and_kind(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');let id="f".repeat(32);
+ workspace::create(&temp.db(),&owner,&id,"note","Direct","Body","active",true).unwrap();
+ assert_eq!(workspace::get_entry(&temp.db(),&owner,"note",&id).unwrap().title,"Direct");
+ assert_eq!(workspace::get_entry(&temp.db(),&other,"note",&id),Err(tasks::TaskError::NotFound));
+ assert_eq!(workspace::get_entry(&temp.db(),&owner,"project",&id),Err(tasks::TaskError::NotFound));
+ assert_eq!(workspace::get_entry(&temp.db(),&owner,"note","invalid"),Err(tasks::TaskError::InvalidInput));
+}
