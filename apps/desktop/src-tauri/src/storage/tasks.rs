@@ -217,3 +217,5 @@ pub fn summary(path:&Path,owner:&TaskOwner,today:&str,week:&str)->Result<Workspa
  let result=WorkspaceSummary{total:n(&rows,0)?,completed:n(&rows,1)?,overdue:n(&rows,2)?,today:n(&rows,3)?,upcoming:n(&rows,4)?,unscheduled:n(&rows,5)?,active_projects:n(&projects,0)?,paused_projects:n(&projects,1)?,done_projects:n(&projects,2)?,today_events:n(&events,0)?};
  tx.commit()?;Ok(result)
 }
+
+pub fn get_record(path:&Path,owner:&TaskOwner,id:&str)->Result<Task,TaskError>{owner.validate()?;if !valid_id(id){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;find(&db,owner,id)}

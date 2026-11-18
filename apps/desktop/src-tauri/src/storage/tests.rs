@@ -694,3 +694,20 @@ fn workspace_summary_counts_all_records_and_date_boundaries(){
  assert!(tasks::summary(&temp.db(),&owner,"2026-02-30","2026-11-24").is_err());
  assert!(tasks::summary(&temp.db(),&owner,"2026-11-24","2026-11-17").is_err());
 }
+
+#[test]
+fn daily_workflow_lookup_and_overlap_boundaries(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');let id="a".repeat(32);
+ tasks::create(&temp.db(),&owner,&id,"Direct task").unwrap();
+ tasks::set_planning(&temp.db(),&owner,&id,None,Some("2026-11-18"),2).unwrap();
+ let task=tasks::get_record(&temp.db(),&owner,&id).unwrap();assert_eq!(task.priority,2);assert_eq!(task.due_date.as_deref(),Some("2026-11-18"));
+ assert_eq!(tasks::get_record(&temp.db(),&other,&id),Err(tasks::TaskError::NotFound));
+ assert_eq!(tasks::get_record(&temp.db(),&owner,"invalid"),Err(tasks::TaskError::InvalidInput));
+ calendar::create(&temp.db(),&owner,&id,"Meeting","","2026-11-18",Some("10:00"),Some("11:00")).unwrap();
+ assert_eq!(calendar::overlaps(&temp.db(),&owner,"","2026-11-18","10:30","11:30").unwrap(),1);
+ assert_eq!(calendar::overlaps(&temp.db(),&owner,"","2026-11-18","09:00","12:00").unwrap(),1);
+ assert_eq!(calendar::overlaps(&temp.db(),&owner,"","2026-11-18","11:00","12:00").unwrap(),0);
+ assert_eq!(calendar::overlaps(&temp.db(),&owner,&id,"2026-11-18","10:00","11:00").unwrap(),0);
+ assert_eq!(calendar::overlaps(&temp.db(),&other,"","2026-11-18","10:00","11:00").unwrap(),0);
+ assert!(calendar::overlaps(&temp.db(),&owner,"","2026-11-18","11:00","10:00").is_err());
+}

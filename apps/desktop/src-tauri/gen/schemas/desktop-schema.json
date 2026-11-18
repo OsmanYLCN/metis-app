@@ -213,6 +213,12 @@
           "markdownDescription": "Enables the events_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the events_overlaps command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-events-overlaps",
+          "markdownDescription": "Enables the events_overlaps command without any pre-configured scope."
+        },
+        {
           "description": "Enables the events_save command without any pre-configured scope.",
           "type": "string",
           "const": "allow-events-save",
@@ -405,6 +411,12 @@
           "markdownDescription": "Enables the tasks_delete command without any pre-configured scope."
         },
         {
+          "description": "Enables the tasks_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-tasks-get",
+          "markdownDescription": "Enables the tasks_get command without any pre-configured scope."
+        },
+        {
           "description": "Enables the tasks_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-tasks-list",
@@ -511,6 +523,12 @@
           "type": "string",
           "const": "deny-events-list",
           "markdownDescription": "Denies the events_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the events_overlaps command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-events-overlaps",
+          "markdownDescription": "Denies the events_overlaps command without any pre-configured scope."
         },
         {
           "description": "Denies the events_save command without any pre-configured scope.",
@@ -703,6 +721,12 @@
           "type": "string",
           "const": "deny-tasks-delete",
           "markdownDescription": "Denies the tasks_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the tasks_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-tasks-get",
+          "markdownDescription": "Denies the tasks_get command without any pre-configured scope."
         },
         {
           "description": "Denies the tasks_list command without any pre-configured scope.",

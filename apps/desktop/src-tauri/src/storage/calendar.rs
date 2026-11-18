@@ -17,3 +17,9 @@ pub fn save(path:&Path,owner:&TaskOwner,key:&str,expected:i64,title:&str,details
 pub fn delete(path:&Path,owner:&TaskOwner,key:&str,expected:i64)->Result<(),TaskError>{owner.validate()?;if !id(key)||expected<1{return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;let rows=db.query("SELECT revision FROM calendar_events WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[key,&owner.project_ref,&owner.user_id])?;if let Some(row)=rows.first(){if row[0]!=expected.to_string(){return Err(TaskError::Conflict)}db.query("DELETE FROM calendar_events WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[key,&owner.project_ref,&owner.user_id])?;}tx.commit()?;Ok(())}
 
 pub fn get_record(path:&Path,owner:&TaskOwner,key:&str)->Result<Event,TaskError>{owner.validate()?;if !id(key){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;get(&db,owner,key)}
+
+pub fn overlaps(path:&Path,owner:&TaskOwner,key:&str,day:&str,start:&str,end:&str)->Result<u64,TaskError>{
+ owner.validate()?;if (!key.is_empty()&&!id(key))||!date(day)||!time(start)||!time(end)||start>=end{return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let rows=db.query("SELECT COUNT(*) FROM calendar_events WHERE project_ref=?1 AND user_id=?2 AND id<>?3 AND event_date=?4 AND start_time<?6 AND end_time>?5",&[&owner.project_ref,&owner.user_id,key,day,start,end])?;
+ rows.first().and_then(|r|r.first()).ok_or(StorageError::InvalidSchema)?.parse().map_err(|_|StorageError::InvalidSchema.into())
+}

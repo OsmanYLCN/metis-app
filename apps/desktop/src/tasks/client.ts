@@ -148,3 +148,5 @@ export async function deleteTask(owner: TaskOwner, task: Task): Promise<void> {
   const value = await invoke('tasks_delete', { owner, id: task.id, expectedTitle: task.title });
   if (value !== null) throw new Error('Silme işlemi doğrulanamadı. Listeyi yenile.');
 }
+
+export async function getTask(owner:TaskOwner,id:string):Promise<Task>{return parseTask(await invoke('tasks_get',{owner,id}))}
