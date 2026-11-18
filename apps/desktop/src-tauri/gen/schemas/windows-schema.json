@@ -225,6 +225,12 @@
           "markdownDescription": "Enables the events_save command without any pre-configured scope."
         },
         {
+          "description": "Enables the finance_categories command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-categories",
+          "markdownDescription": "Enables the finance_categories command without any pre-configured scope."
+        },
+        {
           "description": "Enables the finance_create command without any pre-configured scope.",
           "type": "string",
           "const": "allow-finance-create",
@@ -237,6 +243,12 @@
           "markdownDescription": "Enables the finance_delete command without any pre-configured scope."
         },
         {
+          "description": "Enables the finance_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-get",
+          "markdownDescription": "Enables the finance_get command without any pre-configured scope."
+        },
+        {
           "description": "Enables the finance_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-finance-list",
@@ -247,6 +259,12 @@
           "type": "string",
           "const": "allow-finance-page",
           "markdownDescription": "Enables the finance_page command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the finance_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-finance-save",
+          "markdownDescription": "Enables the finance_save command without any pre-configured scope."
         },
         {
           "description": "Enables the finance_totals command without any pre-configured scope.",
@@ -537,6 +555,12 @@
           "markdownDescription": "Denies the events_save command without any pre-configured scope."
         },
         {
+          "description": "Denies the finance_categories command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-categories",
+          "markdownDescription": "Denies the finance_categories command without any pre-configured scope."
+        },
+        {
           "description": "Denies the finance_create command without any pre-configured scope.",
           "type": "string",
           "const": "deny-finance-create",
@@ -549,6 +573,12 @@
           "markdownDescription": "Denies the finance_delete command without any pre-configured scope."
         },
         {
+          "description": "Denies the finance_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-get",
+          "markdownDescription": "Denies the finance_get command without any pre-configured scope."
+        },
+        {
           "description": "Denies the finance_list command without any pre-configured scope.",
           "type": "string",
           "const": "deny-finance-list",
@@ -559,6 +589,12 @@
           "type": "string",
           "const": "deny-finance-page",
           "markdownDescription": "Denies the finance_page command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the finance_save command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-finance-save",
+          "markdownDescription": "Denies the finance_save command without any pre-configured scope."
         },
         {
           "description": "Denies the finance_totals command without any pre-configured scope.",

@@ -1,9 +1,9 @@
 use super::{connect,sqlite::Transaction,tasks::{TaskError,TaskOwner},StorageError};
-use serde::Serialize;
+use serde::{Serialize,Deserialize};
 use std::path::Path;
 
-#[derive(Debug,Serialize)]
-#[serde(rename_all="camelCase")]
+#[derive(Debug,Serialize,Deserialize,PartialEq)]
+#[serde(rename_all="camelCase",deny_unknown_fields)]
 pub struct FinanceEntry { pub id:String,pub kind:String,pub title:String,pub category:String,pub amount_cents:i64,pub entry_date:String,pub created_at:String }
 #[derive(Debug,Serialize)]
 #[serde(rename_all="camelCase")]
@@ -44,3 +44,15 @@ pub fn page(path:&Path,owner:&TaskOwner,month:&str,query:&str,kind:&str,offset:u
  for row in db.query(&sql,&[&owner.project_ref,&owner.user_id,month,kind])?{let entry=decode(row)?;if !needle.is_empty(){if !fold(&format!("{} {}",entry.title,entry.category)).contains(&needle){continue}if skipped<offset{skipped+=1;continue}}items.push(entry);if items.len()==101{break}}
  let has_more=items.len()>100;items.truncate(100);Ok(FinancePage{items,has_more})
 }
+
+pub fn get_record(path:&Path,owner:&TaskOwner,id:&str)->Result<FinanceEntry,TaskError>{owner.validate()?;if !valid_id(id){return Err(TaskError::InvalidInput)}let(db,_)=connect(path)?;find(&db,owner,id)}
+fn find(db:&super::sqlite::Connection,owner:&TaskOwner,id:&str)->Result<FinanceEntry,TaskError>{let rows=db.query(&format!("SELECT {FIELDS} FROM finance_entries WHERE id=?1 AND project_ref=?2 AND user_id=?3"),&[id,&owner.project_ref,&owner.user_id])?;decode(rows.into_iter().next().ok_or(TaskError::NotFound)?)}
+pub fn save(path:&Path,owner:&TaskOwner,expected:&FinanceEntry,kind:&str,title:&str,category:&str,cents:i64,date:&str)->Result<FinanceEntry,TaskError>{
+ owner.validate()?;let title=title.trim();let category=category.trim();if !valid_id(&expected.id)||!valid(kind,title,category,cents,date){return Err(TaskError::InvalidInput)}
+ let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;let old=find(&db,owner,&expected.id)?;
+ if old.kind==kind&&old.title==title&&old.category==category&&old.amount_cents==cents&&old.entry_date==date{tx.commit()?;return Ok(old)}
+ if &old!=expected{return Err(TaskError::Conflict)}
+ db.query("UPDATE finance_entries SET kind=?4,title=?5,category=?6,amount_cents=?7,entry_date=?8 WHERE id=?1 AND project_ref=?2 AND user_id=?3",&[&expected.id,&owner.project_ref,&owner.user_id,kind,title,category,&cents.to_string(),date])?;
+ let saved=find(&db,owner,&expected.id)?;tx.commit()?;Ok(saved)
+}
+pub fn categories(path:&Path,owner:&TaskOwner)->Result<Vec<String>,TaskError>{owner.validate()?;let(db,_)=connect(path)?;Ok(db.query("SELECT category FROM finance_entries WHERE project_ref=?1 AND user_id=?2 GROUP BY category ORDER BY MAX(created_at) DESC,category LIMIT 100",&[&owner.project_ref,&owner.user_id])?.into_iter().filter_map(|r|r.into_iter().next()).collect())}

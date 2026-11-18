@@ -711,3 +711,19 @@ fn daily_workflow_lookup_and_overlap_boundaries(){
  assert_eq!(calendar::overlaps(&temp.db(),&other,"","2026-11-18","10:00","11:00").unwrap(),0);
  assert!(calendar::overlaps(&temp.db(),&owner,"","2026-11-18","11:00","10:00").is_err());
 }
+
+#[test]
+fn finance_edit_scope_conflict_retry_and_month_totals(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');let id="a".repeat(32);
+ let old=finance::create(&temp.db(),&owner,&id,"expense","Original","Food",1500,"2026-11-18").unwrap();
+ assert_eq!(finance::get_record(&temp.db(),&other,&id),Err(tasks::TaskError::NotFound));
+ let saved=finance::save(&temp.db(),&owner,&old,"expense","Updated","Travel",2500,"2026-12-01").unwrap();
+ assert_eq!(finance::save(&temp.db(),&owner,&old,"expense","Updated","Travel",2500,"2026-12-01").unwrap(),saved);
+ assert_eq!(finance::save(&temp.db(),&owner,&old,"income","Stale","Food",1000,"2026-11-18"),Err(tasks::TaskError::Conflict));
+ assert!(finance::totals(&temp.db(),&owner,"2026-11").unwrap().is_empty());
+ assert_eq!(finance::totals(&temp.db(),&owner,"2026-12").unwrap()[0].amount_cents,2500);
+ assert_eq!(finance::categories(&temp.db(),&owner).unwrap(),vec!["Travel"]);
+ assert!(finance::categories(&temp.db(),&other).unwrap().is_empty());
+ assert!(finance::save(&temp.db(),&owner,&saved,"expense","Bad","Travel",0,"2026-12-01").is_err());
+ assert_eq!(finance::get_record(&temp.db(),&owner,&id).unwrap(),saved);
+}
