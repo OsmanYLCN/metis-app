@@ -11,17 +11,17 @@ const blank = (): EntryDraft => ({ title: '', body: '', state: 'active', pinned:
 const fromEntry = (entry: Entry): EntryDraft => ({ title: entry.title, body: entry.body, state: entry.state, pinned: entry.pinned });
 const message = (error: unknown) => error instanceof Error ? error.message : 'İşlem tamamlanamadı. Tekrar dene.';
 
-export function WorkspaceView({ kind, onAccount, onTasks, startNew = false, initialId = '' }: { kind: EntryKind; startNew?: boolean; initialId?: string; onAccount: () => void; onTasks: (projectId: string) => void }) {
+export function WorkspaceView({ kind, onAccount, onTasks, onOpenTask, startNew = false, initialId = '' }: { kind: EntryKind; startNew?: boolean; initialId?: string; onAccount: () => void; onOpenTask: (taskId:string)=>void; onTasks: (projectId: string) => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   const name = kind === 'note' ? 'Notlarını' : 'Projelerini';
   if (!globalThis.window?.__TAURI__) return <section className="empty-state"><h2>{name} Windows uygulamasında.</h2><p>Tarayıcı önizlemesi kayıt tutmaz.</p></section>;
   if (session.phase !== 'signedIn' || session.expiresAt <= Date.now() || loginSettings.kind !== 'ready')
     return <section className="empty-state"><h2>{name} görmek için giriş yap.</h2><p>Kayıtlar bu cihazda ve hesabına ayrılmış alanda tutulur.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section>;
   const owner = { projectRef: new URL(loginSettings.config.url).hostname.split('.')[0], userId: session.userId.toLowerCase() };
-  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} startNew={startNew} initialId={initialId} />;
+  return <EntryBoard key={`${owner.projectRef}:${owner.userId}:${kind}`} kind={kind} owner={owner} onTasks={onTasks} onOpenTask={onOpenTask} startNew={startNew} initialId={initialId} />;
 }
 
-function EntryBoard({ kind, owner, onTasks, startNew, initialId }: { kind: EntryKind; owner: TaskOwner; startNew: boolean; initialId: string; onTasks: (projectId: string) => void }) {
+function EntryBoard({ kind, owner, onTasks, onOpenTask, startNew, initialId }: { kind: EntryKind; owner: TaskOwner; startNew: boolean; initialId: string; onOpenTask: (taskId:string)=>void; onTasks: (projectId: string) => void }) {
   const notes = kind === 'note';
   const [items, setItems] = useState<Entry[]>([]);
   const [search, setSearch] = useState('');
@@ -82,6 +82,14 @@ function EntryBoard({ kind, owner, onTasks, startNew, initialId }: { kind: Entry
     const changed=draft.body.slice(0,start)+draft.body.slice(start,end).split('\n').map(line=>prefix+line).join('\n')+draft.body.slice(end);
     if(changed.length>20000){setError('İçerik 20.000 karakter sınırını aşıyor.');return;}
     setDraft({...draft,body:changed});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(start,end+changed.length-draft.body.length)});
+  }
+  function toggleCheck(index:number){if(busy)return;setDraft(old=>{const lines=old.body.split('\n');if(!/^[-*] \[[ xX]\] /.test(lines[index]??''))return old;lines[index]=lines[index].slice(0,3)+(/[xX]/.test(lines[index][3])?' ':'x')+lines[index].slice(4);return {...old,body:lines.join('\n')}})}
+  function formatInline(marker:string){
+    const input=document.getElementById('workspace-body') as HTMLTextAreaElement|null;if(!input||busy)return;
+    const start=input.selectionStart,end=input.selectionEnd;const selected=draft.body.slice(start,end)||'metin';
+    const body=draft.body.slice(0,start)+marker+selected+marker+draft.body.slice(end);
+    if(body.length>20000){setError('İçerik 20.000 karakter sınırını aşıyor.');return;}
+    setDraft({...draft,body});requestAnimationFrame(()=>{input.focus();input.setSelectionRange(start+marker.length,start+marker.length+selected.length)});
   }
   function discard() { setEditing(null); setDraft(blank()); setConfirmDelete(false); setPreview(false); setError(''); newId.current = null; }
   function template(name: string) {
@@ -154,19 +162,19 @@ function EntryBoard({ kind, owner, onTasks, startNew, initialId }: { kind: Entry
       <div className="workspace-editor-panel">
         {!editing ? <div className="workspace-editor-empty">{notes ? <StickyNote size={31} /> : <FolderKanban size={31} />}<h3>{notes ? 'Bir not seç veya yeni bir not yaz.' : 'Bir proje seç veya yenisini oluştur.'}</h3><p>Yazdıkların kaydettiğinde bu cihazda kalıcı olur.</p></div>
           : <form onSubmit={save} className="workspace-editor">
-            <div className="workspace-editor-head"><span>{editing === 'new' ? notes ? 'YENİ NOT' : 'YENİ PROJE' : `SON GÜNCELLEME · ${new Date(editing.updatedAt).toLocaleString('tr-TR')}`}{dirty ? ' · KAYDEDİLMEDİ' : ''}</span><button type="button" className="text-button" disabled={busy} onClick={discard}>{dirty ? 'Vazgeç' : 'Kapat'}</button></div>
+            <div className="workspace-editor-head"><span>{editing === 'new' ? notes ? 'YENİ NOT' : 'YENİ PROJE' : `SON GÜNCELLEME · ${new Date(editing.updatedAt).toLocaleString('tr-TR')}`}{dirty ? ' · KAYDEDİLMEDİ' : ''}</span><button type="button" className="text-button" disabled={busy} onClick={()=>{if(!dirty||window.confirm('Kaydedilmemiş değişiklikler silinsin mi?'))discard()}}>{dirty ? 'Vazgeç' : 'Kapat'}</button></div>
             <div className="workspace-quick-links">{editing!=='new'&&<button type="button" className="secondary-button" disabled={busy} onClick={duplicate}>Kopyasını oluştur</button>}</div><label htmlFor="workspace-title">{notes ? 'Not başlığı' : 'Proje adı'}</label>
             <input id="workspace-title" autoFocus value={draft.title} maxLength={200} disabled={busy} placeholder={notes ? 'Başlıksız not' : 'Projene bir ad ver'} onChange={event => setDraft({ ...draft, title: event.target.value })} />
             <div className="workspace-body-heading"><label htmlFor="workspace-body">{notes ? 'İçerik' : 'Açıklama'}</label>{notes&&<button type="button" className="text-button" aria-pressed={preview} onClick={()=>setPreview(value=>!value)}>{preview?'Düzenle':'Önizle'}</button>}</div>
-            {notes&&!preview&&<div className="note-tools" role="group" aria-label="Not biçimlendirme"><button type="button" disabled={busy} onClick={()=>formatLines('# ')}>Başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('## ')}>Alt başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('- ')}>Madde</button><button type="button" disabled={busy} onClick={()=>formatLines('- [ ] ')}>Kontrol listesi</button></div>}
-            {notes&&preview?<NotePreview body={draft.body}/>:<textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />}
+            {notes&&!preview&&<div className="note-tools" role="group" aria-label="Not biçimlendirme"><button type="button" disabled={busy} onClick={()=>formatInline('**')}>Kalın</button><button type="button" disabled={busy} onClick={()=>formatInline('*')}>İtalik</button><button type="button" disabled={busy} onClick={()=>formatInline('`')}>Kod</button><button type="button" disabled={busy} onClick={()=>formatLines('# ')}>Başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('## ')}>Alt başlık</button><button type="button" disabled={busy} onClick={()=>formatLines('- ')}>Madde</button><button type="button" disabled={busy} onClick={()=>formatLines('- [ ] ')}>Kontrol listesi</button></div>}
+            {notes&&preview?<NotePreview body={draft.body} disabled={busy} onToggle={toggleCheck}/>:<textarea id="workspace-body" value={draft.body} maxLength={20000} disabled={busy} placeholder={notes ? 'Aklındakileri buraya yaz…' : 'Bu proje ne için?'} onChange={event => setDraft({ ...draft, body: event.target.value })} />}
             {notes&&<p className="note-count">{draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0} kelime · {draft.body.length}/20.000 karakter · Başlık için #, madde için - kullanabilirsin.</p>}
             {!notes&&editing!=='new'&&<div className="project-progress-card"><div><strong>{progress[editing.id]?.total??0} görev</strong><span>{progress[editing.id]?.completed??0} tamamlandı · {progress[editing.id]?.overdue??0} geciken</span></div><span className="project-progress-value">{progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%</span><div className="project-progress-track"><i style={{width:`${progress[editing.id]?.total?Math.round(progress[editing.id].completed/progress[editing.id].total*100):0}%`}}/></div></div>}
             <div className="workspace-editor-options">{notes ? <label className="workspace-check"><input type="checkbox" checked={draft.pinned} disabled={busy} onChange={event => setDraft({ ...draft, pinned: event.target.checked })} /> Önemli not olarak sabitle</label>
               : <label>Durum <select value={draft.state} disabled={busy} onChange={event => setDraft({ ...draft, state: event.target.value as EntryDraft['state'] })}><option value="active">Aktif</option><option value="paused">Beklemede</option><option value="done">Tamamlandı</option></select></label>}</div>
             <div className="workspace-editor-actions">{editing !== 'new' && <button className="text-button workspace-delete" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}><Trash2 size={15} /> Sil</button>}
               <button className="primary-button" type="submit" disabled={busy || !draft.title.trim()}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</button></div>
-            {!notes&&editing!=='new'&&<ProjectTasks key={editing.id} owner={owner} projectId={editing.id} onTasks={()=>onTasks(editing.id)}/>}
+            {!notes&&editing!=='new'&&<ProjectTasks key={editing.id} owner={owner} projectId={editing.id} onTasks={()=>onTasks(editing.id)} onOpenTask={onOpenTask}/>}
             {confirmDelete && editing !== 'new' && <div className="workspace-confirm"><p><strong>{editing.title}</strong> kalıcı olarak silinsin mi?</p><div><button type="button" className="secondary-button" disabled={busy} onClick={() => setConfirmDelete(false)}>İptal</button><button type="button" className="primary-button" disabled={busy} onClick={() => void remove()}>Evet, sil</button></div></div>}
           </form>}
       </div>
