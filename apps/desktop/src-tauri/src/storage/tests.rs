@@ -727,3 +727,19 @@ fn finance_edit_scope_conflict_retry_and_month_totals(){
  assert!(finance::save(&temp.db(),&owner,&saved,"expense","Bad","Travel",0,"2026-12-01").is_err());
  assert_eq!(finance::get_record(&temp.db(),&owner,&id).unwrap(),saved);
 }
+
+#[test]
+fn reminder_page_covers_limits_states_dates_and_accounts(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ for i in 1..=205{goals::create(&temp.db(),&owner,&format!("{i:032x}"),"İSTANBUL","","active",Some("2020-01-01"),0).unwrap();}
+ let first=format!("{:032x}",1);let second=format!("{:032x}",2);
+ notifications::set(&temp.db(),&owner,"goal",&first,"2020-01-01",true,None).unwrap();
+ notifications::set(&temp.db(),&owner,"goal",&second,"2020-01-01",false,Some("2026-11-25")).unwrap();
+ let page=notifications::page(&temp.db(),&owner,"2026-11-18","2026-12-18","istanbul","goal","new",0).unwrap();
+ assert_eq!(page.total,203);assert_eq!(page.unread,203);assert_eq!(page.items.len(),50);assert!(page.has_more);
+ assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-18","2026-12-18","","all","all",200).unwrap().items.len(),5);
+ assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-18","2026-12-18","","all","snoozed",0).unwrap().total,1);
+ assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-25","2026-12-18","","all","new",0).unwrap().total,204);
+ assert_eq!(notifications::page(&temp.db(),&other,"2026-11-18","2026-12-18","","all","all",0).unwrap().total,0);
+ assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-18","2026-12-18","","task","all",0).unwrap().total,0);
+}

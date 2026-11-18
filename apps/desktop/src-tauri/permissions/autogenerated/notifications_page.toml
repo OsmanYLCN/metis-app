@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-notifications-page"
+description = "Enables the notifications_page command without any pre-configured scope."
+commands.allow = ["notifications_page"]
+
+[[permission]]
+identifier = "deny-notifications-page"
+description = "Denies the notifications_page command without any pre-configured scope."
+commands.deny = ["notifications_page"]

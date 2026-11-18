@@ -327,6 +327,12 @@
           "markdownDescription": "Enables the notifications_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the notifications_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-notifications-page",
+          "markdownDescription": "Enables the notifications_page command without any pre-configured scope."
+        },
+        {
           "description": "Enables the notifications_set command without any pre-configured scope.",
           "type": "string",
           "const": "allow-notifications-set",
@@ -655,6 +661,12 @@
           "type": "string",
           "const": "deny-notifications-list",
           "markdownDescription": "Denies the notifications_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the notifications_page command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-notifications-page",
+          "markdownDescription": "Denies the notifications_page command without any pre-configured scope."
         },
         {
           "description": "Denies the notifications_set command without any pre-configured scope.",
