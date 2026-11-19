@@ -29,6 +29,7 @@ async function invoke(command: string, args: Record<string, unknown>): Promise<u
     if (error === 'timeout') throw new Error('İşlemin sonucu henüz alınamadı. Aynı işlemi tekrar dene veya listeyi yenile.');
     if (error === 'invalidInput') throw new Error('Görev başlığı 1–200 karakter olmalı; kontrol karakteri içermemeli.');
     if (error === 'notFound') throw new Error('Görev bulunamadı. Listeyi yenile.');
+    if (error === 'recoveryRequired') throw new Error('Yedekten geri yükleme sonrası buluta gönderim duraklatıldı. Veri ve eşitleme ekranını aç.');
     if (error === 'conflict') throw new Error('Görev değişmiş olabilir. İptal edip listeyi yenile, ardından tekrar dene.');
     if (isObject(error) && typeof error.storage === 'string') throw new Error(storageMessage(error.storage));
     throw new Error('İşlem doğrulanamadı. Aynı işlemi tekrar deneyebilir veya listeyi yenileyebilirsin.');

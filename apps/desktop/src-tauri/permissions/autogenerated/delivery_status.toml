@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-delivery-status"
+description = "Enables the delivery_status command without any pre-configured scope."
+commands.allow = ["delivery_status"]
+
+[[permission]]
+identifier = "deny-delivery-status"
+description = "Denies the delivery_status command without any pre-configured scope."
+commands.deny = ["delivery_status"]

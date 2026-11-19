@@ -271,7 +271,7 @@ fn outbox_upgrade_preserves_v2_tasks() {
     db.execute("INSERT INTO tasks(id,project_ref,user_id,title) VALUES('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','project-a','11111111-1111-4111-8111-111111111111','Keep me')").unwrap();
     drop(db);
     let (db, status) = connect(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 12);
+    assert_eq!(status.schema_version, 13);
     assert_eq!(db.scalar("SELECT title FROM tasks").unwrap(), "Keep me");
     assert_eq!(db.scalar("SELECT count(*) FROM task_outbox").unwrap(), "0");
 }
@@ -298,7 +298,7 @@ fn upgrades_v1_without_changing_identity_and_failed_v2_rolls_back() {
     drop(db);
     let status = open_storage(&temp.db()).unwrap();
     assert_eq!(status.storage_id, id);
-    assert_eq!(status.schema_version, 12);
+    assert_eq!(status.schema_version, 13);
 }
 
 fn task_owner(project: &str, user: char) -> tasks::TaskOwner {
@@ -430,10 +430,10 @@ impl Drop for TestDirectory {
 fn first_open_creates_real_sqlite_and_foundation_and_tasks_tables() {
     let temp = TestDirectory::new();
     let status = open_storage(&temp.db()).unwrap();
-    assert_eq!(status.schema_version, 12);
+    assert_eq!(status.schema_version, 13);
     assert_eq!(&fs::read(temp.db()).unwrap()[..16], b"SQLite format 3\0");
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "local_metadata,outbox_delivery,schema_migrations,sqlite_sequence,task_action_outbox,task_outbox,tasks,workspace_entries");
+    assert_eq!(db.scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)").unwrap(), "calendar_events,finance_budgets,finance_entries,goals,local_metadata,notification_state,outbox_delivery,recovery_guard,schema_migrations,sqlite_sequence,task_action_outbox,task_attributes,task_outbox,tasks,workspace_entries");
     assert_eq!(db.scalar("PRAGMA journal_mode").unwrap(), "wal");
 }
 
@@ -444,7 +444,7 @@ fn closing_and_reopening_preserves_identity_and_applies_migration_once() {
     let second = open_storage(&temp.db()).unwrap();
     assert_eq!(first, second);
     let db = Connection::open(&temp.db()).unwrap();
-    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), "6");
+    assert_eq!(db.scalar("SELECT count(*) FROM schema_migrations").unwrap(), VERSION.to_string());
 }
 
 #[test]
@@ -466,9 +466,9 @@ fn newer_schema_is_rejected_without_resetting_existing_data() {
     let temp = TestDirectory::new();
     let original = open_storage(&temp.db()).unwrap();
     let db = Connection::open(&temp.db()).unwrap();
-    db.execute("PRAGMA user_version=7").unwrap();
+    db.execute(&format!("PRAGMA user_version={}",VERSION+1)).unwrap();
     assert_eq!(open_storage(&temp.db()), Err(StorageError::NewerSchema));
-    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), "7");
+    assert_eq!(db.scalar("PRAGMA user_version").unwrap(), (VERSION+1).to_string());
     assert_eq!(db.scalar("SELECT storage_id FROM local_metadata").unwrap(), original.storage_id);
 }
 
@@ -742,4 +742,78 @@ fn reminder_page_covers_limits_states_dates_and_accounts(){
  assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-25","2026-12-18","","all","new",0).unwrap().total,204);
  assert_eq!(notifications::page(&temp.db(),&other,"2026-11-18","2026-12-18","","all","all",0).unwrap().total,0);
  assert_eq!(notifications::page(&temp.db(),&owner,"2026-11-18","2026-12-18","","task","all",0).unwrap().total,0);
+}
+
+#[test]
+fn recovery_roundtrip_preserves_modules_other_accounts_and_pauses_delivery() {
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');
+ let task_id="a".repeat(32);let project_id="b".repeat(32);
+ workspace::create(&temp.db(),&owner,&project_id,"project","Project","","active",false).unwrap();
+ workspace::create(&temp.db(),&owner,&"c".repeat(32),"note","Private note","SECRET_BACKUP_SENTINEL","active",true).unwrap();
+ tasks::create(&temp.db(),&owner,&task_id,"Task").unwrap();
+ tasks::set_planning(&temp.db(),&owner,&task_id,Some(&project_id),Some("2026-11-18"),2).unwrap();
+ let queued=outbox::pending_for_task(&temp.db(),&owner,&task_id).unwrap().unwrap();
+ outbox::begin_delivery(&temp.db(),&owner,queued.sequence).unwrap();
+ outbox::acknowledge(&temp.db(),&owner,&queued.operation_id,&task_id,1,"applied").unwrap();
+ tasks::create(&temp.db(),&other,&"d".repeat(32),"Other account").unwrap();
+ goals::create(&temp.db(),&owner,&"e".repeat(32),"Goal","","active",None,20).unwrap();
+ finance::create(&temp.db(),&owner,&"f".repeat(32),"expense","Food","Market",1234,"2026-11-18").unwrap();
+ finance::set_budget(&temp.db(),&owner,"2026-11","Market",9999).unwrap();
+ calendar::create(&temp.db(),&owner,&"1".repeat(32),"Event","","2026-11-18",None,None).unwrap();
+ notifications::set(&temp.db(),&owner,"task",&task_id,"2026-11-18",true,None).unwrap();
+ let saved=backup::create(&temp.db(),&owner).unwrap();
+ let listing=backup::list(&temp.db(),&owner).unwrap();assert_eq!(listing.items.len(),1);
+ let bytes=fs::read(PathBuf::from(&listing.directory).join(format!("{}.metisbackup",saved.id))).unwrap();
+ assert!(!bytes.windows(22).any(|b|b==b"SECRET_BACKUP_SENTINEL"));
+ assert!(backup::preview(&temp.db(),&other,&saved.id).is_err());
+ finance::delete(&temp.db(),&owner,&"f".repeat(32)).unwrap();
+ let preview=backup::preview(&temp.db(),&owner,&saved.id).unwrap();
+ let restored=backup::restore(&temp.db(),&owner,&saved.id,&preview.current_digest,&preview.backup_digest).unwrap();
+ assert!(restored.paused);assert!(backup::list(&temp.db(),&owner).unwrap().paused);
+ assert_eq!(finance::get_record(&temp.db(),&owner,&"f".repeat(32)).unwrap().amount_cents,1234);
+ assert_eq!(tasks::get_record(&temp.db(),&owner,&task_id).unwrap().project_id.as_deref(),Some(project_id.as_str()));
+ assert_eq!(tasks::get_record(&temp.db(),&other,&"d".repeat(32)).unwrap().title,"Other account");
+ assert_eq!(finance::budgets(&temp.db(),&owner,"2026-11").unwrap()[0].spent_cents,1234);
+ assert_eq!(notifications::list(&temp.db(),&owner).unwrap().len(),1);
+ let(db,_)=connect(&temp.db()).unwrap();
+ assert_eq!(outbox::latest_revision(&db,&owner,&task_id).unwrap(),Some(1));
+ assert_eq!(backup::ensure_send_allowed(&db,&owner),Err(tasks::TaskError::RecoveryRequired));
+ assert!(backup::ensure_send_allowed(&db,&other).is_ok());
+ assert_eq!(outbox::acknowledge(&temp.db(),&owner,&queued.operation_id,&task_id,1,"replayed"),Err(tasks::TaskError::RecoveryRequired));
+ // The automatic safety snapshot is independently readable and retains the pre-restore state.
+ let safety=backup::preview(&temp.db(),&owner,&restored.safety_backup.id).unwrap();
+ assert_eq!(safety.backup.counts.iter().find(|v|v.name=="finance_entries").unwrap().count,0);
+}
+#[test]
+fn recovery_rejects_stale_preview_inflight_and_corrupt_file() {
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let id="a".repeat(32);
+ tasks::create(&temp.db(),&owner,&id,"First").unwrap();let saved=backup::create(&temp.db(),&owner).unwrap();
+ let preview=backup::preview(&temp.db(),&owner,&saved.id).unwrap();
+ tasks::create(&temp.db(),&owner,&"b".repeat(32),"Later").unwrap();
+ assert!(backup::restore(&temp.db(),&owner,&saved.id,&preview.current_digest,&preview.backup_digest).is_err());
+ assert_eq!(tasks::list(&temp.db(),&owner,0).unwrap().items.len(),2);
+ let pending=outbox::pending_for_task(&temp.db(),&owner,&id).unwrap().unwrap();
+ outbox::begin_delivery(&temp.db(),&owner,pending.sequence).unwrap();
+ let preview=backup::preview(&temp.db(),&owner,&saved.id).unwrap();
+ assert!(backup::restore(&temp.db(),&owner,&saved.id,&preview.current_digest,&preview.backup_digest).is_err());
+ let listing=backup::list(&temp.db(),&owner).unwrap();
+ let file=PathBuf::from(listing.directory).join(format!("{}.metisbackup",saved.id));fs::write(file,b"corrupt").unwrap();
+ assert!(backup::preview(&temp.db(),&owner,&saved.id).is_err());
+ assert_eq!(tasks::list(&temp.db(),&owner,0).unwrap().items.len(),2);
+ assert_eq!(backup::list(&temp.db(),&owner).unwrap().unreadable,1);
+ assert!(backup::preview(&temp.db(),&owner,"../bad").is_err());
+}
+
+#[test]
+fn recovery_failed_insert_rolls_back_all_account_changes(){
+ let temp=TestDirectory::new();let owner=task_owner("project-a",'1');let other=task_owner("project-a",'2');let id="a".repeat(32);
+ tasks::create(&temp.db(),&owner,&id,"Old").unwrap();let saved=backup::create(&temp.db(),&owner).unwrap();
+ tasks::delete(&temp.db(),&owner,&id,"Old").unwrap();
+ tasks::create(&temp.db(),&other,&id,"Other owner").unwrap();
+ tasks::create(&temp.db(),&owner,&"b".repeat(32),"Current").unwrap();
+ let preview=backup::preview(&temp.db(),&owner,&saved.id).unwrap();
+ assert!(backup::restore(&temp.db(),&owner,&saved.id,&preview.current_digest,&preview.backup_digest).is_err());
+ assert_eq!(tasks::get_record(&temp.db(),&other,&id).unwrap().title,"Other owner");
+ assert_eq!(tasks::get_record(&temp.db(),&owner,&"b".repeat(32)).unwrap().title,"Current");
+ assert!(!backup::list(&temp.db(),&owner).unwrap().paused);
 }

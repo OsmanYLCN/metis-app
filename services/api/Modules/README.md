@@ -1,9 +1,9 @@
-# Modül sınırları
+# API modül kapsamı
 
-API tek ASP.NET Core modüler monolit sürecidir. Identity, Supabase public JWKS ve JWT doğrulamasını sağlar. Tasks, merkezi görev modelinin yalnızca okuma erişim sınırını sunar. Her modül kendi endpoint/iş kuralı/veri sözleşmesini tutar; başka modülün tablolarına doğrudan yazmaz.
+ASP.NET Core 10 modüler monolit. Identity Supabase JWT/JWKS doğrulamasını sağlar. Tasks doğrulanmış hesaba göre okuma ve create/rename/complete/delete işlemlerini sunar; PostgreSQL reader ve writer ayrı sınırlı roller kullanır. Operation ID ile tekrar gönderim ve revision çatışması korunur.
 
-Merkezi Tasks için üretim veri kaynağı henüz yapılandırılmadı. Sahte başarılı store yoktur. `GET /api/v1/tasks/status` oturum gerektirir; `readAvailable=false`, `syncAvailable=false` döner. Liste/detay okuması oturum yoksa 401, doğrulanmış oturumla bağlantı henüz yoksa 503 döner. Merkezi yazma endpoint'i eklenmedi. Masaüstü Tasks hâlâ Windows SQLite komutlarını kullanır.
+Görev merkezi modeli şu an id/title/completed/revision ve zaman damgalarıdır. Proje/tarih/öncelik henüz merkezi modelde değildir. Merkezi not/proje/hedef/takvim/finans/bütçe ve delta sync endpoint’leri uygulanmadı.
 
-PostgreSQL modeli `../Database` altındadır ve canlı projeye uygulanmadı. JWT `sub` değeri sunucuda doğrulanır; query/header kullanıcı kimliği yetkilendirme sağlamaz. İleride gerçek reader, zorunlu sahip parametresi ve en az yetkili DB rolüyle uygulanacak.
+Yerel SQLite kuralları tek başına sunucu güvenliği değildir. Yeni modüllerde alan doğrulaması, sahiplik ve transaction kuralları ASP.NET Core/PostgreSQL tarafında da uygulanacak.
 
-`/health` yalnızca süreç canlılığıdır; veritabanı veya eşitleme hazırlığını ölçmez. Bağlantı, merkezi yazma ve sync yeni onaylı dilimlerdir.
+Güncel çalışma: [Paket 1](../../../docs/package-1.md). Önceki ADR ve doğrulama dosyaları tarihsel aşamaları anlatır.

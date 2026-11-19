@@ -7,6 +7,7 @@ pub mod goals;
 pub mod finance;
 pub mod calendar;
 pub mod notifications;
+pub mod backup;
 #[cfg(test)]
 mod tests;
 
@@ -15,7 +16,7 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 12;
+const VERSION: u32 = 13;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
@@ -28,6 +29,7 @@ const GOALS_MIGRATION: &str = include_str!("../../migrations/0008_goals.sql");
 const FINANCE_MIGRATION: &str = include_str!("../../migrations/0009_finance.sql");
 const CALENDAR_MIGRATION: &str = include_str!("../../migrations/0010_calendar_events.sql");
 const NOTIFICATION_MIGRATION: &str = include_str!("../../migrations/0011_notification_state.sql");
+const RECOVERY_MIGRATION: &str = include_str!("../../migrations/0013_recovery_guard.sql");
 const BUDGET_MIGRATION: &str = include_str!("../../migrations/0012_finance_budgets.sql");
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -175,6 +177,10 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
     if old_version<12 { connection.execute(BUDGET_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(12,'finance_budgets','{budget_checksum}'); PRAGMA user_version=12;")).map_err(|_|StorageError::MigrationFailed)?; }
     if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=12 AND name='finance_budgets'")?!=budget_checksum{return Err(StorageError::InvalidSchema)}
     connection.query("SELECT project_ref,user_id,month,category,limit_cents FROM finance_budgets LIMIT 0",&[])?;
+    let recovery_checksum=format!("{:x}",Sha256::digest(RECOVERY_MIGRATION.replace("\r\n","\n").as_bytes()));
+    if old_version<13 {connection.execute(RECOVERY_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(13,'recovery_guard','{recovery_checksum}'); PRAGMA user_version=13;")).map_err(|_|StorageError::MigrationFailed)?;}
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=13 AND name='recovery_guard'")?!=recovery_checksum{return Err(StorageError::InvalidSchema)}
+    connection.query("SELECT project_ref,user_id,restored_at,backup_id FROM recovery_guard LIMIT 0",&[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

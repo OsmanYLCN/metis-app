@@ -8,7 +8,7 @@ pub struct TaskOwner { pub project_ref: String, pub user_id: String }
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub enum TaskError { InvalidInput, NotFound, Conflict, Storage(StorageError) }
+pub enum TaskError { InvalidInput, NotFound, Conflict, RecoveryRequired, Storage(StorageError) }
 impl From<StorageError> for TaskError { fn from(value: StorageError) -> Self { Self::Storage(value) } }
 
 #[derive(Debug, Serialize, PartialEq)]

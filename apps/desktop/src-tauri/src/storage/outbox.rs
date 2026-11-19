@@ -17,6 +17,7 @@ pub fn begin_delivery(path: &Path, owner: &TaskOwner, sequence: i64) -> Result<P
     if sequence <= 0 { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let tx = Transaction::begin(&db)?;
+    super::backup::ensure_send_allowed(&db,owner)?;
     let rows = db.query("SELECT o.sequence,o.operation_id,o.task_id,o.kind,o.expected_revision,o.title FROM task_outbox o JOIN tasks t ON t.id=o.task_id AND t.project_ref=o.project_ref AND t.user_id=o.user_id WHERE o.project_ref=?1 AND o.user_id=?2 AND o.sequence=?3 AND o.state='pending' AND t.title=o.title AND ((o.kind='create' AND o.expected_revision=0 AND NOT EXISTS(SELECT 1 FROM task_outbox older WHERE older.project_ref=o.project_ref AND older.user_id=o.user_id AND older.task_id=o.task_id AND older.state='acknowledged')) OR o.kind='rename') AND NOT EXISTS(SELECT 1 FROM task_action_outbox a WHERE a.project_ref=o.project_ref AND a.user_id=o.user_id AND a.task_id=o.task_id AND a.state='pending')", &[&owner.project_ref,&owner.user_id,&sequence.to_string()])?;
     let r = rows.first().ok_or(TaskError::Conflict)?;
     let operation = PendingOperation { sequence, operation_id:r[1].clone(),task_id:r[2].clone(),kind:r[3].clone(),expected_revision:r[4].parse().map_err(|_| super::StorageError::InvalidSchema)?,title:r[5].clone() };
@@ -33,6 +34,7 @@ pub fn acknowledge(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: 
     if revision < 1 || !matches!(outcome,"applied"|"replayed") { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let tx = Transaction::begin(&db)?;
+    super::backup::ensure_send_allowed(&db,owner)?;
     let rows = db.query("SELECT o.sequence,o.state,o.expected_revision,COALESCE(CAST(d.revision AS TEXT),''),o.kind FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.operation_id=?3 AND o.task_id=?4", &[&owner.project_ref,&owner.user_id,operation_id,task_id])?;
     let r = rows.first().ok_or(TaskError::Conflict)?;
     if !matches!(r[1].as_str(),"pending"|"acknowledged") { return Err(TaskError::Conflict); }
@@ -71,6 +73,7 @@ pub fn prepare_action(path: &Path, owner: &TaskOwner, task_id: &str, kind: &str,
         || !((kind=="complete" && completed.is_some()) || (kind=="delete" && completed.is_none())) { return Err(TaskError::InvalidInput); }
     let (db,_) = connect(path)?;
     let tx=Transaction::begin(&db)?;
+    super::backup::ensure_send_allowed(&db,owner)?;
     let task=db.query("SELECT completed FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3", &[task_id,&owner.project_ref,&owner.user_id])?;
     if task.is_empty() { return Err(TaskError::NotFound); }
     let pending=db.query("SELECT operation_id,task_id,kind,expected_revision,COALESCE(CAST(completed AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,task_id])?;
@@ -94,6 +97,7 @@ pub fn begin_action(path: &Path, owner: &TaskOwner, operation_id: &str) -> Resul
     owner.validate()?;
     if operation_id.len()!=32 || operation_id.bytes().any(|b| !b.is_ascii_hexdigit() || b.is_ascii_uppercase()) { return Err(TaskError::InvalidInput); }
     let (db,_)=connect(path)?; let tx=Transaction::begin(&db)?;
+    super::backup::ensure_send_allowed(&db,owner)?;
     let rows=db.query("SELECT operation_id,task_id,kind,expected_revision,COALESCE(CAST(completed AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,operation_id])?;
     let action=decode_action(rows.first().ok_or(TaskError::Conflict)?)?;
     if latest_revision(&db,owner,&action.task_id)? != Some(action.expected_revision) { return Err(TaskError::Conflict); }
@@ -104,6 +108,7 @@ pub fn begin_action(path: &Path, owner: &TaskOwner, operation_id: &str) -> Resul
 pub fn acknowledge_action(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: &str, revision: i64) -> Result<(), TaskError> {
     owner.validate()?;
     let (db,_)=connect(path)?; let tx=Transaction::begin(&db)?;
+    super::backup::ensure_send_allowed(&db,owner)?;
     let rows=db.query("SELECT kind,expected_revision,COALESCE(CAST(completed AS TEXT),''),state,started,COALESCE(CAST(revision AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND task_id=?4", &[&owner.project_ref,&owner.user_id,operation_id,task_id])?;
     let row=rows.first().ok_or(TaskError::Conflict)?;
     let expected:i64=row[1].parse().map_err(|_| super::StorageError::InvalidSchema)?;

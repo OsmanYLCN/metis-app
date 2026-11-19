@@ -51,7 +51,9 @@ impl Drop for OwnedBlob {
         }
     }
 }
-fn crypt(input: &[u8], context: &[u8], encrypt: bool) -> Result<Secret, VaultError> {
+fn crypt(input: &[u8], context: &[u8], encrypt: bool) -> Result<Secret, VaultError> { crypt_limited(input,context,encrypt,MAX_FILE) }
+pub(crate) fn crypt_limited(input: &[u8], context: &[u8], encrypt: bool, limit:usize) -> Result<Secret, VaultError> {
+    if input.len()>limit || limit>64*1024*1024 {return Err(VaultError::InvalidInput)}
     let input = Blob { len: input.len() as u32, data: input.as_ptr() as *mut u8 };
     let entropy = Blob { len: context.len() as u32, data: context.as_ptr() as *mut u8 };
     let mut output = OwnedBlob(Blob { len: 0, data: ptr::null_mut() });
@@ -60,7 +62,7 @@ fn crypt(input: &[u8], context: &[u8], encrypt: bool) -> Result<Secret, VaultErr
         if encrypt { CryptProtectData(&input, ptr::null(), &entropy, ptr::null_mut(), ptr::null_mut(), 1, &mut output.0) }
         else { CryptUnprotectData(&input, ptr::null_mut(), &entropy, ptr::null_mut(), ptr::null_mut(), 1, &mut output.0) }
     };
-    if ok == 0 || output.0.data.is_null() || output.0.len as usize > MAX_FILE {
+    if ok == 0 || output.0.data.is_null() || output.0.len as usize > limit {
         return Err(if encrypt { VaultError::Unavailable } else { VaultError::InvalidData });
     }
     Ok(Secret(unsafe { std::slice::from_raw_parts(output.0.data, output.0.len as usize) }.to_vec()))

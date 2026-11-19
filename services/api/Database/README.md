@@ -1,17 +1,9 @@
-# Merkezi veritabanı temeli
+# Merkezi veritabanı
 
-M0.10 yalnızca PostgreSQL/Supabase SQL modelini ve okuma erişim sınırını hazırlar. **Bu SQL henüz canlı Supabase projesine uygulanmadı.** Yerel SQLite migration'larıyla aynı runner veya sürüm numarası kullanılmaz.
+Mevcut görev şeması ve reader/writer/lifecycle izinleri Migrations/0001–0005 dosyalarındadır. Kullanıcı önceki çalışmalarda Supabase kurulumunu ve canlı görev bağlantısını doğruladı; bu paket başlangıcında canlı sistem yeniden sorgulanmadı.
 
-`Migrations/0001_central_tasks.sql`, mevcut Supabase `auth.users`, `auth.uid()`, `auth.jwt()` ve standart rollerini bekler. Özel `metis` şeması içinde atomik olarak tablo/izin/trigger oluşturur. Uygulama açılışında çalışmaz; tekrar çalıştırmak mevcut şema üzerinde hata verir ve transaction geri alınmalıdır. Veri sıfırlayan drop/recreate yolu yoktur.
+Bu SQL dosyaları uygulama açılışında otomatik çalışmaz. Mevcut kurulumda tekrar çalıştırılmaları istenmiyor. Yerel SQLite şema 13 migration’ı ayrı süreçtir ve yeni Supabase SQL gerektirmez.
 
-Bu dilimde gerçek DB bağlantısı, bağlantı parolası veya migration runner eklenmedi. Sonraki bağlantı diliminde önce ayrı test veritabanı, en az yetkili API rolü ve transaction hesap bağlamı doğrulanacaktır. `metis` şemasını Supabase Data API exposed schemas listesine eklemek gerekmez. Service-role/secret key masaüstüne konmaz.
+Çok modüllü merkezi veri ve delta sync değişiklikleri henüz uygulanmadı. [Paket 1](../../../docs/package-1.md) bunları izler.
 
-Test:
-
-```powershell
-npm.cmd run test:tasks-schema
-```
-
-Test PostgreSQL motorunu yerelde bellekte çalıştırır; yalnızca sentetik hesaplar kullanır. Mevcut Supabase projesine bağlanmaz. İşletim sistemine PostgreSQL servisi kurmaz.
-
-Karar ve sınırlar: [ADR-0009](../../../docs/adr/0009-central-task-foundation.md).
+Kurulum referansları: [reader](../../../docs/central-postgres-setup.md), [writer](../../../docs/central-writer-setup.md). Sunucu parolası/service-role anahtarı masaüstüne veya VITE_* değişkenlerine konmaz.

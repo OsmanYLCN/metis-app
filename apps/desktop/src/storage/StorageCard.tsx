@@ -23,7 +23,7 @@ export function StorageCard() {
     failed: 'Yerel alan kullanılamıyor',
   }[state.kind];
   const description = state.kind === 'ready'
-    ? 'Temel kayıt bu cihazda saklanıyor. Bulut bağlantısı henüz yok.'
+    ? 'Kayıtlar bu cihazda saklanıyor. Yedekleri ve bulut kapsamını Veri ve eşitleme bölümünde görebilirsin.'
     : state.kind === 'preview'
       ? 'Tarayıcı önizlemesinde SQLite çalışmaz. Yerel alan için Windows uygulamasını aç.'
       : state.kind === 'failed' ? storageMessage(state.code) : 'Bu cihazdaki veri alanı doğrulanıyor.';

@@ -177,6 +177,30 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the backup_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-backup-create",
+          "markdownDescription": "Enables the backup_create command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the backup_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-backup-list",
+          "markdownDescription": "Enables the backup_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the backup_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-backup-preview",
+          "markdownDescription": "Enables the backup_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the backup_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-backup-restore",
+          "markdownDescription": "Enables the backup_restore command without any pre-configured scope."
+        },
+        {
           "description": "Enables the budgets_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-budgets-list",
@@ -187,6 +211,12 @@
           "type": "string",
           "const": "allow-budgets-set",
           "markdownDescription": "Enables the budgets_set command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delivery_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delivery-status",
+          "markdownDescription": "Enables the delivery_status command without any pre-configured scope."
         },
         {
           "description": "Enables the events_create command without any pre-configured scope.",
@@ -513,6 +543,30 @@
           "markdownDescription": "Enables the workspace_summary command without any pre-configured scope."
         },
         {
+          "description": "Denies the backup_create command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-backup-create",
+          "markdownDescription": "Denies the backup_create command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the backup_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-backup-list",
+          "markdownDescription": "Denies the backup_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the backup_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-backup-preview",
+          "markdownDescription": "Denies the backup_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the backup_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-backup-restore",
+          "markdownDescription": "Denies the backup_restore command without any pre-configured scope."
+        },
+        {
           "description": "Denies the budgets_list command without any pre-configured scope.",
           "type": "string",
           "const": "deny-budgets-list",
@@ -523,6 +577,12 @@
           "type": "string",
           "const": "deny-budgets-set",
           "markdownDescription": "Denies the budgets_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delivery_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delivery-status",
+          "markdownDescription": "Denies the delivery_status command without any pre-configured scope."
         },
         {
           "description": "Denies the events_create command without any pre-configured scope.",

@@ -22,8 +22,8 @@ function validInfo(value: unknown): value is StorageInfo {
   if (typeof value !== 'object' || value === null) return false;
   const item = value as Partial<StorageInfo>;
   return item.engine === 'sqlite'
-    && Number.isInteger(item.schemaVersion) && item.schemaVersion === 12
-    && item.migrationCount === 12
+    && Number.isInteger(item.schemaVersion) && item.schemaVersion === 13
+    && item.migrationCount === 13
     && typeof item.storageId === 'string' && /^[a-f0-9]{32}$/.test(item.storageId)
     && typeof item.createdAt === 'string' && !Number.isNaN(Date.parse(item.createdAt));
 }
