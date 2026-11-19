@@ -102,6 +102,7 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
     });
     app.MapIdentityFoundation();
     app.MapTasksFoundation();
+    app.MapChangeFeed();
     try { await app.StartAsync(); return app; }
     catch { await app.DisposeAsync(); throw; }
 }
@@ -230,6 +231,10 @@ if (Environment.GetEnvironmentVariable("METIS_TEST_PG_PORT") is { } testPort)
 if (Environment.GetEnvironmentVariable("METIS_TEST_PG_WRITER_PORT") is { } writerPort)
     passed += await PostgresWriterChecks.Run(writerPort,
         writer => Start("Supabase", new FakeKeys(jwks), writer: writer, environment: Environments.Development),
+        user => Token(d => d.Claims["sub"] = user));
+if (Environment.GetEnvironmentVariable("METIS_TEST_CHANGE_PORT") is { } changePort)
+    passed += await ChangeFeedChecks.Run(changePort,
+        settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
         user => Token(d => d.Claims["sub"] = user));
 Console.WriteLine($"{passed} checks passed; ephemeral JWT keys and mocked JWKS; task reader fixtures or opt-in local PostgreSQL, no external account.");
 

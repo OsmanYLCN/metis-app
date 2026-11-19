@@ -6,7 +6,7 @@ using NpgsqlTypes;
 
 namespace PersonalOS.Api.Modules.Tasks;
 
-public sealed class PostgresTaskReader : ITaskReader, IAsyncDisposable
+public sealed partial class PostgresTaskReader : ITaskReader, IChangeReader, IAsyncDisposable
 {
     private readonly NpgsqlDataSource source;
     private readonly string projectRef;

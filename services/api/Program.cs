@@ -24,6 +24,7 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment()) app.UseCors("LocalDesktop");
 app.MapIdentityFoundation();
 app.MapTasksFoundation();
+app.MapChangeFeed();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

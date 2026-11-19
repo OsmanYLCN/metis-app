@@ -17,7 +17,7 @@ try{
     CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT (auth.jwt()->>'sub')::uuid $$;
     INSERT INTO auth.users VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');`);
-  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql','0005_task_writer_lifecycle.sql'])
+  for(const file of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql','0005_task_writer_lifecycle.sql','0006_change_feed.sql'])
     await db.exec(await readFile(path.join(root,'services/api/Database/Migrations',file),'utf8'));
   await db.exec(`INSERT INTO metis.installation VALUES(1,'test-project'); SET SESSION AUTHORIZATION metis_writer;`);
   const guard=await db.query(`SELECT current_user,session_user,
@@ -49,6 +49,8 @@ try{
   if(rows.length!==2||rows[0].title!=='Renamed cloud task'||rows[0].revision!==5n&&rows[0].revision!==5
     ||rows[1].title!=='HTTP cloud task'||operations!==6)
     throw new Error('Committed task/journal state is invalid');
+  const changes=(await db.query('SELECT count(*)::int AS count FROM metis.changes')).rows[0].count;
+  if(changes!==6)throw new Error('Replay or rollback created a duplicate change');
   console.log('PASS: task lifecycle and HTTP writes plus six successful operation receipts verified.');
 }finally{
   if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done;}
