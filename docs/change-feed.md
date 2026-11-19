@@ -36,7 +36,7 @@ Reader yalnızca SELECT alır; writer günlük tablolarına doğrudan erişemez.
 
 ## Henüz yapılmayanlar
 
-Masaüstü bu akışı SQLite’a uygulamıyor; kalıcı indirme cursor’ı, iki yönlü uzlaştırma, çatışma çözümü ve recovery guard kaldırma yok. Proje/not/hedef/takvim/finans/bütçe henüz merkezi modelde değil. Ortak günlük tablosu bu modüller için genişletilecek; şu an entity kısıtı yalnızca task kabul eder. İkinci bağımsız görev tablosu oluşturulmadı.
+Masaüstü bu akışı SQLite’a uygulamıyor; kalıcı indirme cursor’ı, iki yönlü uzlaştırma, çatışma çözümü ve recovery guard kaldırma yok. 0007 ile proje/not merkezi yazma ve ortak günlük bağlantısı eklendi; entity artık task/note/project olabilir. Hedef/takvim/finans/bütçe henüz merkezi modelde değil. İkinci bağımsız görev tablosu oluşturulmadı.
 
 ## Yapılan doğrulama
 

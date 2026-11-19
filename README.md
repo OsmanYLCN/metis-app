@@ -9,7 +9,7 @@ Tauri 2 + React + TypeScript + Vite masaüstü; ASP.NET Core 10 API; yerel SQLit
 | Alan | Yerel çalışma | Merkezi veri |
 | --- | --- | --- |
 | Görevler | Oluşturma, düzenleme, tamamlanma, silme, proje/tarih/öncelik | Create/rename/complete/delete gönderimi ve kalıcı işlem kuyruğu var. Sunucuda değişiklik okuma API’si var; masaüstüne indirme yok. Planlama alanları henüz merkezi modelde değil. |
-| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | API/eşitleme yok |
+| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | Merkezi yazma API’si ve değişiklik günlüğü hazır; masaüstü bağlantısı/eşitleme henüz yok |
 | Takvim, hedefler | Gerçek kayıtlar ve planlama ekranları | API/eşitleme yok |
 | Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | API/eşitleme yok |
 | Bildirimler | Uygulama içi hatırlatmalar, erteleme ve filtreler | Sistem bildirimi / arka plan servisi yok |
@@ -23,6 +23,7 @@ Gerçek Supabase oturumu ve görev reader/writer bağlantısı önceki çalışm
 
 İş sırası, tamamlananlar ve kabul ölçütleri: [Paket 1 takip belgesi](docs/package-1.md).
 Yeni sunucu değişiklik akışı ve tek SQL kurulum adımı: [0006 kurulumu](docs/change-feed.md).
+Proje/not sunucu kurulumu: [0007 kurulumu](docs/central-workspace.md).
 Geri yüklemenin kapsamı ve kullanımı: [Yerel yedekleme](docs/local-recovery.md).
 
 Şu anda yedekler aynı Windows profiline bağlıdır, taşınabilir felaket kurtarma yedeği değildir. Yedek dosyaları şifrelidir; canlı SQLite dosyası şifreli değildir. Oturum tokenları ve API/veritabanı parolaları yedeklere girmez. Geri yükleme mevcut hesabın yerel verisini değiştirir; bulutu eski hale döndürmez.

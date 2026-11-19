@@ -7,3 +7,5 @@ Bu SQL dosyaları uygulama açılışında otomatik çalışmaz. Mevcut kurulumd
 0006 görev değişiklik günlüğü ve hesap başına sıralı sayaç ekler; mevcut görevleri başlangıç snapshot’ı olarak taşır. Yeni akış API’si için bir kez uygulanır: [kurulum](../../../docs/change-feed.md). Çok modüllü merkezi veri ve masaüstüne delta uygulama henüz yok. [Paket 1](../../../docs/package-1.md) bunları izler.
 
 Kurulum referansları: [reader](../../../docs/central-postgres-setup.md), [writer](../../../docs/central-writer-setup.md). Sunucu parolası/service-role anahtarı masaüstüne veya VITE_* değişkenlerine konmaz.
+
+0007 not/proje tabloları, kısıtlı işlem fonksiyonu ve ortak akış bağlantısı ekler. Mevcut görev tablolarını ve yerel kayıtları değiştirmez. [Kurulum](../../../docs/central-workspace.md).

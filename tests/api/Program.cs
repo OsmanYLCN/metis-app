@@ -1,3 +1,4 @@
+using PersonalOS.Api.Modules.Workspace;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
@@ -92,6 +93,7 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
     if (tasks is not null) builder.Services.AddSingleton(tasks);
     if (writer is not null) builder.Services.AddSingleton(writer);
     builder.Services.AddTasksFoundation(builder.Configuration);
+    builder.Services.AddWorkspace();
     builder.Services.AddHttpClient(SupabaseBearerOptions.KeyClient).ConfigurePrimaryHttpMessageHandler(() => keys);
     var app = builder.Build();
     // Inject an untrusted principal to ensure only the Bearer handler result is used.
@@ -103,6 +105,7 @@ async Task<WebApplication> Start(string provider, FakeKeys keys, Dictionary<stri
     app.MapIdentityFoundation();
     app.MapTasksFoundation();
     app.MapChangeFeed();
+    app.MapWorkspace();
     try { await app.StartAsync(); return app; }
     catch { await app.DisposeAsync(); throw; }
 }
@@ -234,6 +237,10 @@ if (Environment.GetEnvironmentVariable("METIS_TEST_PG_WRITER_PORT") is { } write
         user => Token(d => d.Claims["sub"] = user));
 if (Environment.GetEnvironmentVariable("METIS_TEST_CHANGE_PORT") is { } changePort)
     passed += await ChangeFeedChecks.Run(changePort,
+        settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
+        user => Token(d => d.Claims["sub"] = user));
+if (Environment.GetEnvironmentVariable("METIS_TEST_WORKSPACE_PORT") is { } workspacePort)
+    passed += await WorkspaceChecks.Run(workspacePort,
         settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
         user => Token(d => d.Claims["sub"] = user));
 Console.WriteLine($"{passed} checks passed; ephemeral JWT keys and mocked JWKS; task reader fixtures or opt-in local PostgreSQL, no external account.");

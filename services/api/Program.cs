@@ -1,3 +1,4 @@
+using PersonalOS.Api.Modules.Workspace;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using PersonalOS.Api.Modules.Identity;
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddIdentityFoundation(builder.Configuration);
 builder.Services.AddTasksFoundation(builder.Configuration);
+builder.Services.AddWorkspace();
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy());
 
@@ -25,6 +27,7 @@ if (app.Environment.IsDevelopment()) app.UseCors("LocalDesktop");
 app.MapIdentityFoundation();
 app.MapTasksFoundation();
 app.MapChangeFeed();
+app.MapWorkspace();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

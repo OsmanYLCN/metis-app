@@ -22,10 +22,19 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Canlı migration uygulanmadı. [0006 kurulumu ve sözleşme](change-feed.md).
 - Bu bölüm sunucuda görev değişikliklerini okumayı sağlar. Masaüstüne uygulama ve diğer modüller henüz yok.
 
+## Tamamlanan üçüncü bölüm — merkezi not/proje yazma
+
+- Kullanıcı 0006 kurulumunu tamamladığını doğruladı.
+- 0007: not/proje tabloları, RLS, kısıtlı yazma fonksiyonu, sürüm çatışması, kalıcı işlem makbuzu, tombstone.
+- Yeni authenticated workspace operation API; alan ve istek boyutu doğrulaması.
+- Not/projeler mevcut ortak değişiklik günlüğüne atomik olarak girer.
+- Release build ve sentetik SQL/Npgsql/HTTP kontrolleri geçti. Canlı 0007 uygulanmadı.
+- [Kurulum ve sözleşme](central-workspace.md). İstemci bağlantısı ve kalan merkezi modüller henüz yok.
+
 ## Devam sırası — kalan işler
 
 1. Görev değişiklik akışı tamamlandı; ortak akışın diğer modüllere genişletilmesi ve çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
-2. Proje/not/hedef/takvim/finans/bütçe merkezi modelleri, alan doğrulamaları, PostgreSQL migration ve en az yetkili API erişimi. Proje ilişkileri önce; görev planlama alanları bundan sonra.
+2. Proje/not merkezi modelleri ve yazması hazır. Hedef/takvim/finans/bütçe modelleri, merkezi proje–görev ilişkisi ve görev planlama alanları kaldı.
 3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
 4. Delta indirme + yükleme, kayıt/cihaz cursor’ları ve kesinti sonrası devam. Sunucudan gelen değişiklik tekrar yerel gönderim kuyruğuna alınmamalı.
 5. Çakışma kaydı ve kullanıcı çözüm ekranı. Özellikle finans/not verileri sessizce ezilmemeli. Silme iki yönde de taşınmalı.
