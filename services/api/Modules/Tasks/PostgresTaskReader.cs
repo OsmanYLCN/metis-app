@@ -70,8 +70,9 @@ public sealed partial class PostgresTaskReader : ITaskReader, IChangeReader, IAs
                 await claims.ExecuteScalarAsync(cancel);
             }
             await using var command = new NpgsqlCommand("""
-                SELECT id,user_id,title,completed,revision,created_at,updated_at,deleted_at
-                FROM metis.tasks WHERE user_id=$1 AND deleted_at IS NULL
+                SELECT id,user_id,title,completed,revision,created_at,updated_at,deleted_at,
+                    (to_jsonb(t)->>'project_id')::uuid,to_jsonb(t)->>'due_date',coalesce((to_jsonb(t)->>'priority')::integer,0)
+                FROM metis.tasks t WHERE user_id=$1 AND deleted_at IS NULL
                   AND ($2::uuid IS NULL OR id=$2) AND ($3::uuid IS NULL OR id>$3)
                 ORDER BY id LIMIT $4
                 """, connection, transaction);
@@ -85,7 +86,8 @@ public sealed partial class PostgresTaskReader : ITaskReader, IChangeReader, IAs
                 while (await reader.ReadAsync(cancel))
                     rows.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetBoolean(3), reader.GetInt64(4),
                         reader.GetFieldValue<DateTimeOffset>(5), reader.GetFieldValue<DateTimeOffset>(6),
-                        reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7)));
+                        reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7),
+                        reader.IsDBNull(8) ? null : reader.GetGuid(8), reader.IsDBNull(9) ? null : reader.GetString(9),reader.GetInt32(10)));
             }
             await transaction.CommitAsync(cancel);
             return rows;

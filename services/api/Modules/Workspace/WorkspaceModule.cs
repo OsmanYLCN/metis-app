@@ -22,10 +22,11 @@ public static class WorkspaceModule
     }
     public static bool Valid(string kind, WorkspaceOperation op)
     {
-        if((kind is not ("note" or "project") && !DomainPayload.IsKind(kind)) || !Guid.TryParseExact(op.OperationId,"N",out var operation) || operation==Guid.Empty
+        if((kind is not ("note" or "project") && !DomainPayload.IsKind(kind) && kind!="taskPlan") || !Guid.TryParseExact(op.OperationId,"N",out var operation) || operation==Guid.Empty
             || op.Action is not ("create" or "update" or "delete")
             || (op.Action=="create" ? op.ExpectedRevision!=0 : op.ExpectedRevision<1)
             || op.Payload.ValueKind!=JsonValueKind.Object) return false;
+        if(kind=="taskPlan") return op.Action=="update" && DomainPayload.Planning(op.Payload);
         var props=op.Payload.EnumerateObject().ToArray();
         if(op.Action=="delete") return props.Length==0;
         if(DomainPayload.IsKind(kind)) return DomainPayload.Valid(kind,op.Payload);
@@ -61,6 +62,7 @@ public static class WorkspaceModule
             var result=await writer.Apply(context.Features.Get<VerifiedTaskAccount>()!.Id,entity,kind,op,context.RequestAborted);
             return result.Outcome switch {
                 "applied" or "replay" => Results.Ok(new { operationId=op.OperationId, id, kind, revision=result.Revision, replay=result.Outcome=="replay" }),
+                "project_not_found" => Results.NotFound(new {code="task_project_not_found"}),
                 "invalid" => Invalid(), "not_found" => Results.NotFound(new {code="workspace_not_found"}),
                 "conflict" or "operation_conflict" => Results.Conflict(new {code="workspace_"+result.Outcome}),
                 _ => Unavailable()
@@ -93,10 +95,14 @@ public sealed class WorkspaceWriter : IAsyncDisposable
             await using(var setup=new NpgsqlCommand("SET LOCAL statement_timeout='5s'; SET LOCAL lock_timeout='1500ms'; SET LOCAL row_security=on",connection,tx)) await setup.ExecuteNonQueryAsync(ct);
             // These identifiers are selected from server constants, never from route text.
             var domain=DomainPayload.IsKind(kind);
-            var entries=domain?"domain_records":"workspace_entries";
-            var operations=domain?"domain_operations":"workspace_operations";
-            var version=domain?8:7;
-            var migration=domain?"domain_records":"workspace";
+            var plan=kind=="taskPlan";
+            var entries=plan?"tasks":domain?"domain_records":"workspace_entries";
+            var operations=plan?"task_plan_operations":domain?"domain_operations":"workspace_operations";
+            var version=plan?9:domain?8:7;
+            var migration=plan?"task_planning":domain?"domain_records":"workspace";
+            var columnGuard=plan
+                ? "NOT has_column_privilege(current_user,'metis.tasks','project_id','INSERT,UPDATE') AND NOT has_column_privilege(current_user,'metis.tasks','due_date','INSERT,UPDATE') AND NOT has_column_privilege(current_user,'metis.tasks','priority','INSERT,UPDATE')"
+                : $"NOT has_any_column_privilege(current_user,'metis.{entries}','INSERT,UPDATE')";
             await using(var guard=new NpgsqlCommand($"""
                 SELECT current_user='metis_writer' AND session_user='metis_writer'
                 AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolreplication
@@ -104,7 +110,7 @@ public sealed class WorkspaceWriter : IAsyncDisposable
                 AND (SELECT count(*)=2 AND bool_and(c.relowner<>r.oid AND c.relrowsecurity AND c.relforcerowsecurity)
                     FROM pg_class c WHERE c.oid IN ('metis.{entries}'::regclass,'metis.{operations}'::regclass))
                 AND NOT has_table_privilege(current_user,'metis.{entries}','INSERT,UPDATE,DELETE,TRUNCATE')
-                AND NOT has_any_column_privilege(current_user,'metis.{entries}','INSERT,UPDATE')
+                AND {columnGuard}
                 AND NOT has_table_privilege(current_user,'metis.{operations}','INSERT,UPDATE,DELETE,TRUNCATE')
                 AND NOT has_any_column_privilege(current_user,'metis.{operations}','INSERT,UPDATE')
                 AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version={version} AND name='{migration}')
@@ -120,7 +126,9 @@ public sealed class WorkspaceWriter : IAsyncDisposable
                 claims.Parameters.AddWithValue(NpgsqlDbType.Text,JsonSerializer.Serialize(new{sub=account.ToString(),role="authenticated",is_anonymous=false}));
                 await claims.ExecuteScalarAsync(ct);
             }
-            await using var command=new NpgsqlCommand(domain
+            await using var command=new NpgsqlCommand(plan
+                ? "SELECT outcome,applied_revision FROM metis.apply_task_plan($1,$2,$3,$4,$5,$6,$7)"
+                : domain
                 ? "SELECT outcome,applied_revision FROM metis.apply_domain_write($1,$2,$3,$4,$5,$6,$7)"
                 : "SELECT outcome,applied_revision FROM metis.apply_workspace_write($1,$2,$3,$4,$5,$6,$7)",connection,tx);
             command.Parameters.AddWithValue(NpgsqlDbType.Uuid,account);command.Parameters.AddWithValue(NpgsqlDbType.Uuid,Guid.ParseExact(op.OperationId,"N"));

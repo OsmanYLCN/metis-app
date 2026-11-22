@@ -2,12 +2,12 @@ namespace PersonalOS.Api.Modules.Tasks;
 
 // An internal owner is mandatory; transport responses never contain it.
 public sealed record TaskRecord(Guid Id, Guid UserId, string Title, bool Completed,
-    long Revision, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? DeletedAt);
+    long Revision, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? DeletedAt, Guid? ProjectId=null, string? DueDate=null, int Priority=0);
 public sealed record TaskSnapshot(string Id, string Title, bool Completed, long Revision,
-    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt)
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string? ProjectId=null, string? DueDate=null, int Priority=0)
 {
     public static TaskSnapshot From(TaskRecord task) => new(task.Id.ToString("N"), task.Title,
-        task.Completed, task.Revision, task.CreatedAt, task.UpdatedAt);
+        task.Completed, task.Revision, task.CreatedAt, task.UpdatedAt, task.ProjectId?.ToString("N"), task.DueDate, task.Priority);
 }
 public sealed record TaskPage(IReadOnlyList<TaskSnapshot> Items, string? NextCursor);
 

@@ -40,10 +40,19 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - [0008 kurulumu ve sözleşme](central-domains.md). Canlı 0008 uygulanmadı; 0007’nin kullanıcı tarafından uygulanması ayrıca doğrulanmadı.
 - Yerel şema, yedek formatı ve ekran davranışı değişmedi. Bu kayıtlar henüz masaüstünden otomatik gönderilmiyor.
 
+## Tamamlanan beşinci bölüm — görev planı ve proje ilişkisi
+
+- 0009 mevcut merkezi görevlere proje/tarih/öncelik alanları ekler; yeni görev kaynağı oluşturmaz.
+- Sürüm bağlı plan operasyonu, tekrar makbuzu, hesap/proje doğrulaması.
+- Proje silme görevleri koruyup yalnızca bağı kaldırır; görev ve proje değişiklikleri atomik günlüğe girer.
+- Task GET ve delta snapshot’ları planı taşır; eski şema okuması varsayılanlarla uyumlu.
+- Release build ve gerçek yerel SQL/Npgsql/HTTP yazma-okuma kontrolleri geçti.
+- [0009 kurulumu ve sözleşme](central-task-planning.md). Canlı migration uygulanmadı.
+
 ## Devam sırası — kalan işler
 
 1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
-2. Hedeflenen modüllerin merkezi modelleri ve yazması hazır. Merkezi proje–görev ilişkisi ve görev planlama alanları kaldı.
+2. Hedeflenen modüllerin merkezi modelleri, görev planı ve proje ilişkisi hazır. Sıradaki ana iş istemci entegrasyonu (aşağıdaki 3–6).
 3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
 4. Delta indirme + yükleme, kayıt/cihaz cursor’ları ve kesinti sonrası devam. Sunucudan gelen değişiklik tekrar yerel gönderim kuyruğuna alınmamalı.
 5. Çakışma kaydı ve kullanıcı çözüm ekranı. Özellikle finans/not verileri sessizce ezilmemeli. Silme iki yönde de taşınmalı.

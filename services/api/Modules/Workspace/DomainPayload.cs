@@ -32,6 +32,17 @@ public static class DomainPayload
             _ => false
         };
     }
+    public static bool Planning(JsonElement p)
+    {
+        if(p.ValueKind!=JsonValueKind.Object) return false;
+        var fields=p.EnumerateObject().ToArray();
+        if(fields.Length!=3 || fields.Select(v=>v.Name).Distinct().Count()!=3
+            || fields.Any(v=>v.Name is not ("projectId" or "dueDate" or "priority"))) return false;
+        var project=String(p,"projectId");
+        return (p.GetProperty("projectId").ValueKind==JsonValueKind.Null
+            || project is not null && Guid.TryParseExact(project,"N",out var id) && id!=Guid.Empty && id.ToString("N")==project)
+            && (p.GetProperty("dueDate").ValueKind==JsonValueKind.Null || Date(String(p,"dueDate"))) && Integer(p,"priority",0,3);
+    }
     private static string? String(JsonElement p,string key) => p.GetProperty(key).ValueKind==JsonValueKind.String ? p.GetProperty(key).GetString() : null;
     private static bool Integer(JsonElement p,string key,long min,long max) => p.GetProperty(key).ValueKind==JsonValueKind.Number
         && p.GetProperty(key).TryGetDecimal(out var value) && value==decimal.Truncate(value) && value>=min && value<=max;
