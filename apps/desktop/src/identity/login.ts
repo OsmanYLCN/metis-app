@@ -25,6 +25,40 @@ export class LoginStore {
   constructor(private readonly config?: LoginConfig, private readonly vault?: SessionVault) { }
   canRemember = () => !!this.vault;
   getSnapshot = () => this.view;
+  async readChanges(owner: { projectRef: string; userId: string }, cursor: string, signal: AbortSignal): Promise<unknown> {
+    const token = this.accessToken, attempt = this.generation;
+    const assertSession = () => {
+      if (signal.aborted || attempt !== this.generation || token !== this.accessToken || !token
+        || this.view.phase !== 'signedIn' || this.view.expiresAt <= Date.now() || this.view.userId.toLowerCase() !== owner.userId
+        || !this.config || new URL(this.config.url).hostname.split('.')[0] !== owner.projectRef)
+        throw new LoginError('Oturum değişti veya süresi doldu. Tekrar giriş yap.');
+    };
+    assertSession();
+    try {
+      const query = new URLSearchParams({ limit: '50' });
+      if (cursor) query.set('cursor', cursor);
+      const response = await fetch(`${API_URL}/api/v1/sync/changes?${query}`, {
+        headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]),
+        credentials: 'omit', cache: 'no-store', redirect: 'error',
+      });
+      assertSession();
+      if (response.status === 409) throw new LoginError('Bulutun devam bilgisi değişmiş. Mevcut önbellek korundu; yeniden uzlaştırma gerekiyor.');
+      if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Tekrar giriş yap.');
+      if (!response.ok) throw new LoginError('Bulut değişiklikleri alınamadı. API bağlantısını ve SQL kurulumunu kontrol et.');
+      // Bound streamed bytes before JSON parsing; cancellation also covers the body.
+      const reader = response.body?.getReader();
+      if (!reader) throw new LoginError('Bulut yanıtı okunamadı.');
+      const chunks: Uint8Array[] = []; let size = 0;
+      try { for (;;) { const part = await reader.read(); if (part.done) break; size += part.value.length;
+        if (size > 8 * 1024 * 1024) { await reader.cancel(); throw new LoginError('Bulut sayfası izin verilen boyutu aştı.'); }
+        chunks.push(part.value);
+      } } finally { reader.releaseLock(); }
+      assertSession();
+      const bytes = new Uint8Array(size); let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+      return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
+    } catch (error) { throw error instanceof LoginError ? error : new LoginError('Bulut okuması durdu. Tamamlanan sayfalar korunuyor; tekrar deneyebilirsin.'); }
+  }
   // Narrow read-only probe: bearer tokens stay inside the session store.
   async checkCentralTasks(signal: AbortSignal): Promise<{ empty: boolean }> {
     const token = this.accessToken;

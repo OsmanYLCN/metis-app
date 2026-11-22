@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inbox-stage"
+description = "Enables the inbox_stage command without any pre-configured scope."
+commands.allow = ["inbox_stage"]
+
+[[permission]]
+identifier = "deny-inbox-stage"
+description = "Denies the inbox_stage command without any pre-configured scope."
+commands.deny = ["inbox_stage"]

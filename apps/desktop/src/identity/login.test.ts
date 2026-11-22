@@ -279,3 +279,23 @@ describe('memory-only login', () => {
     expect(store.getSnapshot()).toMatchObject({ phase: 'signedOut', message: expect.stringContaining('doğrulanamadı') });
   });
 });
+
+describe('cloud change download', () => {
+ const owner = {projectRef:'test-project',userId:session.user.id};
+ it('binds download to the signed-in account and keeps cursor requests read-only', async () => {
+  await store.signIn('user@example.test','password'); fetcher.mockClear();
+  await expect(store.readChanges({...owner,projectRef:'another'},'',new AbortController().signal)).rejects.toThrow('Oturum');
+  expect(fetcher).not.toHaveBeenCalled();
+  const page={contractVersion:1,items:[],nextCursor:'cursor',hasMore:false};fetcher.mockResolvedValueOnce(json(page));
+  await expect(store.readChanges(owner,'saved.cursor',new AbortController().signal)).resolves.toEqual(page);
+  expect(fetcher).toHaveBeenLastCalledWith(expect.stringContaining('cursor=saved.cursor'),expect.objectContaining({credentials:'omit',cache:'no-store',redirect:'error'}));
+ });
+ it('rejects late responses after logout and reports cursor reset without discarding local state', async () => {
+  await store.signIn('user@example.test','password');
+  fetcher.mockResolvedValueOnce(json({},409));
+  await expect(store.readChanges(owner,'saved',new AbortController().signal)).rejects.toThrow('önbellek korundu');
+  let finish!: (r:Response)=>void;fetcher.mockImplementation(()=>new Promise<Response>(resolve=>{finish=resolve;}));
+  const pending=expect(store.readChanges(owner,'',new AbortController().signal)).rejects.toThrow('Oturum');
+  store.suspend();finish(json({items:[]}));await pending;
+ });
+});

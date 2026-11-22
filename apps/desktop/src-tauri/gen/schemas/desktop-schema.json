@@ -345,6 +345,24 @@
           "markdownDescription": "Enables the goals_summary command without any pre-configured scope."
         },
         {
+          "description": "Enables the inbox_compare command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inbox-compare",
+          "markdownDescription": "Enables the inbox_compare command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the inbox_stage command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inbox-stage",
+          "markdownDescription": "Enables the inbox_stage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the inbox_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inbox-status",
+          "markdownDescription": "Enables the inbox_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the local_storage_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-local-storage-status",
@@ -709,6 +727,24 @@
           "type": "string",
           "const": "deny-goals-summary",
           "markdownDescription": "Denies the goals_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inbox_compare command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inbox-compare",
+          "markdownDescription": "Denies the inbox_compare command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inbox_stage command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inbox-stage",
+          "markdownDescription": "Denies the inbox_stage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inbox_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inbox-status",
+          "markdownDescription": "Denies the inbox_status command without any pre-configured scope."
         },
         {
           "description": "Denies the local_storage_status command without any pre-configured scope.",

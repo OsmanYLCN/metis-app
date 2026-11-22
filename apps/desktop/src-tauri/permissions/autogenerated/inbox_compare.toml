@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-inbox-compare"
+description = "Enables the inbox_compare command without any pre-configured scope."
+commands.allow = ["inbox_compare"]
+
+[[permission]]
+identifier = "deny-inbox-compare"
+description = "Denies the inbox_compare command without any pre-configured scope."
+commands.deny = ["inbox_compare"]

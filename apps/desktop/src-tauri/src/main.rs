@@ -35,6 +35,12 @@ fn with_vault<T>(app: &tauri::AppHandle, project_ref: &str, action: impl FnOnce(
 
 
 #[tauri::command]
+async fn inbox_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::inbox::Status,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn inbox_stage(app:tauri::AppHandle,owner:TaskOwner,expected:String,page:storage::inbox::Page)->Result<storage::inbox::Status,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::stage(&path,&owner,&expected,page)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
+async fn inbox_compare(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::inbox::Comparison,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::compare(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+#[tauri::command]
 async fn delivery_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::DeliveryStatus,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::delivery_status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
 async fn backup_create(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::BackupInfo,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::create(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
@@ -192,7 +198,7 @@ async fn budgets_set(app:tauri::AppHandle,owner:TaskOwner,month:String,category:
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![delivery_status, backup_create, backup_list, backup_preview, backup_restore, notifications_page, finance_get, finance_save, finance_categories, events_overlaps, tasks_get, workspace_summary, goals_summary, goals_page, goals_get, events_get, workspace_get, workspace_search, workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_page, finance_list, finance_totals, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
+        .invoke_handler(tauri::generate_handler![inbox_status, inbox_stage, inbox_compare, delivery_status, backup_create, backup_list, backup_preview, backup_restore, notifications_page, finance_get, finance_save, finance_categories, events_overlaps, tasks_get, workspace_summary, goals_summary, goals_page, goals_get, events_get, workspace_get, workspace_search, workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_page, finance_list, finance_totals, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
         .run(tauri::generate_context!())
         .expect("Metis could not start");
 }
