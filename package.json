@@ -24,6 +24,7 @@
     "test:identity": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release",
     "test:tasks-schema": "node --test scripts/tasks-schema.test.mjs",
     "test:postgres": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-adapter.mjs",
+    "test:domains": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-domains.mjs",
     "test:workspace": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-workspace.mjs",
     "test:change-feed": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-change-feed.mjs",
     "test:postgres-writer": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-writer.mjs"

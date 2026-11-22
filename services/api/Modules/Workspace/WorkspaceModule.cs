@@ -22,12 +22,13 @@ public static class WorkspaceModule
     }
     public static bool Valid(string kind, WorkspaceOperation op)
     {
-        if(kind is not ("note" or "project") || !Guid.TryParseExact(op.OperationId,"N",out var operation) || operation==Guid.Empty
+        if((kind is not ("note" or "project") && !DomainPayload.IsKind(kind)) || !Guid.TryParseExact(op.OperationId,"N",out var operation) || operation==Guid.Empty
             || op.Action is not ("create" or "update" or "delete")
             || (op.Action=="create" ? op.ExpectedRevision!=0 : op.ExpectedRevision<1)
             || op.Payload.ValueKind!=JsonValueKind.Object) return false;
         var props=op.Payload.EnumerateObject().ToArray();
         if(op.Action=="delete") return props.Length==0;
+        if(DomainPayload.IsKind(kind)) return DomainPayload.Valid(kind,op.Payload);
         if(props.Length!=4 || props.Select(p=>p.Name).Distinct().Count()!=4
             || props.Any(p=>p.Name is not ("title" or "body" or "state" or "pinned"))) return false;
         if(op.Payload.GetProperty("title").ValueKind!=JsonValueKind.String || op.Payload.GetProperty("body").ValueKind!=JsonValueKind.String
@@ -90,17 +91,23 @@ public sealed class WorkspaceWriter : IAsyncDisposable
             await using var connection=await source.OpenConnectionAsync(ct);
             await using var tx=await connection.BeginTransactionAsync(ct);
             await using(var setup=new NpgsqlCommand("SET LOCAL statement_timeout='5s'; SET LOCAL lock_timeout='1500ms'; SET LOCAL row_security=on",connection,tx)) await setup.ExecuteNonQueryAsync(ct);
-            await using(var guard=new NpgsqlCommand("""
+            // These identifiers are selected from server constants, never from route text.
+            var domain=DomainPayload.IsKind(kind);
+            var entries=domain?"domain_records":"workspace_entries";
+            var operations=domain?"domain_operations":"workspace_operations";
+            var version=domain?8:7;
+            var migration=domain?"domain_records":"workspace";
+            await using(var guard=new NpgsqlCommand($"""
                 SELECT current_user='metis_writer' AND session_user='metis_writer'
                 AND NOT r.rolsuper AND NOT r.rolbypassrls AND NOT r.rolcreaterole AND NOT r.rolcreatedb AND NOT r.rolreplication
                 AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=r.oid)
                 AND (SELECT count(*)=2 AND bool_and(c.relowner<>r.oid AND c.relrowsecurity AND c.relforcerowsecurity)
-                    FROM pg_class c WHERE c.oid IN ('metis.workspace_entries'::regclass,'metis.workspace_operations'::regclass))
-                AND NOT has_table_privilege(current_user,'metis.workspace_entries','INSERT,UPDATE,DELETE,TRUNCATE')
-                AND NOT has_any_column_privilege(current_user,'metis.workspace_entries','INSERT,UPDATE')
-                AND NOT has_table_privilege(current_user,'metis.workspace_operations','INSERT,UPDATE,DELETE,TRUNCATE')
-                AND NOT has_any_column_privilege(current_user,'metis.workspace_operations','INSERT,UPDATE')
-                AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version=7 AND name='workspace')
+                    FROM pg_class c WHERE c.oid IN ('metis.{entries}'::regclass,'metis.{operations}'::regclass))
+                AND NOT has_table_privilege(current_user,'metis.{entries}','INSERT,UPDATE,DELETE,TRUNCATE')
+                AND NOT has_any_column_privilege(current_user,'metis.{entries}','INSERT,UPDATE')
+                AND NOT has_table_privilege(current_user,'metis.{operations}','INSERT,UPDATE,DELETE,TRUNCATE')
+                AND NOT has_any_column_privilege(current_user,'metis.{operations}','INSERT,UPDATE')
+                AND EXISTS(SELECT 1 FROM metis.schema_migrations WHERE version={version} AND name='{migration}')
                 AND EXISTS(SELECT 1 FROM metis.installation WHERE id=1 AND project_ref=$1)
                 FROM pg_roles r WHERE r.rolname=current_user
                 """,connection,tx))
@@ -113,7 +120,9 @@ public sealed class WorkspaceWriter : IAsyncDisposable
                 claims.Parameters.AddWithValue(NpgsqlDbType.Text,JsonSerializer.Serialize(new{sub=account.ToString(),role="authenticated",is_anonymous=false}));
                 await claims.ExecuteScalarAsync(ct);
             }
-            await using var command=new NpgsqlCommand("SELECT outcome,applied_revision FROM metis.apply_workspace_write($1,$2,$3,$4,$5,$6,$7)",connection,tx);
+            await using var command=new NpgsqlCommand(domain
+                ? "SELECT outcome,applied_revision FROM metis.apply_domain_write($1,$2,$3,$4,$5,$6,$7)"
+                : "SELECT outcome,applied_revision FROM metis.apply_workspace_write($1,$2,$3,$4,$5,$6,$7)",connection,tx);
             command.Parameters.AddWithValue(NpgsqlDbType.Uuid,account);command.Parameters.AddWithValue(NpgsqlDbType.Uuid,Guid.ParseExact(op.OperationId,"N"));
             command.Parameters.AddWithValue(NpgsqlDbType.Uuid,id);command.Parameters.AddWithValue(NpgsqlDbType.Text,kind);command.Parameters.AddWithValue(NpgsqlDbType.Text,op.Action);
             command.Parameters.AddWithValue(NpgsqlDbType.Bigint,op.ExpectedRevision);command.Parameters.AddWithValue(NpgsqlDbType.Jsonb,op.Payload.GetRawText());

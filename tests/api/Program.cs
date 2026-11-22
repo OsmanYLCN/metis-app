@@ -243,6 +243,10 @@ if (Environment.GetEnvironmentVariable("METIS_TEST_WORKSPACE_PORT") is { } works
     passed += await WorkspaceChecks.Run(workspacePort,
         settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
         user => Token(d => d.Claims["sub"] = user));
+if (Environment.GetEnvironmentVariable("METIS_TEST_DOMAIN_PORT") is { } domainPort)
+    passed += await DomainChecks.Run(domainPort,
+        settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
+        user => Token(d => d.Claims["sub"] = user));
 Console.WriteLine($"{passed} checks passed; ephemeral JWT keys and mocked JWKS; task reader fixtures or opt-in local PostgreSQL, no external account.");
 
 sealed class FakeKeys(string json, bool unavailable = false) : HttpMessageHandler

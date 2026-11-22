@@ -31,10 +31,19 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Release build ve sentetik SQL/Npgsql/HTTP kontrolleri geçti. Canlı 0007 uygulanmadı.
 - [Kurulum ve sözleşme](central-workspace.md). İstemci bağlantısı ve kalan merkezi modüller henüz yok.
 
+## Tamamlanan dördüncü bölüm — dört merkezi modül
+
+- 0008: hedef/takvim/finans/bütçe için sıkı alan doğrulaması, revision, işlem makbuzu, tombstone ve ortak değişiklik akışı.
+- Finans kuruş tam sayısı, TRY sınırı; bütçe ay/kategori benzersizliği. Tarih/saat/ilerleme doğrulaması hem API hem SQL tarafında.
+- Mevcut workspace operation API genişletildi; not/proje yolu korundu.
+- Release build + 59 kontrol grubu ve SQL doğrulaması geçti (2026-11-22).
+- [0008 kurulumu ve sözleşme](central-domains.md). Canlı 0008 uygulanmadı; 0007’nin kullanıcı tarafından uygulanması ayrıca doğrulanmadı.
+- Yerel şema, yedek formatı ve ekran davranışı değişmedi. Bu kayıtlar henüz masaüstünden otomatik gönderilmiyor.
+
 ## Devam sırası — kalan işler
 
-1. Görev değişiklik akışı tamamlandı; ortak akışın diğer modüllere genişletilmesi ve çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
-2. Proje/not merkezi modelleri ve yazması hazır. Hedef/takvim/finans/bütçe modelleri, merkezi proje–görev ilişkisi ve görev planlama alanları kaldı.
+1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
+2. Hedeflenen modüllerin merkezi modelleri ve yazması hazır. Merkezi proje–görev ilişkisi ve görev planlama alanları kaldı.
 3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
 4. Delta indirme + yükleme, kayıt/cihaz cursor’ları ve kesinti sonrası devam. Sunucudan gelen değişiklik tekrar yerel gönderim kuyruğuna alınmamalı.
 5. Çakışma kaydı ve kullanıcı çözüm ekranı. Özellikle finans/not verileri sessizce ezilmemeli. Silme iki yönde de taşınmalı.

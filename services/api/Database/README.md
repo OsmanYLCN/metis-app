@@ -9,3 +9,5 @@ Bu SQL dosyaları uygulama açılışında otomatik çalışmaz. Mevcut kurulumd
 Kurulum referansları: [reader](../../../docs/central-postgres-setup.md), [writer](../../../docs/central-writer-setup.md). Sunucu parolası/service-role anahtarı masaüstüne veya VITE_* değişkenlerine konmaz.
 
 0007 not/proje tabloları, kısıtlı işlem fonksiyonu ve ortak akış bağlantısı ekler. Mevcut görev tablolarını ve yerel kayıtları değiştirmez. [Kurulum](../../../docs/central-workspace.md).
+
+0008 hedef/takvim/finans/bütçe için domain tabloları, SQL payload doğrulaması, bütçe doğal anahtarı, kısıtlı işlem fonksiyonu ve ortak akış bağlantısı ekler. [Kurulum](../../../docs/central-domains.md).
