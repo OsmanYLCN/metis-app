@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, Transaction};
 use std::{fs, path::Path};
 
-const VERSION: u32 = 13;
+const VERSION: u32 = 14;
 const APPLICATION_ID: &str = "1347375921"; // POS1; identifies this database, not a user.
 const MIGRATION: &str = include_str!("../../migrations/0001_local_foundation.sql");
 const TASK_MIGRATION: &str = include_str!("../../migrations/0002_local_tasks.sql");
@@ -30,6 +30,7 @@ const GOALS_MIGRATION: &str = include_str!("../../migrations/0008_goals.sql");
 const FINANCE_MIGRATION: &str = include_str!("../../migrations/0009_finance.sql");
 const CALENDAR_MIGRATION: &str = include_str!("../../migrations/0010_calendar_events.sql");
 const NOTIFICATION_MIGRATION: &str = include_str!("../../migrations/0011_notification_state.sql");
+const BINDING_MIGRATION: &str = include_str!("../../migrations/0014_cloud_bindings.sql");
 const RECOVERY_MIGRATION: &str = include_str!("../../migrations/0013_recovery_guard.sql");
 const BUDGET_MIGRATION: &str = include_str!("../../migrations/0012_finance_budgets.sql");
 
@@ -182,6 +183,10 @@ fn migrate_with_tasks(connection: &Connection, migration: &str, task_migration: 
     if old_version<13 {connection.execute(RECOVERY_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(13,'recovery_guard','{recovery_checksum}'); PRAGMA user_version=13;")).map_err(|_|StorageError::MigrationFailed)?;}
     if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=13 AND name='recovery_guard'")?!=recovery_checksum{return Err(StorageError::InvalidSchema)}
     connection.query("SELECT project_ref,user_id,restored_at,backup_id FROM recovery_guard LIMIT 0",&[])?;
+    let binding_checksum=format!("{:x}",Sha256::digest(BINDING_MIGRATION.replace("\r\n","\n").as_bytes()));
+    if old_version<14 {connection.execute(BINDING_MIGRATION).map_err(|_|StorageError::MigrationFailed)?;connection.execute(&format!("INSERT INTO schema_migrations(version,name,checksum) VALUES(14,'cloud_bindings','{binding_checksum}'); PRAGMA user_version=14;")).map_err(|_|StorageError::MigrationFailed)?;}
+    if connection.scalar("SELECT checksum FROM schema_migrations WHERE version=14 AND name='cloud_bindings'")?!=binding_checksum{return Err(StorageError::InvalidSchema)}
+    connection.query("SELECT project_ref,user_id,entity,id,revision,snapshot FROM cloud_bindings LIMIT 0",&[])?;
     let status = validate(connection, &checksum, VERSION)?;
     transaction.commit()?;
     Ok(status)

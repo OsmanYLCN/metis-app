@@ -29,3 +29,5 @@ DPAPI bu Windows kullanıcı profiline bağlıdır. Aynı diskteki yedek disk ar
 Native host dosya yolunu seçer; web arayüzü keyfi dosya yolu veya SQL veremez. Dosya yalnızca şifreli halde diske yazılır. Dosya yazımı tamamlanmadan listede görünmez. Restore öncesinde DPAPI, format/hesap/şema, satır yapıları ve önizleme digest’leri doğrulanır; DB constraint ve foreign-key kontrolü başarısızsa rollback olur.
 
 Testler geçici veride çalışır. Kullanıcının canlı yedeği oluşturulmadı veya geri yüklenmedi.
+
+Şema 14 güncellemesi: yedekler cloud_bindings merkezi sürüm bağlantılarını da içerir. Şema 13 yedekleri boş bağlantılarla okunur; geri dönüş gönderim kilidini korur. Seçilen bulut kopyasını yerelde uygulama öncesinde aynı mekanizmayla otomatik güvenlik yedeği alınır. Ayrı cloud-inbox önbelleği yedeğe dahil değildir.

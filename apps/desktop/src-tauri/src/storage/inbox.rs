@@ -15,7 +15,7 @@ pub struct Change {pub position:String,pub entity:String,pub entity_id:String,pu
 pub struct Status {pub cursor:String,pub records:u64}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
-pub struct Difference {pub entity:String,pub id:String,pub title:String,pub state:String,pub local:Option<Value>,pub cloud:Value,pub deleted:bool}
+pub struct Difference {pub entity:String,pub id:String,pub title:String,pub state:String,pub local:Option<Value>,pub cloud:Value,pub deleted:bool,pub local_digest:String,pub cloud_digest:String}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct Comparison {pub items:Vec<Difference>,pub total:usize,pub has_more:bool}
@@ -104,15 +104,17 @@ pub fn compare(path:&Path,o:&TaskOwner,offset:u32)->Result<Comparison,TaskError>
  let rows=cache.query("SELECT entity,id,deleted,snapshot FROM inbox_records WHERE project=?1 AND user_id=?2 ORDER BY entity,id LIMIT 50 OFFSET ?3",&[&o.project_ref,&o.user_id,&offset.to_string()])?;let(db,_)=super::connect(path)?;let tx=Transaction::begin(&db)?;let mut items=Vec::new();
  for r in rows.into_iter(){let snapshot:Value=serde_json::from_str(&r[3]).map_err(|_|bad())?;let cloud=canonical(&r[0],&snapshot)?;let local=local(&db,o,&r[0],&r[1],&cloud)?;let deleted=r[2]=="1";
  let state=if deleted{if local.is_some(){"cloudDeleted"}else{"absentBoth"}}else{match &local{None=>"onlyCloud",Some(v)if *v==cloud=>"same",_=>"different"}};
- items.push(Difference{entity:r[0].clone(),id:r[1].clone(),title:cloud.get("title").or_else(||cloud.get("category")).and_then(Value::as_str).unwrap_or("").into(),state:state.into(),local,cloud,deleted});}
+ let local_digest=digest(&json!(local))?;let cloud_digest=digest(&snapshot)?;
+ items.push(Difference{local_digest,cloud_digest,entity:r[0].clone(),id:r[1].clone(),title:cloud.get("title").or_else(||cloud.get("category")).and_then(Value::as_str).unwrap_or("").into(),state:state.into(),local,cloud,deleted});}
  tx.commit()?;cache_tx.commit()?;Ok(Comparison{items,total,has_more:total>offset as usize+50})
 }
 
 #[cfg(test)]
 mod tests {
  use super::*;
+ static NEXT:std::sync::atomic::AtomicU64=std::sync::atomic::AtomicU64::new(0);
  struct Temp(std::path::PathBuf);
- impl Temp{fn new()->Self{let p=std::env::temp_dir().join(format!("metis-inbox-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));std::fs::create_dir(&p).unwrap();Self(p)}fn db(&self)->std::path::PathBuf{self.0.join("local.sqlite3")}}
+ impl Temp{fn new()->Self{let p=std::env::temp_dir().join(format!("metis-inbox-{}-{}-{}",std::process::id(),NEXT.fetch_add(1,std::sync::atomic::Ordering::Relaxed),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));std::fs::create_dir(&p).unwrap();Self(p)}fn db(&self)->std::path::PathBuf{self.0.join("local.sqlite3")}}
  impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
  fn owner()->TaskOwner{TaskOwner{project_ref:"test-project".into(),user_id:"11111111-1111-4111-8111-111111111111".into()}}
  fn page(o:&TaskOwner,pos:i64,revision:i64,deleted:bool,title:&str)->Page{
@@ -147,7 +149,102 @@ mod tests {
   let mut current=String::new();
   for(i,(kind,mut payload))in payloads.into_iter().enumerate(){let pos=i as i64+1;let key=format!("{:032x}",pos);payload["id"]=json!(key);payload["revision"]=json!(1);payload["deletedAt"]=Value::Null;
    let mut p=page(&o,pos,1,false,"");p.items[0]=Change{position:pos.to_string(),entity:kind.into(),entity_id:key,revision:1,deleted:false,snapshot:payload};current=stage(&path,&o,&current,p).unwrap().cursor;}
+  let before=compare(&path,&o,0).unwrap();
+  for item in before.items{apply(&path,&o,&item.entity,&item.id,&item.local_digest,&item.cloud_digest).unwrap();}
+  assert!(compare(&path,&o,0).unwrap().items.iter().all(|r|r.state=="same"));
+  assert_eq!(crate::storage::outbox::count(&path,&o).unwrap(),0);
+  let task_id=format!("{:032x}",1);
+  let(db,_)=crate::storage::connect(&path).unwrap();assert_eq!(crate::storage::outbox::latest_revision(&db,&o,&task_id).unwrap(),Some(1));drop(db);
+  crate::storage::tasks::rename(&path,&o,&task_id,"Changed after import","Task").unwrap();
+  let pending=crate::storage::outbox::pending_for_task(&path,&o,&task_id).unwrap().unwrap();assert_eq!(pending.kind,"rename");assert_eq!(pending.expected_revision,1);
   let result=compare(&path,&o,0).unwrap();assert_eq!(result.total,6);assert_eq!(result.items.iter().find(|r|r.entity=="budget").unwrap().state,"same");
   let mut p=page(&o,7,1,false,"Invalid");p.items[0].snapshot["revision"]=json!(2);assert!(stage(&path,&o,&current,p).is_err());assert_eq!(status(&path,&o).unwrap().records,6);
  }
+ #[test]
+ fn inbox_apply_rechecks_preview_and_restores_safety_copy(){
+  let t=Temp::new();let o=owner();let path=t.db();let key="b".repeat(32);
+  crate::storage::workspace::create(&path,&o,&key,"note","Local","Text","active",false).unwrap();
+  let first=stage(&path,&o,"",page(&o,1,1,false,"Cloud")).unwrap();let before=compare(&path,&o,0).unwrap().items.remove(0);
+  crate::storage::workspace::save(&path,&o,&key,"note",1,"New local edit","Text","active",false).unwrap();
+  assert!(apply(&path,&o,"note",&key,&before.local_digest,&before.cloud_digest).is_err());
+  let fresh=compare(&path,&o,0).unwrap().items.remove(0);let applied=apply(&path,&o,"note",&key,&fresh.local_digest,&fresh.cloud_digest).unwrap();assert!(applied.safety_backup.is_some());
+  let same=compare(&path,&o,0).unwrap().items.remove(0);assert_eq!(same.state,"same");assert!(apply(&path,&o,"note",&key,&same.local_digest,&same.cloud_digest).unwrap().safety_backup.is_none());
+  stage(&path,&o,&first.cursor,page(&o,2,2,true,"Cloud")).unwrap();
+  assert!(apply(&path,&o,"note",&key,&same.local_digest,&same.cloud_digest).is_err());
+  let deleted=compare(&path,&o,0).unwrap().items.remove(0);
+  apply(&path,&o,"note",&key,&deleted.local_digest,&deleted.cloud_digest).unwrap();assert!(crate::storage::workspace::list(&path,&o,"note","",0).unwrap().items.is_empty());
+  let backup=applied.safety_backup.unwrap();let preview=crate::storage::backup::preview(&path,&o,&backup).unwrap();
+  crate::storage::backup::restore(&path,&o,&backup,&preview.current_digest,&preview.backup_digest).unwrap();
+  assert_eq!(crate::storage::workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"New local edit");
+ }
+
+}
+
+fn digest(v:&Value)->Result<String,TaskError>{use sha2::{Digest,Sha256};Ok(format!("{:x}",Sha256::digest(serde_json::to_vec(v).map_err(|_|bad())?)))}
+fn valid_day(s:&str)->bool{
+ let b=s.as_bytes();if b.len()!=10||s.starts_with("0000")||!b.iter().enumerate().all(|(i,c)|if i==4||i==7{*c==b'-'}else{c.is_ascii_digit()}){return false}
+ let y=s[..4].parse::<u32>().unwrap_or(0);let m=s[5..7].parse::<u32>().unwrap_or(0);let d=s[8..].parse::<u32>().unwrap_or(0);
+ let max=match m{1|3|5|7|8|10|12=>31,4|6|9|11=>30,2 if y%4==0&&(y%100!=0||y%400==0)=>29,2=>28,_=>0};d>0&&d<=max
+}
+fn valid_clock(s:&str)->bool{let b=s.as_bytes();b.len()==5&&b[2]==b':'&&[0,1,3,4].iter().all(|&i|b[i].is_ascii_digit())&&s[..2].parse::<u8>().is_ok_and(|h|h<24)&&s[3..].parse::<u8>().is_ok_and(|m|m<60)}
+fn import_valid(kind:&str,p:&Value)->bool{
+ for &field in fields(kind).unwrap_or(&[]){if let Some(s)=p[field].as_str(){let multi=matches!(field,"body"|"description"|"details");let max=match field{"body"=>20000,"description"=>10000,"details"=>5000,"category"=>60,_=>200};if s.chars().count()>max||s.chars().any(|c|c.is_control()&&!(multi&&matches!(c,'\n'|'\r'|'\t'))){return false}if matches!(field,"title"|"category")&&(s.is_empty()||s.trim()!=s){return false}if matches!(field,"dueDate"|"targetDate"|"eventDate"|"entryDate")&&!valid_day(s){return false}}}
+ match kind{
+ "note"=>p["state"]=="active", "project"=>matches!(p["state"].as_str(),Some("active"|"paused"|"done"))&&p["pinned"]==false,
+ "goal"=>matches!(p["state"].as_str(),Some("active"|"paused"|"done")),
+ "event"=>{let a=p["startTime"].as_str();let b=p["endTime"].as_str();a.is_none_or(valid_clock)&&b.is_none_or(|end|valid_clock(end)&&a.is_some_and(|start|end>start))},
+ "finance"=>p["currency"]=="TRY"&&matches!(p["direction"].as_str(),Some("income"|"expense")),
+ "budget"=>p["currency"]=="TRY"&&p["month"].as_str().is_some_and(|m|m.len()==7&&valid_day(&format!("{m}-01"))),"task"=>true,_=>false}
+}
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct Applied {pub safety_backup:Option<String>}
+pub fn apply(path:&Path,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_digest:&str)->Result<Applied,TaskError>{
+ o.validate()?;fields(kind)?;if id(key).as_deref()!=Some(key){return Err(bad())}
+ let cache=open(path)?;let cache_tx=Transaction::begin(&cache)?;
+ let rows=cache.query("SELECT revision,deleted,snapshot FROM inbox_records WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?;
+ let row=rows.first().ok_or(TaskError::NotFound)?;let snapshot:Value=serde_json::from_str(&row[2]).map_err(|_|bad())?;
+ if digest(&snapshot)?!=cloud_digest{return Err(TaskError::Conflict)}let cloud=canonical(kind,&snapshot)?;if !import_valid(kind,&cloud){return Err(bad())}
+ let revision:i64=row[0].parse().map_err(|_|bad())?;let deleted=row[1]=="1";
+ let(db,_)=super::connect(path)?;let tx=Transaction::begin(&db)?;let current=local(&db,o,kind,key,&cloud)?;
+ if digest(&json!(current))?!=local_digest{return Err(TaskError::Conflict)}
+ if kind=="task"{
+  if !db.query("SELECT 1 FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged' UNION ALL SELECT 1 FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged'",&[&o.project_ref,&o.user_id,key])?.is_empty(){return Err(TaskError::Conflict)}
+  if super::outbox::latest_revision(&db,o,key)?.is_some_and(|r|r>revision){return Err(TaskError::Conflict)}
+  if !deleted{if let Some(project)=cloud["projectId"].as_str(){if db.query("SELECT id FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND id=?3 AND kind='project'",&[&o.project_ref,&o.user_id,project])?.is_empty(){return Err(TaskError::Conflict)}}}
+ }
+ // Never delete a project while another local task still relies on it.
+ if kind=="project"&&deleted&&!db.query("SELECT task_id FROM task_attributes WHERE project_ref=?1 AND user_id=?2 AND project_id=?3",&[&o.project_ref,&o.user_id,key])?.is_empty(){return Err(TaskError::Conflict)}
+ let bindings=db.query("SELECT id,revision,snapshot FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2 AND entity=?3",&[&o.project_ref,&o.user_id,kind])?;
+ for binding in bindings{
+  if binding[0]==key && binding[1]==revision.to_string() && binding[2]==row[2] && (if deleted{current.is_none()}else{current.as_ref()==Some(&cloud)}){tx.commit()?;cache_tx.commit()?;return Ok(Applied{safety_backup:None})}
+  if binding[0]==key&&binding[1].parse::<i64>().map_err(|_|bad())?>revision{return Err(TaskError::Conflict)}
+  if kind=="budget"&&binding[0]!=key{let other:Value=serde_json::from_str(&binding[2]).map_err(|_|bad())?;
+   if other["deletedAt"].is_null()&&other["month"]==cloud["month"]&&other["category"]==cloud["category"]{return Err(TaskError::Conflict)}}
+ }
+ // A safety snapshot must be written successfully before any business row changes.
+ let safety=super::backup::safety_copy(path,&db,o)?;
+ let(table,cols)=match kind{
+ "task"=>("tasks",vec!["title","completed"]),"note"|"project"=>("workspace_entries",vec!["kind","title","body","state","pinned"]),
+ "goal"=>("goals",vec!["title","description","state","target_date","progress"]),"event"=>("calendar_events",vec!["title","details","event_date","start_time","end_time"]),
+ "finance"=>("finance_entries",vec!["kind","title","category","amount_cents","entry_date"]),"budget"=>("finance_budgets",vec!["month","category","limit_cents"]),_=>return Err(bad())};
+ let text=|field:&str|->String{match &cloud[field]{Value::Null=>String::new(),Value::Bool(b)=>if *b{"1"}else{"0"}.into(),Value::String(v)=>v.clone(),v=>v.to_string()}};
+ let vals:Vec<String>=match kind{"task"=>vec![text("title"),text("completed")],"note"|"project"=>vec![kind.into(),text("title"),text("body"),text("state"),text("pinned")],"goal"=>vec![text("title"),text("description"),text("state"),text("targetDate"),text("progress")],"event"=>vec![text("title"),text("details"),text("eventDate"),text("startTime"),text("endTime")],"finance"=>vec![text("direction"),text("title"),text("category"),text("amountCents"),text("entryDate")],_=>vec![text("month"),text("category"),text("limitCents")]};
+ let where_clause=if kind=="budget"{"project_ref=?1 AND user_id=?2 AND month=?3 AND category=?4"}else{"project_ref=?1 AND user_id=?2 AND id=?3"};
+ let mut params=vec![o.project_ref.as_str(),o.user_id.as_str()];if kind=="budget"{params.push(&vals[0]);params.push(&vals[1]);}else{params.push(key)}
+ if deleted{db.query(&format!("DELETE FROM {table} WHERE {where_clause}"),&params)?;}
+ else if current.is_some(){
+  let start=params.len()+1;params.extend(vals.iter().map(String::as_str));
+  let changes=cols.iter().enumerate().map(|(i,c)|format!("{c}={}",if matches!(*c,"target_date"|"start_time"|"end_time"){format!("NULLIF(?{},'')",i+start)}else{format!("?{}",i+start)})).collect::<Vec<_>>().join(",");
+  let meta=if matches!(kind,"note"|"project"|"goal"|"event"){",revision=revision+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"}else if kind=="task"{",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"}else{""};
+  db.query(&format!("UPDATE {table} SET {changes}{meta} WHERE {where_clause}"),&params)?;
+ }else{
+  let mut insert_params=vec![o.project_ref.as_str(),o.user_id.as_str()];let identity=if kind=="budget"{""}else{insert_params.push(key);",id"};let start=insert_params.len()+1;insert_params.extend(vals.iter().map(String::as_str));
+  let placeholders=cols.iter().enumerate().map(|(i,c)|if matches!(*c,"target_date"|"start_time"|"end_time"){format!("NULLIF(?{},'')",i+start)}else{format!("?{}",i+start)}).collect::<Vec<_>>().join(",");
+  db.query(&format!("INSERT INTO {table}(project_ref,user_id{identity},{}) VALUES(?1,?2{},{placeholders})",cols.join(","),if kind=="budget"{""}else{",?3"}),&insert_params)?;
+ }
+ if kind=="task"&&!deleted{db.query("INSERT INTO task_attributes(task_id,project_ref,user_id,project_id,due_date,priority) VALUES(?1,?2,?3,NULLIF(?4,''),NULLIF(?5,''),?6) ON CONFLICT(task_id) DO UPDATE SET project_id=excluded.project_id,due_date=excluded.due_date,priority=excluded.priority",&[key,&o.project_ref,&o.user_id,&text("projectId"),&text("dueDate"),&text("priority")])?;}
+ let after=local(&db,o,kind,key,&cloud)?;if if deleted{after.is_some()}else{after.as_ref()!=Some(&cloud)}{return Err(TaskError::Conflict)}
+ db.query("INSERT INTO cloud_bindings VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(project_ref,user_id,entity,id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot",&[&o.project_ref,&o.user_id,kind,key,&revision.to_string(),&row[2]])?;
+ tx.commit()?;cache_tx.commit()?;Ok(Applied{safety_backup:Some(safety.id)})
 }

@@ -5,7 +5,7 @@ use std::path::Path;
 use super::sqlite::{Connection, Transaction};
 
 pub(super) fn latest_revision(db: &Connection, owner: &TaskOwner, task_id: &str) -> Result<Option<i64>, TaskError> {
-    let rows = db.query("SELECT COALESCE(CAST(MAX(revision) AS TEXT),'') FROM (SELECT d.revision AS revision FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3 AND o.state='acknowledged' UNION ALL SELECT a.revision FROM task_action_outbox a WHERE a.project_ref=?1 AND a.user_id=?2 AND a.task_id=?3 AND a.state='acknowledged')", &[&owner.project_ref,&owner.user_id,task_id])?;
+    let rows = db.query("SELECT COALESCE(CAST(MAX(revision) AS TEXT),'') FROM (SELECT d.revision AS revision FROM task_outbox o JOIN outbox_delivery d ON d.sequence=o.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.task_id=?3 AND o.state='acknowledged' UNION ALL SELECT a.revision FROM task_action_outbox a WHERE a.project_ref=?1 AND a.user_id=?2 AND a.task_id=?3 AND a.state='acknowledged' UNION ALL SELECT revision FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2 AND entity='task' AND id=?3)", &[&owner.project_ref,&owner.user_id,task_id])?;
     let value = &rows.first().ok_or(super::StorageError::InvalidSchema)?[0];
     if value.is_empty() { Ok(None) } else { Ok(Some(value.parse().map_err(|_| super::StorageError::InvalidSchema)?)) }
 }
@@ -147,7 +147,7 @@ pub fn statuses(path: &Path, owner: &TaskOwner, task_ids: &[String]) -> Result<V
             if (phase == "sent" && !matches!(revision, Some(value) if value > 0))
                 || (phase != "sent" && revision.is_some()) { return Err(TaskError::from(super::StorageError::InvalidSchema)); }
             (phase,revision)
-        } else { ("localOnly",None) };
+        } else { match latest_revision(&db,owner,id)? { Some(revision)=>("sent",Some(revision)),None=>("localOnly",None) } };
         Ok(TaskCloudStatus { task_id:id.clone(),phase,revision })
     }).collect()
 }

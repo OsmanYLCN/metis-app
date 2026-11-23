@@ -21,6 +21,7 @@ const TABLES:&[Table]=&[
  Table{name:"notification_state",columns:&["source_kind","source_id","due_date","is_read","snoozed_until"],nullable:&[4]},
  Table{name:"task_outbox",columns:&["sequence","operation_id","task_id","kind","expected_revision","title","state","created_at"],nullable:&[]},
  Table{name:"task_action_outbox",columns:&["operation_id","task_id","kind","expected_revision","completed","state","started","revision"],nullable:&[4,7]},
+ Table{name:"cloud_bindings",columns:&["entity","id","revision","snapshot"],nullable:&[]},
 ];
 #[derive(Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -72,7 +73,10 @@ fn read(path:&Path,owner:&TaskOwner,id:&str)->Result<(Snapshot,u64),TaskError>{
  let size=file.metadata().map_err(io_err)?.len();if size==0||size>LIMIT as u64{return Err(TaskError::InvalidInput)}
  let mut bytes=Vec::new();file.take((LIMIT+1)as u64).read_to_end(&mut bytes).map_err(io_err)?;
  let plain=crypt_limited(&bytes,context(owner).as_bytes(),false,LIMIT).map_err(|_|err())?;
- let snapshot:Snapshot=serde_json::from_slice(plain.bytes()).map_err(|_|err())?;validate(&snapshot,owner)?;Ok((snapshot,size))
+ let mut snapshot:Snapshot=serde_json::from_slice(plain.bytes()).map_err(|_|err())?;
+ // Schema 13 has the same ten business tables, without cloud bindings.
+ if snapshot.format==1 && snapshot.schema==13 && snapshot.tables.len()==10 {snapshot.tables.push(Vec::new());snapshot.schema=VERSION;}
+ validate(&snapshot,owner)?;Ok((snapshot,size))
 }
 fn write(path:&Path,db:&Connection,owner:&TaskOwner,s:&Snapshot)->Result<BackupInfo,TaskError>{
  let mut bytes=serde_json::to_vec(s).map_err(|_|err())?;if bytes.len()>LIMIT/2{return Err(TaskError::InvalidInput)}
@@ -140,4 +144,16 @@ pub fn delivery_status(path:&Path,owner:&TaskOwner)->Result<DeliveryStatus,TaskE
  let rows=db.query("SELECT (SELECT count(*) FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending')+(SELECT count(*) FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending'),(SELECT count(*) FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND state='conflict')+(SELECT count(*) FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND state='conflict'),(SELECT count(*) FROM outbox_delivery d JOIN task_outbox o ON o.sequence=d.sequence WHERE o.project_ref=?1 AND o.user_id=?2 AND o.state='pending' AND d.revision IS NULL)+(SELECT count(*) FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND state='pending' AND started=1)",&[&owner.project_ref,&owner.user_id])?;
  let row=rows.first().ok_or_else(err)?;let n=|i:usize|->Result<u64,TaskError>{row.get(i).ok_or_else(err)?.parse().map_err(|_|err())};
  let result=DeliveryStatus{paused,pending:n(0)?,conflicts:n(1)?,uncertain:n(2)?};tx.commit()?;Ok(result)
+}
+
+pub(super) fn safety_copy(path:&Path,db:&Connection,owner:&TaskOwner)->Result<BackupInfo,TaskError>{write(path,db,owner,&collect(db,owner)?)}
+
+#[cfg(test)]
+#[test]
+fn recovery_schema13_snapshot_remains_readable(){
+ let dir=std::env::temp_dir().join(format!("metis-backup13-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));std::fs::create_dir(&dir).unwrap();
+ let path=dir.join("local.sqlite3");let owner=TaskOwner{project_ref:"test-project".into(),user_id:"11111111-1111-4111-8111-111111111111".into()};
+ let(db,_)=connect(&path).unwrap();let mut snapshot=collect(&db,&owner).unwrap();snapshot.schema=13;snapshot.tables.pop();let info=write(&path,&db,&owner,&snapshot).unwrap();drop(db);
+ let normalized=read(&path,&owner,&info.id).unwrap().0;assert_eq!(normalized.schema,VERSION);assert_eq!(normalized.tables.len(),TABLES.len());assert!(normalized.tables.last().unwrap().is_empty());
+ std::fs::remove_dir_all(&dir).unwrap();
 }

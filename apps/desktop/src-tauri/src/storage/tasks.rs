@@ -142,6 +142,11 @@ pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_ti
             _ => return Err(TaskError::Conflict),
         }
     }
+    if rows.is_empty() {
+        if let Some(revision)=super::outbox::latest_revision(&db,owner,id)? {
+            db.query("INSERT INTO task_outbox(project_ref,user_id,operation_id,task_id,kind,expected_revision,title) VALUES(?1,?2,lower(hex(randomblob(16))),?3,'rename',?4,?5)",&[&owner.project_ref,&owner.user_id,id,&revision.to_string(),title])?;
+        }
+    }
     db.query("UPDATE tasks SET title=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1 AND project_ref=?2 AND user_id=?3",
         &[id, &owner.project_ref, &owner.user_id, title])?;
     let task = find(&db, owner, id)?;
@@ -192,6 +197,7 @@ pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) ->
         &[id, &owner.project_ref, &owner.user_id])?;
     if let Some(row) = rows.first() {
         if row[0] != expected_title { return Err(TaskError::Conflict); }
+        if super::outbox::latest_revision(&db,owner,id)?.is_some(){return Err(TaskError::Conflict)}
         if !db.query("SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'pending'", &[&owner.project_ref,&owner.user_id,id])?.is_empty() { return Err(TaskError::Conflict); }
         db.query("DELETE FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,id])?;
         db.query("DELETE FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3", &[id, &owner.project_ref, &owner.user_id])?;

@@ -58,12 +58,21 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Ana SQLite şeması/yedek formatı değişmedi. Inbox yeniden indirilebilir ve yedeğin dışında.
 - Frontend build, ilgili 35 session testi ve 2 native inbox testi geçti. [Kullanım ve sınırlar](cloud-inbox.md).
 
+## Tamamlanan yedinci bölüm — onaylı yerel uygulama
+
+- Yedi tür için bulut kopyasını açık onayla yerelde oluşturma/değiştirme/silme.
+- Native alan/bağ/hesap doğrulaması, eski önizleme reddi, işlem öncesi şifreli güvenlik yedeği.
+- Ana SQLite şema 14: cloud_bindings; yerel kayıt ve merkezi sürüm bağı atomik. Ana şema 13 yedeklerine uyumluluk.
+- Gelen kayıt tekrar gönderilmez; ithal görevin başlık değişikliği merkezi revision ile rename olur.
+- Pending görev, eksik proje, bağlı proje silme ve bütçe kimlik çatışmalarında işlem reddi.
+- Tam otomatik eşitleme, diğer modüllerin gönderimi ve recovery_guard uzlaştırması hâlâ eksik.
+
 ## Devam sırası — kalan işler
 
 1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
 2. Hedeflenen modüllerin merkezi modelleri, görev planı ve proje ilişkisi hazır. Sıradaki ana iş istemci entegrasyonu (aşağıdaki 3–6).
 3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
-4. Delta indirme ve kalıcı cursor inbox için hazır. Kayıtları yerel çalışma tablolarına atomik uygulama ve yükleme entegrasyonu kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
+4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; otomatik uzlaştırma ve diğer modüllerin yükleme entegrasyonu kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
 5. Çakışma kaydı ve kullanıcı çözüm ekranı. Özellikle finans/not verileri sessizce ezilmemeli. Silme iki yönde de taşınmalı.
 6. Recovery guard yalnızca yerel yedek ve mevcut sunucu durumu karşılaştırılıp çakışmalar çözüldüğünde kaldırılmalı. Şu anda kilidi elle açan komut YOK.
 7. Taşınabilir dışa aktarma, disk/profil kaybı ve bozuk SQLite için kurtarma; şu anki DPAPI snapshot bunun yerine geçmez.
@@ -75,8 +84,8 @@ Tüm hedeflenen modüller iki istemci arasında veri kaybetmeden güncellenir; b
 
 ## Sınırlar ve doğrulama
 
-Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; yerel tablolara uygulama ve çok modüllü iki yönlü eşitleme henüz yok. Sunucu değişiklik akışı için yeni 0006 SQL gerekir; yerel yedekleme bölümü için gerekmez. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
+Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; onaylı yerel uygulama hazır; çok modüllü iki yönlü eşitleme henüz yok. Sunucu değişiklik akışı için yeni 0006 SQL gerekir; yerel yedekleme bölümü için gerekmez. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
 
-Mevcut yedek formatı 1, şema 13 ile sınırlı. Sonraki şema artışında eski yedeği sessizce reddetmek yerine açık uyumluluk/migration yolu ele alınmalı. Taşınabilir ihracat gelecekte kullanıcı parolasıyla şifreleme gibi bağımsız anahtar yönetimi gerektirir.
+Mevcut yedek formatı 1, ana şema 14. Şema 13 yedekleri boş bulut bağlantılarıyla okunur. Sonraki şemalarda uyumluluk korunmalı. Taşınabilir ihracat gelecekte kullanıcı parolasıyla şifreleme gibi bağımsız anahtar yönetimi gerektirir.
 
 Doğrulama (2026-11-19): TypeScript/Vite build geçti; native depolama + DPAPI 61 test geçti; storage bridge 6 test geçti. Tam native kontrolün nedeni veri değiştiren restore ve şema geçişidir. Testler yalnızca geçici sentetik veri kullandı; canlı hesap verisiyle geri yükleme yapılmadı.

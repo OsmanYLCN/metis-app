@@ -345,6 +345,12 @@
           "markdownDescription": "Enables the goals_summary command without any pre-configured scope."
         },
         {
+          "description": "Enables the inbox_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inbox-apply",
+          "markdownDescription": "Enables the inbox_apply command without any pre-configured scope."
+        },
+        {
           "description": "Enables the inbox_compare command without any pre-configured scope.",
           "type": "string",
           "const": "allow-inbox-compare",
@@ -727,6 +733,12 @@
           "type": "string",
           "const": "deny-goals-summary",
           "markdownDescription": "Denies the goals_summary command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inbox_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inbox-apply",
+          "markdownDescription": "Denies the inbox_apply command without any pre-configured scope."
         },
         {
           "description": "Denies the inbox_compare command without any pre-configured scope.",
