@@ -25,7 +25,7 @@ const TABLES:&[Table]=&[
 ];
 #[derive(Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Snapshot {format:u32,schema:u32,project:String,user:String,created_at:String,tables:Vec<Vec<Vec<String>>>,deliveries:Vec<Vec<String>>}
+pub(super) struct Snapshot {format:u32,schema:u32,project:String,user:String,created_at:String,tables:Vec<Vec<Vec<String>>>,deliveries:Vec<Vec<String>>}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct Count {pub name:String,pub count:usize}
@@ -50,8 +50,8 @@ fn directory(path:&Path,owner:&TaskOwner)->Result<PathBuf,TaskError>{
  Ok(path.parent().ok_or(StorageError::Unavailable)?.join("backups").join(format!("{:x}",Sha256::digest(context(owner)))))
 }
 fn counts(s:&Snapshot)->Vec<Count>{TABLES.iter().zip(&s.tables).map(|(t,r)|Count{name:t.name.into(),count:r.len()}).collect()}
-fn digest(s:&Snapshot)->Result<String,TaskError>{let bytes=serde_json::to_vec(&(&s.project,&s.user,&s.tables,&s.deliveries)).map_err(|_|err())?;Ok(format!("{:x}",Sha256::digest(bytes)))}
-fn collect(db:&Connection,owner:&TaskOwner)->Result<Snapshot,TaskError>{
+pub(super) fn digest(s:&Snapshot)->Result<String,TaskError>{let bytes=serde_json::to_vec(&(&s.project,&s.user,&s.tables,&s.deliveries)).map_err(|_|err())?;Ok(format!("{:x}",Sha256::digest(bytes)))}
+pub(super) fn collect(db:&Connection,owner:&TaskOwner)->Result<Snapshot,TaskError>{
  let mut tables=Vec::new();
  for t in TABLES {
   let projection=t.columns.iter().enumerate().map(|(i,c)|if t.nullable.contains(&i){format!("COALESCE({c},'')")}else{c.to_string()}).collect::<Vec<_>>().join(",");
@@ -107,7 +107,10 @@ pub fn preview(path:&Path,owner:&TaskOwner,id:&str)->Result<RestorePreview,TaskE
  let result=RestorePreview{backup:BackupInfo{id:id.into(),created_at:s.created_at.clone(),counts:counts(&s),bytes},current_counts:counts(&current),current_digest:digest(&current)?,backup_digest:digest(&s)?};tx.commit()?;Ok(result)
 }
 pub fn restore(path:&Path,owner:&TaskOwner,id:&str,current_digest:&str,backup_digest:&str)->Result<RestoreResult,TaskError>{
- owner.validate()?;let(s,_)=read(path,owner,id)?;if digest(&s)?!=backup_digest{return Err(TaskError::Conflict)}
+ owner.validate()?;
+ let cache=super::inbox::open(path)?;let _cache_tx=Transaction::begin(&cache)?;
+ if !cache.query("SELECT id FROM outbound WHERE project=?1 AND user_id=?2",&[&owner.project_ref,&owner.user_id])?.is_empty(){return Err(TaskError::Conflict)}
+ let(s,_)=read(path,owner,id)?;if digest(&s)?!=backup_digest{return Err(TaskError::Conflict)}
  let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;let current=collect(&db,owner)?;
  if digest(&current)?!=current_digest{return Err(TaskError::Conflict)}
  // An outstanding HTTP operation must be reconciled before replacing its local journal.

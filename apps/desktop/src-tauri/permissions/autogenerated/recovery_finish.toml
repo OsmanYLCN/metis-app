@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recovery-finish"
+description = "Enables the recovery_finish command without any pre-configured scope."
+commands.allow = ["recovery_finish"]
+
+[[permission]]
+identifier = "deny-recovery-finish"
+description = "Denies the recovery_finish command without any pre-configured scope."
+commands.deny = ["recovery_finish"]

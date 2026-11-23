@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recovery-preview"
+description = "Enables the recovery_preview command without any pre-configured scope."
+commands.allow = ["recovery_preview"]
+
+[[permission]]
+identifier = "deny-recovery-preview"
+description = "Denies the recovery_preview command without any pre-configured scope."
+commands.deny = ["recovery_preview"]

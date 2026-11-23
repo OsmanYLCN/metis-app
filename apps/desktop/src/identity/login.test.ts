@@ -346,3 +346,25 @@ describe('workspace deletion and rejection',()=>{
   expect(error).not.toBeInstanceOf(WorkspaceConflictError);expect(error.message).toContain('Oturum');
  });
 });
+
+it('sends task planning through the shared revision contract',async()=>{
+ await store.signIn('user@example.test','password');fetcher.mockClear();
+ const op={entity:'taskPlan',id:'a'.repeat(32),operationId:'b'.repeat(32),action:'update',expectedRevision:4,payload:{projectId:null,dueDate:'2026-12-01',priority:2}};
+ fetcher.mockResolvedValueOnce(json({operationId:op.operationId,id:op.id,kind:'taskPlan',revision:5,replay:false}));
+ await expect(store.sendWorkspace({projectRef:'test-project',userId:session.user.id},op,new AbortController().signal)).resolves.toBe(5);
+ expect(fetcher.mock.calls[0][0]).toContain('/workspace/taskPlan/');
+ expect(JSON.parse(fetcher.mock.calls[0][1].body).payload).toEqual(op.payload);
+});
+
+it('distinguishes definitive missing-record replies from an unknown 404',async()=>{
+ await store.signIn('user@example.test','password');
+ const op={entity:'taskPlan',id:'a'.repeat(32),operationId:'b'.repeat(32),action:'update',expectedRevision:1,payload:{projectId:null,dueDate:null,priority:0}};
+ const owner={projectRef:'test-project',userId:session.user.id};
+ for(const code of ['workspace_not_found','task_project_not_found']){
+  fetcher.mockResolvedValueOnce(json({code},404));
+  await expect(store.sendWorkspace(owner,op,new AbortController().signal)).rejects.toBeInstanceOf(WorkspaceConflictError);
+ }
+ fetcher.mockResolvedValueOnce(json({code:'missing_route'},404));
+ const error=await store.sendWorkspace(owner,op,new AbortController().signal).catch(e=>e);
+ expect(error).not.toBeInstanceOf(WorkspaceConflictError);expect(error).toBeInstanceOf(Error);
+});

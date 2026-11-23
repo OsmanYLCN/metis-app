@@ -84,14 +84,23 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Inbox/outbound şema 3; eski kayıtların işlem kimliği korunur. Yeni Supabase SQL veya dağıtım EXE’si yok.
 - Doğrulama: 7 native inbox/outbound testi, 40 oturum/HTTP testi, TypeScript/Vite build. Canlı kullanıcı verisi kullanılmadı.
 
+## Tamamlanan onuncu bölüm — gönderim, plan ve kurtarma birlikte
+
+- Hesap bazında kalıcı aç/kapat ayarı; uygulama açıkken 30 saniyelik gönderim, ağ/odak dönüşünde kontrol ve hatalarda kademeli bekleme.
+- Tek koordinatör; elle/arka plan ortak makbuz; değişen son kalıcı durumun taranması ve HTTP öncesi immutable outbound isteği. Yarım kalan istek restart sonrası aynı kimlikle denenir.
+- Görev planı gerçek taskPlan endpoint’ine bağlı; görev ve proje bağımlılığı ile ortak revision kilidi korunur.
+- Geri yükleme sonrası tam/taze bulut indirme, önizleme, tek yedek + atomik toplu bulut uygulama ve yalnızca eşleşme doğrulanınca guard kaldırma.
+- Yalnızca yerel kayıtlar korunur; görev kuyruğu yeni merkezi duruma göre yeniden kurulur. Yeni SQL veya dağıtım EXE’si yok.
+- [Kullanım ve tasarım sınırları](automatic-sync-recovery.md).
+
 ## Devam sırası — kalan işler
 
 1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
-2. Hedeflenen modüllerin merkezi modelleri, görev planı ve proje ilişkisi hazır. Sıradaki ana iş istemci entegrasyonu (aşağıdaki 3–6).
-3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
-4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; otomatik uzlaştırma ve manuel gönderimlerin arka plan kuyruğuna entegrasyonu kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
+2. Hedeflenen modüllerin merkezi modelleri ve masaüstü görev planı gönderimi hazır; gerçek iki istemci kabulü kaldı.
+3. Son kalıcı yerel durumu tarayan otomatik gönderim hazır. Her iş değişikliğini ayrı olay olarak aynı ana transaction’da arşivleme ve outbound dosyasını bütünleşik yedekleme kapsamına alma ayrı iyileştirmedir.
+4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; arka plan gönderimi hazır; otomatik indirme ve alan bazlı birleştirme kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
 5. Kesin ret için elle çözüm yolu ve onaylı silme iki yönde var. Otomatik birleştirme, silinmiş kimlikle yeniden oluşturma ve tüm hata türlerini kapsayan çatışma merkezi kaldı; finans/not verileri sessizce ezilmemeli.
-6. Recovery guard yalnızca yerel yedek ve mevcut sunucu durumu karşılaştırılıp çakışmalar çözüldüğünde kaldırılmalı. Şu anda kilidi elle açan komut YOK.
+6. Güncel bulutu esas alan recovery uzlaştırması ve doğrulanmış guard kaldırma hazır. Yerel içeriği alan bazında bulutla birleştirme alternatifi henüz yok.
 7. Taşınabilir dışa aktarma, disk/profil kaybı ve bozuk SQLite için kurtarma; şu anki DPAPI snapshot bunun yerine geçmez.
 8. İki ayrı istemci veri dizininde uçtan uca test: offline değişiklik, yeniden deneme, silme, aynı kaydı iki tarafta değiştirme, tekrar başlatma ve güvenlik.
 
@@ -101,8 +110,10 @@ Tüm hedeflenen modüller iki istemci arasında veri kaybetmeden güncellenir; b
 
 ## Sınırlar ve doğrulama
 
-Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; onaylı yerel uygulama hazır; çok modüllü iki yönlü eşitleme henüz yok. Sunucu değişiklik akışı için yeni 0006 SQL gerekir; yerel yedekleme bölümü için gerekmez. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
+Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; onaylı yerel uygulama ve otomatik gönderim hazır; tam otomatik iki yönlü eşitleme henüz yok. Sunucu değişiklik akışı için yeni 0006 SQL gerekir; yerel yedekleme bölümü için gerekmez. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
 
 Mevcut yedek formatı 1, ana şema 14. Şema 13 yedekleri boş bulut bağlantılarıyla okunur. Sonraki şemalarda uyumluluk korunmalı. Taşınabilir ihracat gelecekte kullanıcı parolasıyla şifreleme gibi bağımsız anahtar yönetimi gerektirir.
 
 Doğrulama (2026-11-19): TypeScript/Vite build geçti; native depolama + DPAPI 61 test geçti; storage bridge 6 test geçti. Tam native kontrolün nedeni veri değiştiren restore ve şema geçişidir. Testler yalnızca geçici sentetik veri kullandı; canlı hesap verisiyle geri yükleme yapılmadı.
+
+Bu bölümün doğrulaması (2026-11-23): 61 native depolama testi, son native düzeltmeden sonra 5 hedefli akış testi, TypeScript/Vite build ve toplam 49 oturum/koordinatör testi. Canlı hesap kullanılmadı.

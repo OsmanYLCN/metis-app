@@ -103,6 +103,7 @@ pub fn create(path: &Path, owner: &TaskOwner, id: &str, title: &str) -> Result<T
 }
 pub fn set_completed(path: &Path, owner: &TaskOwner, id: &str, completed: bool) -> Result<Task, TaskError> {
     owner.validate()?;
+    let plan_cache=super::inbox::open(path)?;let _plan_lock=Transaction::begin(&plan_cache)?;super::outbound::ensure_no_plan(&plan_cache,owner,id)?;
     if !valid_id(id) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;
@@ -117,6 +118,7 @@ pub fn set_completed(path: &Path, owner: &TaskOwner, id: &str, completed: bool) 
 
 pub fn rename(path: &Path, owner: &TaskOwner, id: &str, title: &str, expected_title: &str) -> Result<Task, TaskError> {
     owner.validate()?;
+    let plan_cache=super::inbox::open(path)?;let _plan_lock=Transaction::begin(&plan_cache)?;super::outbound::ensure_no_plan(&plan_cache,owner,id)?;
     let title = title.trim();
     if !valid_id(id) || !valid_title(title) || !valid_title(expected_title) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
@@ -189,6 +191,7 @@ pub fn project_progress(path:&Path,owner:&TaskOwner,today:&str)->Result<Vec<Proj
 
 pub fn delete(path: &Path, owner: &TaskOwner, id: &str, expected_title: &str) -> Result<(), TaskError> {
     owner.validate()?;
+    let plan_cache=super::inbox::open(path)?;let _plan_lock=Transaction::begin(&plan_cache)?;super::outbound::ensure_no_plan(&plan_cache,owner,id)?;
     if !valid_id(id) || !valid_title(expected_title) { return Err(TaskError::InvalidInput); }
     let (db, _) = connect(path)?;
     let transaction = Transaction::begin(&db)?;

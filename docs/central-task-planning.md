@@ -37,6 +37,6 @@ Planlama ve proje işlemleri aynı hesap advisory lock’unu kullanır. Bağlı 
 
 ## Durum ve doğrulama
 
-Masaüstü plan düzenlemesi hâlâ yerel çalışır. Yerel outbox, ilk kayıt eşlemesi, buluttan indirme, kalıcı cursor ve çatışma çözümü bağlanmadı. Bu bölüm merkezi planın ve ilişkilerinin güvenli temelidir; tüm eşitlemenin tamamlandığı anlamına gelmez.
+Masaüstü planı kalıcı gönderim niyetiyle update edilir; otomatik tarama değişmiş proje/tarih/öncelik alanlarını gönderir. Görev/proje bağımlılığı ve ortak revision zinciri native tarafta korunur. Buluttan gelen plan mevcut karşılaştırma/onay yoluyla uygulanır. [İstemci akışı ve sınırlar](automatic-sync-recovery.md). Bu, otomatik iki yönlü alan birleştirme anlamına gelmez.
 
 Release build sıfır hata/uyarı. `npm.cmd run test:task-planning`: geçici PGlite üzerinde gerçek Npgsql+JWT/HTTP ile görev oluşturma, proje/not ayrımı, hesap sahipliği, tarih/öncelik sınırları, revision ve operation çatışmaları, silme tekrarı, silme sonrası eski makbuz tekrarı, task GET alanları ve feed’de güvenli detach/tombstone sırası doğrulandı. Gerçek çok oturumlu PostgreSQL yarış testi ve iki cihaz testi Paket 1 kabul koşulunda duruyor. Canlı veri, yerel SQLite ve EXE değiştirilmedi.

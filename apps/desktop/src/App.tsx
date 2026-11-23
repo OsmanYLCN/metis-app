@@ -1,3 +1,4 @@
+import { SyncRuntime } from './storage/SyncRuntime';
 import { DataSafetyView } from './storage/DataSafetyView';
 import { GlobalSearch } from './search/GlobalSearch';
 import { useEffect, useRef, useState } from 'react';
@@ -104,6 +105,7 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <SyncRuntime/>
       {searchOpen && <GlobalSearch onClose={()=>setSearchOpen(false)} navigate={navigate}/>}
       <a className="skip-link" href="#main">İçeriğe geç</a>
       <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`} aria-label="Ana gezinme">

@@ -477,6 +477,30 @@
           "markdownDescription": "Enables the project_progress command without any pre-configured scope."
         },
         {
+          "description": "Enables the recovery_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-recovery-apply",
+          "markdownDescription": "Enables the recovery_apply command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the recovery_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-recovery-begin",
+          "markdownDescription": "Enables the recovery_begin command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the recovery_finish command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-recovery-finish",
+          "markdownDescription": "Enables the recovery_finish command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the recovery_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-recovery-preview",
+          "markdownDescription": "Enables the recovery_preview command without any pre-configured scope."
+        },
+        {
           "description": "Enables the session_vault_clear command without any pre-configured scope.",
           "type": "string",
           "const": "allow-session-vault-clear",
@@ -493,6 +517,30 @@
           "type": "string",
           "const": "allow-session-vault-write",
           "markdownDescription": "Enables the session_vault_write command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_enable command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-enable",
+          "markdownDescription": "Enables the sync_enable command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-pending",
+          "markdownDescription": "Enables the sync_pending command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_scan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-scan",
+          "markdownDescription": "Enables the sync_scan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sync_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-status",
+          "markdownDescription": "Enables the sync_status command without any pre-configured scope."
         },
         {
           "description": "Enables the task_action_acknowledge command without any pre-configured scope.",
@@ -909,6 +957,30 @@
           "markdownDescription": "Denies the project_progress command without any pre-configured scope."
         },
         {
+          "description": "Denies the recovery_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-recovery-apply",
+          "markdownDescription": "Denies the recovery_apply command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the recovery_begin command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-recovery-begin",
+          "markdownDescription": "Denies the recovery_begin command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the recovery_finish command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-recovery-finish",
+          "markdownDescription": "Denies the recovery_finish command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the recovery_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-recovery-preview",
+          "markdownDescription": "Denies the recovery_preview command without any pre-configured scope."
+        },
+        {
           "description": "Denies the session_vault_clear command without any pre-configured scope.",
           "type": "string",
           "const": "deny-session-vault-clear",
@@ -925,6 +997,30 @@
           "type": "string",
           "const": "deny-session-vault-write",
           "markdownDescription": "Denies the session_vault_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_enable command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-enable",
+          "markdownDescription": "Denies the sync_enable command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_pending command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-pending",
+          "markdownDescription": "Denies the sync_pending command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_scan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-scan",
+          "markdownDescription": "Denies the sync_scan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-status",
+          "markdownDescription": "Denies the sync_status command without any pre-configured scope."
         },
         {
           "description": "Denies the task_action_acknowledge command without any pre-configured scope.",

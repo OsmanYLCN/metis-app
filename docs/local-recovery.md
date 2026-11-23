@@ -12,7 +12,7 @@
 
 ## Gönderim neden duraklar?
 
-Yedek eski bir tarihe aittir; buluttaki veri daha yeni olabilir. Restore sonrasında native recovery_guard hem elle hem otomatik görev gönderimini engeller. Mevcut sürümde güvenli uzlaştırma henüz yoktur; bu yüzden kilidi yeniden açma düğmesi yoktur. Normal kullanımda yalnızca yedek almak gönderimi durdurmaz.
+Yedek eski bir tarihe aittir; buluttaki veri daha yeni olabilir. Restore sonrasında native recovery_guard hem elle hem otomatik tüm gönderimleri engeller. Veri ve eşitleme ekranındaki kurtarma bölümü güncel bulutu tamamen okuyup karşılaştırır. Açık onayla bulut sürümleri uygulandıktan ve son kontrol eşleştikten sonra kilit açılabilir. [Adım adım uzlaştırma](automatic-sync-recovery.md). Normal kullanımda yalnızca yedek almak gönderimi durdurmaz.
 
 Sonucu belirsiz bir gönderim varsa önce aynı işlem kimliğiyle sonucu doğrulanmalıdır. Restore bu durumda reddedilir. Önizlemeden sonra veri değişirse yeni önizleme gerekir.
 
@@ -20,7 +20,7 @@ Sonucu belirsiz bir gönderim varsa önce aynı işlem kimliğiyle sonucu doğru
 
 Dosyalar yerel storage/backups/<hesap özeti>/ altında .metisbackup uzantısıyla saklanır. Arayüz gerçek klasör yolunu gösterir. Son 30 dosya listelenir; eski dosyalar otomatik silinmez. Tek dosyanın düz metin içeriği en çok 32 MiB, her tablo en çok 200.000 satırdır. Sınır aşılırsa eksik yedek oluşturulmaz; hata döner.
 
-Yedek formatı 1 / SQLite şema 13. Görev ilişkileri ve gönderim geçmişi dahil; oturum tokenları, API anahtarları, DB parolaları ve uygulama ayarları hariç. Başka hesapla geri yükleme reddedilir.
+Yedek formatı 1 / SQLite şema 14 (şema 13 yedekleri de okunur). Görev ilişkileri ve gönderim geçmişi dahil; oturum tokenları, API anahtarları, DB parolaları ve uygulama ayarları hariç. Başka hesapla geri yükleme reddedilir.
 
 DPAPI bu Windows kullanıcı profiline bağlıdır. Aynı diskteki yedek disk arızasını çözmez; farklı yere kopyalanabilir ancak profil/cihaz kaybında açılamayabilir. Bu sürüm taşınabilir dışa aktarma veya bozuk SQLite dosyasını otomatik onarma sağlamaz. Yerel SQLite’ın kendisi şifrelenmez.
 
@@ -30,4 +30,4 @@ Native host dosya yolunu seçer; web arayüzü keyfi dosya yolu veya SQL veremez
 
 Testler geçici veride çalışır. Kullanıcının canlı yedeği oluşturulmadı veya geri yüklenmedi.
 
-Şema 14 güncellemesi: yedekler cloud_bindings merkezi sürüm bağlantılarını da içerir. Şema 13 yedekleri boş bağlantılarla okunur; geri dönüş gönderim kilidini korur. Seçilen bulut kopyasını yerelde uygulama öncesinde aynı mekanizmayla otomatik güvenlik yedeği alınır. Ayrı cloud-inbox önbelleği yedeğe dahil değildir.
+Şema 14 güncellemesi: yedekler cloud_bindings merkezi sürüm bağlantılarını da içerir. Şema 13 yedekleri boş bağlantılarla okunur; geri dönüş gönderim kilidini korur. Seçilen bulut kopyasını yerelde uygulama öncesinde aynı mekanizmayla otomatik güvenlik yedeği alınır. Ayrı cloud-inbox dosyası kalıcı outbound isteklerini de içerir ve bu yedeğe dahil değildir. Bu dosyayı silmeyin; çözülmemiş outbound isteği varken geri yükleme reddedilir.

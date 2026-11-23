@@ -1,11 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
-import {loginStore,WorkspaceConflictError} from '../identity/login';
+import {WorkspaceConflictError} from '../identity/login';
+import {deliverWorkspace} from './sync';
 import type {TaskOwner} from '../tasks/client';
 type Removed={entity:string;id:string;title:string;digest:string};
-type Candidate=Removed&{pending:boolean;rejected:boolean;pendingAction:string;month:string;category:string};
+type Candidate=Removed&{pending:boolean;rejected:boolean;dirty:boolean;pendingAction:string;month:string;category:string};
 type Operation={entity:string;id:string;operationId:string;action:string;expectedRevision:number;payload:unknown};
 async function call<T>(name:string,args:Record<string,unknown>){return await window.__TAURI__!.core.invoke(name,args) as T;}
-const names:Record<string,string>={note:'Not',project:'Proje',goal:'Hedef',event:'Etkinlik',finance:'Finans',budget:'Bütçe'};
+const names:Record<string,string>={note:'Not',project:'Proje',goal:'Hedef',event:'Etkinlik',finance:'Finans',budget:'Bütçe',taskPlan:'Görev planı'};
 export function CloudUpload({owner}:{owner:TaskOwner}){
  const [items,setItems]=useState<Candidate[]>([]),[removed,setRemoved]=useState<Removed[]>([]);
  const [offset,setOffset]=useState(0),[removedOffset,setRemovedOffset]=useState(0),[confirmation,setConfirmation]=useState('');
@@ -22,12 +23,10 @@ export function CloudUpload({owner}:{owner:TaskOwner}){
  async function run(action:()=>Promise<void>){if(lock.current)return;lock.current=true;setBusy(true);try{await action();}catch(e){if(mounted.current)setMessage(e instanceof Error?e.message:e==='recoveryRequired'?'Yedekten dönüş nedeniyle gönderim kilitli.':e==='conflict'?'Kayıt değişti veya bulutla uzlaştırma gerekiyor. Listeyi yenile.':'Gönderim hazırlanamadı. Yerel veri korunuyor.');}finally{lock.current=false;if(mounted.current)setBusy(false);}}
  async function deliver(op:Operation,controller:AbortController){
   try{
-   const revision=await loginStore.sendWorkspace(owner,op,controller.signal);
-   await call('outbound_ack',{owner,entity:op.entity,id:op.id,operation:op.operationId,revision});
+   await deliverWorkspace(owner,op,controller.signal);
    if(mounted.current){await load(offset);setMessage(op.action==='delete'?'Buluttaki kayıt silindi. Yerel yeni kayıtlar korunuyor.':'Kayıt buluta gönderildi. Arada yaptığın yeni düzenlemeler sonraki gönderimde alınır.');}
   }catch(e){
    if(e instanceof WorkspaceConflictError){
-    await call('outbound_reject',{owner,entity:op.entity,id:op.id,operation:op.operationId});
     if(mounted.current)await load(offset);
    }
    throw e;
@@ -47,13 +46,13 @@ export function CloudUpload({owner}:{owner:TaskOwner}){
  }
  return <article className="panel">
   <h3>Yerel kayıtları buluta gönder</h3>
-  <p>Not, proje, hedef, takvim, finans ve bütçe kayıtlarını seçerek gönder. Görevler kendi gönderim alanını kullanır. Otomatik gönderim yoktur.</p>
+  <p>Not, proje, hedef, takvim, finans ve bütçe kayıtlarını seçerek gönder. Görevler kendi gönderim alanını kullanır. Otomatik gönderimi üstteki bölümden açabilirsin.</p>
   <p>Yarım kalan gönderim aynı işlemle tekrar denenir. Yalnızca sunucunun kesin olarak reddettiği istek kaldırılabilir; ardından bulut kopyasını aşağıdaki karşılaştırma alanından inceleyebilirsin.</p>
   <button className="text-button" disabled={busy} onClick={()=>void run(()=>load(0,0))}>Listeyi yenile</button>
   {message&&<p role="status">{message}</p>}
   <ul className="overview-list">{items.map(item=><li key={item.entity+item.id}>
-   <div><strong>{item.title||'Bekleyen işlem'}</strong><p>{names[item.entity]}{item.rejected?' · Sunucu reddetti':item.pending?(item.pendingAction==='delete'?' · Onaylanmış silme bekliyor':' · Yarım kalan gönderim'):''}</p></div>
-   <button className="secondary-button" disabled={busy} onClick={()=>void run(()=>item.rejected?discard(item):send(item))}>{item.rejected?'Reddedilen isteği kaldır':item.pending?(item.pendingAction==='delete'?'Aynı silmeyi tekrar dene':'Aynı gönderimi tekrar dene'):'Buluta gönder'}</button>
+   <div><strong>{item.title||(item.entity==='taskPlan'?'Görev planı':'Bekleyen işlem')}</strong><p>{names[item.entity]}{item.rejected?' · Sunucu reddetti':item.pending?(item.pendingAction==='delete'?' · Onaylanmış silme bekliyor':' · Yarım kalan gönderim'):''}</p></div>
+   <button className="secondary-button" disabled={busy||(!item.dirty&&!item.pending)} onClick={()=>void run(()=>item.rejected?discard(item):send(item))}>{item.rejected?'Reddedilen isteği kaldır':item.pending?(item.pendingAction==='delete'?'Aynı silmeyi tekrar dene':'Aynı gönderimi tekrar dene'):item.dirty?'Buluta gönder':'Güncel'}</button>
   </li>)}</ul>
   <div className="workspace-quick-links"><button disabled={busy||offset===0} className="text-button" onClick={()=>void run(()=>load(Math.max(0,offset-50)))}>Önceki</button><button disabled={busy||items.length<50} className="text-button" onClick={()=>void run(()=>load(offset+50))}>Sonraki</button></div>
   <h3>Cihazdan sildiklerin</h3>

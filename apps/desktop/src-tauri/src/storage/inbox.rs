@@ -36,9 +36,10 @@ pub(super) fn open(path:&Path)->Result<Connection,TaskError>{
   db.execute("CREATE TABLE inbox_state(project TEXT NOT NULL,user_id TEXT NOT NULL,cursor TEXT NOT NULL,PRIMARY KEY(project,user_id));
   CREATE TABLE inbox_records(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,deleted INTEGER NOT NULL,snapshot TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id));
   PRAGMA application_id=1296389193; PRAGMA user_version=1;")?;
- }else if !matches!(version.as_str(),"1"|"2"|"3")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
- if !matches!(version.as_str(),"2"|"3") {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
- if version!="3" {db.execute("ALTER TABLE outbound ADD COLUMN action TEXT NOT NULL DEFAULT 'update'; UPDATE outbound SET action='create' WHERE expected=0; ALTER TABLE outbound ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'; PRAGMA user_version=3;")?;}
+ }else if !matches!(version.as_str(),"1"|"2"|"3"|"4")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
+ if !matches!(version.as_str(),"2"|"3"|"4") {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
+ if !matches!(version.as_str(),"3"|"4") {db.execute("ALTER TABLE outbound ADD COLUMN action TEXT NOT NULL DEFAULT 'update'; UPDATE outbound SET action='create' WHERE expected=0; ALTER TABLE outbound ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'; PRAGMA user_version=3;")?;}
+ if version!="4" {db.execute("CREATE TABLE sync_control(project TEXT NOT NULL,user_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,caught_up INTEGER NOT NULL DEFAULT 0,recovering TEXT NOT NULL DEFAULT '',PRIMARY KEY(project,user_id)); PRAGMA user_version=4;")?;}
  tx.commit()?;Ok(db)
 }
 fn state(db:&Connection,o:&TaskOwner)->Result<Status,TaskError>{
@@ -84,6 +85,7 @@ pub fn stage(path:&Path,o:&TaskOwner,expected:&str,page:Page)->Result<Status,Tas
  if pos!=next{return Err(bad())}
  if state(&db,o)?.records>20000{return Err(bad())}
  db.query("INSERT INTO inbox_state VALUES(?1,?2,?3) ON CONFLICT(project,user_id) DO UPDATE SET cursor=excluded.cursor",&[&o.project_ref,&o.user_id,&page.next_cursor])?;
+ db.query("INSERT INTO sync_control(project,user_id,caught_up) VALUES(?1,?2,CASE WHEN ?3='0' THEN unixepoch() ELSE 0 END) ON CONFLICT(project,user_id) DO UPDATE SET caught_up=excluded.caught_up",&[&o.project_ref,&o.user_id,if page.has_more{"1"}else{"0"}])?;
  let result=state(&db,o)?;tx.commit()?;Ok(result)
 }
 pub(super) fn local(db:&Connection,o:&TaskOwner,kind:&str,key:&str,cloud:&Value)->Result<Option<Value>,TaskError>{
@@ -252,10 +254,124 @@ mod tests {
     CREATE TABLE outbound(project TEXT,user_id TEXT,entity TEXT,id TEXT,operation TEXT,expected INTEGER,payload TEXT,PRIMARY KEY(project,user_id,entity,id));
     INSERT INTO outbound VALUES('p','u','note','n','op1',0,'{}'),('p','u','note','m','op2',7,'{}');").unwrap();
   }
-  let db=open(&path).unwrap();assert_eq!(db.scalar("PRAGMA user_version").unwrap(),"3");
+  let db=open(&path).unwrap();assert_eq!(db.scalar("PRAGMA user_version").unwrap(),"4");
   let rows=db.query("SELECT operation,expected,payload,action,state FROM outbound ORDER BY expected",&[]).unwrap();
   assert_eq!(rows[0],vec!["op1","0","{}","create","pending"]);
   assert_eq!(rows[1],vec!["op2","7","{}","update","pending"]);
+ }
+
+ #[test]
+ fn pipeline_scans_changed_records_and_durable_deletions(){
+  use crate::storage::{outbound,sync,workspace};
+  let t=Temp::new();let o=owner();let path=t.db();let key="b".repeat(32);
+  workspace::create(&path,&o,&key,"note","First","Body","active",false).unwrap();
+  sync::enable(&path,&o,true).unwrap();assert!(sync::status(&path,&o).unwrap().enabled);
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  let pending=sync::pending(&path,&o).unwrap().remove(0);
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,0);
+  assert_eq!(sync::pending(&path,&o).unwrap()[0].operation_id,pending.operation_id);
+  outbound::acknowledge(&path,&o,"note",&key,&pending.operation_id,1).unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,0);
+  assert!(!outbound::list(&path,&o,0).unwrap()[0].dirty);
+  workspace::save(&path,&o,&key,"note",1,"Second","Body","active",false).unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  let changed=sync::pending(&path,&o).unwrap().remove(0);assert_eq!(changed.expected_revision,1);
+  outbound::acknowledge(&path,&o,"note",&key,&changed.operation_id,2).unwrap();
+  workspace::delete(&path,&o,&key,"note",2).unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  assert_eq!(sync::pending(&path,&o).unwrap()[0].action,"delete");
+  let mut other=owner();other.project_ref="another-project".into();
+  assert!(!sync::status(&path,&other).unwrap().enabled);assert!(sync::pending(&path,&other).unwrap().is_empty());
+ }
+ #[test]
+ fn pipeline_task_plan_serializes_revision_and_preserves_new_edits(){
+  use crate::storage::{outbound,outbox,tasks,sync};
+  let t=Temp::new();let o=owner();let path=t.db();let key="c".repeat(32);
+  tasks::create(&path,&o,&key,"Task").unwrap();
+  tasks::set_planning(&path,&o,&key,None,Some("2026-12-01"),2).unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,0);
+  let create=outbox::pending(&path,&o,0).unwrap().remove(0);
+  outbox::begin_delivery(&path,&o,create.sequence).unwrap();
+  outbox::acknowledge(&path,&o,&create.operation_id,&key,1,"applied").unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  let plan=sync::pending(&path,&o).unwrap().remove(0);
+  assert_eq!(plan.entity,"taskPlan");assert_eq!(plan.expected_revision,1);
+  assert_eq!(plan.payload,json!({"projectId":null,"dueDate":"2026-12-01","priority":2}));
+  let remote=json!({"id":key,"title":"Cloud task","completed":false,"projectId":null,"dueDate":null,"priority":0,"revision":2,"deletedAt":null});
+  stage(&path,&o,"",Page{contract_version:1,items:vec![Change{position:"1".into(),entity:"task".into(),entity_id:key.clone(),revision:2,deleted:false,snapshot:remote}],next_cursor:format!("{}.{}.1","a".repeat(32),o.user_id.replace('-', "")),has_more:false}).unwrap();
+  let compared=compare(&path,&o,0).unwrap().items.remove(0);
+  assert!(apply(&path,&o,"task",&key,&compared.local_digest,&compared.cloud_digest).is_err());
+  assert!(tasks::rename(&path,&o,&key,"Other","Task").is_err());
+  assert!(outbox::prepare_action(&path,&o,&key,"complete",Some(true)).is_err());
+  tasks::set_planning(&path,&o,&key,None,Some("2026-12-02"),3).unwrap();
+  outbound::acknowledge(&path,&o,"taskPlan",&key,&plan.operation_id,2).unwrap();
+  let (db,_)=crate::storage::connect(&path).unwrap();assert_eq!(outbox::latest_revision(&db,&o,&key).unwrap(),Some(2));drop(db);
+  assert_eq!(tasks::list(&path,&o,0).unwrap().items[0].due_date.as_deref(),Some("2026-12-02"));
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  let next=sync::pending(&path,&o).unwrap().remove(0);assert_eq!(next.expected_revision,2);
+  outbound::acknowledge(&path,&o,"taskPlan",&key,&next.operation_id,3).unwrap();
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,0);
+  tasks::rename(&path,&o,&key,"Renamed","Task").unwrap();
+  let rename=outbox::pending(&path,&o,0).unwrap().remove(0);assert_eq!(rename.expected_revision,3);
+ }
+ #[test]
+ fn pipeline_recovery_requires_complete_fresh_cloud_and_keeps_local_only(){
+  use crate::storage::{backup,sync,workspace,tasks,outbox};
+  let t=Temp::new();let o=owner();let path=t.db();let key="b".repeat(32);let local_task="c".repeat(32);
+  workspace::create(&path,&o,&key,"note","Old local","Body","active",false).unwrap();
+  tasks::create(&path,&o,&local_task,"Local only").unwrap();
+  let saved=backup::create(&path,&o).unwrap();
+  let preview=backup::preview(&path,&o,&saved.id).unwrap();
+  backup::restore(&path,&o,&saved.id,&preview.current_digest,&preview.backup_digest).unwrap();
+  assert!(sync::enable(&path,&o,true).is_err());assert!(sync::recovery_preview(&path,&o).is_err());
+  sync::recovery_begin(&path,&o).unwrap();
+  assert!(sync::status(&path,&o).unwrap().recovering);
+  assert!(outbox::pending(&path,&o,0).unwrap().is_empty());
+  let mut partial=page(&o,1,2,false,"Cloud");partial.has_more=true;
+  let staged=stage(&path,&o,"",partial).unwrap();
+  assert!(sync::recovery_preview(&path,&o).is_err());
+  stage(&path,&o,&staged.cursor,Page{contract_version:1,items:vec![],next_cursor:staged.cursor.clone(),has_more:false}).unwrap();
+  let preview=sync::recovery_preview(&path,&o).unwrap();assert_eq!(preview.different,1);assert_eq!(preview.local_only,1);
+  assert!(sync::recovery_finish(&path,&o,&preview.digest).is_err());
+  workspace::save(&path,&o,&key,"note",1,"New local","Body","active",false).unwrap();
+  assert!(sync::recovery_apply(&path,&o,&preview.digest).is_err());
+  let preview=sync::recovery_preview(&path,&o).unwrap();
+  sync::recovery_apply(&path,&o,&preview.digest).unwrap();
+  assert_eq!(workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"Cloud");
+  assert_eq!(tasks::list(&path,&o,0).unwrap().items[0].title,"Local only");
+  let preview=sync::recovery_preview(&path,&o).unwrap();assert_eq!(preview.different,0);
+  {
+   let cache=open(&path).unwrap();cache.query("UPDATE sync_control SET caught_up=1 WHERE project=?1 AND user_id=?2",&[&o.project_ref,&o.user_id]).unwrap();
+  }
+  assert!(sync::recovery_finish(&path,&o,&preview.digest).is_err());
+  stage(&path,&o,&staged.cursor,Page{contract_version:1,items:vec![],next_cursor:staged.cursor.clone(),has_more:false}).unwrap();
+  sync::recovery_finish(&path,&o,&preview.digest).unwrap();
+  assert!(!sync::status(&path,&o).unwrap().paused);
+  assert_eq!(outbox::pending(&path,&o,0).unwrap().len(),1);
+  assert!(sync::recovery_finish(&path,&o,&preview.digest).is_err());
+ }
+ #[test]
+ fn pipeline_restore_refuses_unresolved_workspace_request(){
+  use crate::storage::{backup,outbound,workspace};
+  let t=Temp::new();let o=owner();let path=t.db();let key="b".repeat(32);
+  workspace::create(&path,&o,&key,"note","Note","Body","active",false).unwrap();
+  let saved=backup::create(&path,&o).unwrap();let preview=backup::preview(&path,&o,&saved.id).unwrap();
+  let item=outbound::list(&path,&o,0).unwrap().remove(0);
+  let op=outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();
+  assert!(backup::restore(&path,&o,&saved.id,&preview.current_digest,&preview.backup_digest).is_err());
+  assert_eq!(outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap().operation_id,op.operation_id);
+ }
+
+ #[test]
+ fn pipeline_old_local_tasks_are_queued_once_without_guessing_cloud_revision(){
+  use crate::storage::{tasks,outbox,sync};
+  let t=Temp::new();let o=owner();let path=t.db();let key="f".repeat(32);
+  tasks::create(&path,&o,&key,"Legacy task").unwrap();
+  {let(db,_)=crate::storage::connect(&path).unwrap();db.query("DELETE FROM task_outbox WHERE task_id=?1",&[&key]).unwrap();}
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,1);
+  let first=outbox::pending(&path,&o,0).unwrap().remove(0);assert_eq!(first.expected_revision,0);assert_eq!(first.kind,"create");
+  assert_eq!(sync::scan(&path,&o,0).unwrap().queued,0);
+  assert_eq!(outbox::pending(&path,&o,0).unwrap()[0].operation_id,first.operation_id);
  }
 
 }
@@ -280,14 +396,18 @@ pub(super) fn import_valid(kind:&str,p:&Value)->bool{
 #[serde(rename_all="camelCase")]
 pub struct Applied {pub safety_backup:Option<String>}
 pub fn apply(path:&Path,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_digest:&str)->Result<Applied,TaskError>{
- o.validate()?;fields(kind)?;if id(key).as_deref()!=Some(key){return Err(bad())}
- let cache=open(path)?;let cache_tx=Transaction::begin(&cache)?;
+ o.validate()?;let cache=open(path)?;let cache_tx=Transaction::begin(&cache)?;let(db,_)=super::connect(path)?;let tx=Transaction::begin(&db)?;
+ let result=apply_record(path,&db,&cache,o,kind,key,local_digest,cloud_digest,true)?;
+ tx.commit()?;cache_tx.commit()?;Ok(result)
+}
+pub(super) fn apply_record(path:&Path,db:&Connection,cache:&Connection,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_digest:&str,take_backup:bool)->Result<Applied,TaskError>{
+ fields(kind)?;if id(key).as_deref()!=Some(key){return Err(bad())}
  let rows=cache.query("SELECT revision,deleted,snapshot FROM inbox_records WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?;
- if !cache.query("SELECT id FROM outbound WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?.is_empty(){return Err(TaskError::Conflict)}
+ if !cache.query("SELECT id FROM outbound WHERE project=?1 AND user_id=?2 AND (entity=?3 OR (?3='task' AND entity='taskPlan')) AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?.is_empty(){return Err(TaskError::Conflict)}
  let row=rows.first().ok_or(TaskError::NotFound)?;let snapshot:Value=serde_json::from_str(&row[2]).map_err(|_|bad())?;
  if digest(&snapshot)?!=cloud_digest{return Err(TaskError::Conflict)}let cloud=canonical(kind,&snapshot)?;if !import_valid(kind,&cloud){return Err(bad())}
  let revision:i64=row[0].parse().map_err(|_|bad())?;let deleted=row[1]=="1";
- let(db,_)=super::connect(path)?;let tx=Transaction::begin(&db)?;let current=local(&db,o,kind,key,&cloud)?;
+ let current=local(&db,o,kind,key,&cloud)?;
  if digest(&json!(current))?!=local_digest{return Err(TaskError::Conflict)}
  if kind=="task"{
   if !db.query("SELECT 1 FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged' UNION ALL SELECT 1 FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged'",&[&o.project_ref,&o.user_id,key])?.is_empty(){return Err(TaskError::Conflict)}
@@ -298,13 +418,13 @@ pub fn apply(path:&Path,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_
  if kind=="project"&&deleted&&!db.query("SELECT task_id FROM task_attributes WHERE project_ref=?1 AND user_id=?2 AND project_id=?3",&[&o.project_ref,&o.user_id,key])?.is_empty(){return Err(TaskError::Conflict)}
  let bindings=db.query("SELECT id,revision,snapshot FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2 AND entity=?3",&[&o.project_ref,&o.user_id,kind])?;
  for binding in bindings{
-  if binding[0]==key && binding[1]==revision.to_string() && binding[2]==row[2] && (if deleted{current.is_none()}else{current.as_ref()==Some(&cloud)}){tx.commit()?;cache_tx.commit()?;return Ok(Applied{safety_backup:None})}
+  if binding[0]==key && binding[1]==revision.to_string() && binding[2]==row[2] && (if deleted{current.is_none()}else{current.as_ref()==Some(&cloud)}){return Ok(Applied{safety_backup:None})}
   if binding[0]==key&&binding[1].parse::<i64>().map_err(|_|bad())?>revision{return Err(TaskError::Conflict)}
   if kind=="budget"&&binding[0]!=key{let other:Value=serde_json::from_str(&binding[2]).map_err(|_|bad())?;
    if other["deletedAt"].is_null()&&other["month"]==cloud["month"]&&other["category"]==cloud["category"]{return Err(TaskError::Conflict)}}
  }
  // A safety snapshot must be written successfully before any business row changes.
- let safety=super::backup::safety_copy(path,&db,o)?;
+ let safety=if take_backup{Some(super::backup::safety_copy(path,db,o)?.id)}else{None};
  let(table,cols)=match kind{
  "task"=>("tasks",vec!["title","completed"]),"note"|"project"=>("workspace_entries",vec!["kind","title","body","state","pinned"]),
  "goal"=>("goals",vec!["title","description","state","target_date","progress"]),"event"=>("calendar_events",vec!["title","details","event_date","start_time","end_time"]),
@@ -327,5 +447,5 @@ pub fn apply(path:&Path,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_
  if kind=="task"&&!deleted{db.query("INSERT INTO task_attributes(task_id,project_ref,user_id,project_id,due_date,priority) VALUES(?1,?2,?3,NULLIF(?4,''),NULLIF(?5,''),?6) ON CONFLICT(task_id) DO UPDATE SET project_id=excluded.project_id,due_date=excluded.due_date,priority=excluded.priority",&[key,&o.project_ref,&o.user_id,&text("projectId"),&text("dueDate"),&text("priority")])?;}
  let after=local(&db,o,kind,key,&cloud)?;if if deleted{after.is_some()}else{after.as_ref()!=Some(&cloud)}{return Err(TaskError::Conflict)}
  db.query("INSERT INTO cloud_bindings VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(project_ref,user_id,entity,id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot",&[&o.project_ref,&o.user_id,kind,key,&revision.to_string(),&row[2]])?;
- tx.commit()?;cache_tx.commit()?;Ok(Applied{safety_backup:Some(safety.id)})
+ Ok(Applied{safety_backup:safety})
 }

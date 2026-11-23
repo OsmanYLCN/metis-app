@@ -10,6 +10,7 @@ pub mod notifications;
 pub mod backup;
 pub mod inbox;
 pub mod outbound;
+pub mod sync;
 #[cfg(test)]
 mod tests;
 
