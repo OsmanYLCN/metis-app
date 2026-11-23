@@ -1,3 +1,4 @@
+import { CloudUpload } from './CloudUpload';
 import { CloudInbox } from './CloudInbox';
 import { syncPendingTasks } from '../tasks/sync';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -66,6 +67,7 @@ function Board({ owner }: { owner: TaskOwner }) {
     <div className="overview-columns"><article className="panel"><h3>Bu cihaz</h3><p>Görev, proje, not, hedef, takvim, finans ve bütçe kayıtları SQLite içinde tutulur.</p></article><article className="panel"><h3>Bulut kapsamı</h3><p>Görev başlığı, tamamlanma ve silme işlemleri gönderilebilir. Tüm desteklenen modüllerin bulut değişiklikleri aşağıda önbelleğe alınabilir. Seçilen bulut kaydı karşılaştırmadan sonra onayla uygulanabilir. Tam otomatik eşitleme henüz yok.</p></article></div>
     {data?.paused && <p className="workspace-error" role="status">Yedekten dönüş sonrası buluta gönderim duraklatıldı. Yerel verilerin açık kalır; bulutla bağlantılı görev işlemleri engellenir. Bulutla karşılaştırma ve uzlaştırma hazır olana kadar bu kilit açılmayacak.</p>}
     <article className="panel"><h3>Görev gönderim durumu</h3>{delivery?<><p>{delivery.pending} bekleyen · {delivery.conflicts} çakışan · {delivery.uncertain} sonucu henüz doğrulanmamış işlem.</p><button className="secondary-button" disabled={busy||delivery.paused||delivery.pending===0} onClick={()=>void run(send)}>Bekleyen görev işlemlerini gönder</button><p className="section-description">Bir seferde en fazla 100 işlem gönderilir. Bu düğme diğer modülleri eşitlemez ve buluttan veri indirmez.</p></>:<p>Gönderim durumu alınamadı.</p>}</article>
+    <CloudUpload owner={owner} />
     <CloudInbox owner={owner} />
     <article className="panel"><h3>Şifreli yerel yedekler</h3><p>Yedek yalnızca bu Metis hesabının kayıtlarını ve gönderim geçmişini içerir; parola ve oturum anahtarlarını içermez. Windows profilinle şifrelenir. Aynı Windows profili ve desteklenen şema sürümüyle geri yüklenebilir; başka cihaza taşınabilir bir yedek değildir.</p><p>Dosyalar bu diskte tutulur. Disk arızasına karşı ayrıca güvenli bir konuma kopyalanmalıdır; Windows profilinin kaybında çözülemeyebilir.</p><button className="primary-button" disabled={busy} onClick={() => void run(create)}><Download size={16} /> Şimdi yerel yedek al</button>{data && <p className="section-description">Yedek klasörü: <code style={{ overflowWrap: 'anywhere' }}>{data.directory}</code></p>}</article>
     {error && <p className="workspace-error" role="alert">{error}</p>}{notice && <p className="workspace-notice" role="status">{notice}</p>}

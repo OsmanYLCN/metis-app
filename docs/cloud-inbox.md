@@ -1,3 +1,5 @@
+> Güncelleme: elle gönderim eklendi. cloud-inbox.sqlite3 artık outbound işlem kayıtlarını da içerdiği için silinebilir önbellek değildir. [Güncel gönderim kapsamı ve yedek sınırları](manual-cloud-upload.md).
+
 # Masaüstünde bulut indirme ve karşılaştırma
 
 ## Kullanım

@@ -25,7 +25,7 @@ fn cursor(s:&str,owner:&TaskOwner)->Result<(String,i64),TaskError>{
  let parts:Vec<_>=s.split('.').collect();if parts.len()!=3||parts[0].len()!=32||id(parts[0]).is_none()||parts[1]!=owner.user_id.replace('-',""){return Err(bad())}
  let pos:i64=parts[2].parse().map_err(|_|bad())?;if pos<0||pos.to_string()!=parts[2]{return Err(bad())}Ok((parts[0].into(),pos))
 }
-fn open(path:&Path)->Result<Connection,TaskError>{
+pub(super) fn open(path:&Path)->Result<Connection,TaskError>{
  let parent=path.parent().ok_or(StorageError::Unavailable)?;std::fs::create_dir_all(parent).map_err(|_|StorageError::Unavailable)?;
  let db=Connection::open(&parent.join("cloud-inbox.sqlite3"))?;
  db.execute("PRAGMA synchronous=FULL; PRAGMA trusted_schema=OFF;")?;
@@ -36,7 +36,8 @@ fn open(path:&Path)->Result<Connection,TaskError>{
   db.execute("CREATE TABLE inbox_state(project TEXT NOT NULL,user_id TEXT NOT NULL,cursor TEXT NOT NULL,PRIMARY KEY(project,user_id));
   CREATE TABLE inbox_records(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,deleted INTEGER NOT NULL,snapshot TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id));
   PRAGMA application_id=1296389193; PRAGMA user_version=1;")?;
- }else if version!="1"||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
+ }else if !matches!(version.as_str(),"1"|"2")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
+ if version!="2" {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
  tx.commit()?;Ok(db)
 }
 fn state(db:&Connection,o:&TaskOwner)->Result<Status,TaskError>{
@@ -49,7 +50,7 @@ fn fields(kind:&str)->Result<&'static [&'static str],TaskError>{Ok(match kind{
  "task"=>&["title","completed","projectId","dueDate","priority"],"note"|"project"=>&["title","body","state","pinned"],
  "goal"=>&["title","description","state","targetDate","progress"],"event"=>&["title","details","eventDate","startTime","endTime"],
  "finance"=>&["title","direction","category","amountCents","entryDate","currency"],"budget"=>&["month","category","limitCents","currency"],_=>return Err(bad())})}
-fn canonical(kind:&str,p:&Value)->Result<Value,TaskError>{
+pub(super) fn canonical(kind:&str,p:&Value)->Result<Value,TaskError>{
  if !p.is_object(){return Err(bad())}let mut result=serde_json::Map::new();
  for &key in fields(kind)? {
   let default=if kind=="task"&&key=="priority"{json!(0)}else{Value::Null};
@@ -84,7 +85,7 @@ pub fn stage(path:&Path,o:&TaskOwner,expected:&str,page:Page)->Result<Status,Tas
  db.query("INSERT INTO inbox_state VALUES(?1,?2,?3) ON CONFLICT(project,user_id) DO UPDATE SET cursor=excluded.cursor",&[&o.project_ref,&o.user_id,&page.next_cursor])?;
  let result=state(&db,o)?;tx.commit()?;Ok(result)
 }
-fn local(db:&Connection,o:&TaskOwner,kind:&str,key:&str,cloud:&Value)->Result<Option<Value>,TaskError>{
+pub(super) fn local(db:&Connection,o:&TaskOwner,kind:&str,key:&str,cloud:&Value)->Result<Option<Value>,TaskError>{
  let sql=match kind{
  "task"=>"SELECT t.title,t.completed,COALESCE(a.project_id,''),COALESCE(a.due_date,''),COALESCE(a.priority,0) FROM tasks t LEFT JOIN task_attributes a ON a.task_id=t.id WHERE t.project_ref=?1 AND t.user_id=?2 AND t.id=?3",
  "note"=>"SELECT title,body,state,pinned FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND id=?3 AND kind='note'",
@@ -178,16 +179,30 @@ mod tests {
   assert_eq!(crate::storage::workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"New local edit");
  }
 
+ #[test]
+ fn outbound_freezes_retry_and_ack_preserves_new_local_edits(){
+  let t=Temp::new();let o=owner();let path=t.db();let key="b".repeat(32);
+  crate::storage::workspace::create(&path,&o,&key,"note","First","Text","active",false).unwrap();
+  let item=crate::storage::outbound::list(&path,&o,0).unwrap().remove(0);
+  let first=crate::storage::outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();assert_eq!(first.action,"create");
+  crate::storage::workspace::save(&path,&o,&key,"note",1,"Second","Text","active",false).unwrap();
+  let retry=crate::storage::outbound::prepare(&path,&o,"note",&key,"stale","","").unwrap();assert_eq!(retry.operation_id,first.operation_id);assert_eq!(retry.payload["title"],"First");
+  assert!(crate::storage::outbound::acknowledge(&path,&o,"note",&key,&first.operation_id,2).is_err());
+  crate::storage::outbound::acknowledge(&path,&o,"note",&key,&first.operation_id,1).unwrap();
+  assert_eq!(crate::storage::workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"Second");
+  let item=crate::storage::outbound::list(&path,&o,0).unwrap().remove(0);let next=crate::storage::outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();assert_eq!(next.action,"update");assert_eq!(next.expected_revision,1);assert_eq!(next.payload["title"],"Second");
+ }
+
 }
 
-fn digest(v:&Value)->Result<String,TaskError>{use sha2::{Digest,Sha256};Ok(format!("{:x}",Sha256::digest(serde_json::to_vec(v).map_err(|_|bad())?)))}
+pub(super) fn digest(v:&Value)->Result<String,TaskError>{use sha2::{Digest,Sha256};Ok(format!("{:x}",Sha256::digest(serde_json::to_vec(v).map_err(|_|bad())?)))}
 fn valid_day(s:&str)->bool{
  let b=s.as_bytes();if b.len()!=10||s.starts_with("0000")||!b.iter().enumerate().all(|(i,c)|if i==4||i==7{*c==b'-'}else{c.is_ascii_digit()}){return false}
  let y=s[..4].parse::<u32>().unwrap_or(0);let m=s[5..7].parse::<u32>().unwrap_or(0);let d=s[8..].parse::<u32>().unwrap_or(0);
  let max=match m{1|3|5|7|8|10|12=>31,4|6|9|11=>30,2 if y%4==0&&(y%100!=0||y%400==0)=>29,2=>28,_=>0};d>0&&d<=max
 }
 fn valid_clock(s:&str)->bool{let b=s.as_bytes();b.len()==5&&b[2]==b':'&&[0,1,3,4].iter().all(|&i|b[i].is_ascii_digit())&&s[..2].parse::<u8>().is_ok_and(|h|h<24)&&s[3..].parse::<u8>().is_ok_and(|m|m<60)}
-fn import_valid(kind:&str,p:&Value)->bool{
+pub(super) fn import_valid(kind:&str,p:&Value)->bool{
  for &field in fields(kind).unwrap_or(&[]){if let Some(s)=p[field].as_str(){let multi=matches!(field,"body"|"description"|"details");let max=match field{"body"=>20000,"description"=>10000,"details"=>5000,"category"=>60,_=>200};if s.chars().count()>max||s.chars().any(|c|c.is_control()&&!(multi&&matches!(c,'\n'|'\r'|'\t'))){return false}if matches!(field,"title"|"category")&&(s.is_empty()||s.trim()!=s){return false}if matches!(field,"dueDate"|"targetDate"|"eventDate"|"entryDate")&&!valid_day(s){return false}}}
  match kind{
  "note"=>p["state"]=="active", "project"=>matches!(p["state"].as_str(),Some("active"|"paused"|"done"))&&p["pinned"]==false,
@@ -203,6 +218,7 @@ pub fn apply(path:&Path,o:&TaskOwner,kind:&str,key:&str,local_digest:&str,cloud_
  o.validate()?;fields(kind)?;if id(key).as_deref()!=Some(key){return Err(bad())}
  let cache=open(path)?;let cache_tx=Transaction::begin(&cache)?;
  let rows=cache.query("SELECT revision,deleted,snapshot FROM inbox_records WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?;
+ if !cache.query("SELECT id FROM outbound WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?.is_empty(){return Err(TaskError::Conflict)}
  let row=rows.first().ok_or(TaskError::NotFound)?;let snapshot:Value=serde_json::from_str(&row[2]).map_err(|_|bad())?;
  if digest(&snapshot)?!=cloud_digest{return Err(TaskError::Conflict)}let cloud=canonical(kind,&snapshot)?;if !import_valid(kind,&cloud){return Err(bad())}
  let revision:i64=row[0].parse().map_err(|_|bad())?;let deleted=row[1]=="1";

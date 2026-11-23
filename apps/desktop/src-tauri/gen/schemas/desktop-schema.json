@@ -393,6 +393,24 @@
           "markdownDescription": "Enables the notifications_set command without any pre-configured scope."
         },
         {
+          "description": "Enables the outbound_ack command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-ack",
+          "markdownDescription": "Enables the outbound_ack command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbound_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-list",
+          "markdownDescription": "Enables the outbound_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbound_prepare command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-prepare",
+          "markdownDescription": "Enables the outbound_prepare command without any pre-configured scope."
+        },
+        {
           "description": "Enables the outbox_acknowledge command without any pre-configured scope.",
           "type": "string",
           "const": "allow-outbox-acknowledge",
@@ -781,6 +799,24 @@
           "type": "string",
           "const": "deny-notifications-set",
           "markdownDescription": "Denies the notifications_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_ack command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-ack",
+          "markdownDescription": "Denies the outbound_ack command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-list",
+          "markdownDescription": "Denies the outbound_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_prepare command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-prepare",
+          "markdownDescription": "Denies the outbound_prepare command without any pre-configured scope."
         },
         {
           "description": "Denies the outbox_acknowledge command without any pre-configured scope.",

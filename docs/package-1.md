@@ -67,6 +67,14 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Pending görev, eksik proje, bağlı proje silme ve bütçe kimlik çatışmalarında işlem reddi.
 - Tam otomatik eşitleme, diğer modüllerin gönderimi ve recovery_guard uzlaştırması hâlâ eksik.
 
+## Tamamlanan sekizinci bölüm — altı modülde elle create/update gönderimi
+
+- Yerel kayıt listesi ve kullanıcı seçimiyle not/proje/hedef/etkinlik/finans/bütçe gönderimi.
+- Diskte dondurulmuş işlem kimliği/payload; oturum bağlı HTTP, sıkı makbuz doğrulaması.
+- Makbuz yerel yeni düzenlemeyi ezmez; merkezi revision bağı güncellenir.
+- Inbox şema 2 artık outbound niyetlerini içerir; silinebilir önbellek değildir. Bu dosyanın yedek kapsamına dahil edilmesi kalan iştir.
+- Silme gönderimi, 409 çözümü ve otomatik eşitleme henüz yok. [Kullanım ve sınırlar](manual-cloud-upload.md).
+
 ## Devam sırası — kalan işler
 
 1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.

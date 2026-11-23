@@ -299,3 +299,20 @@ describe('cloud change download', () => {
   store.suspend();finish(json({items:[]}));await pending;
  });
 });
+
+describe('workspace delivery',()=>{
+ const owner={projectRef:'test-project',userId:session.user.id};
+ const op={entity:'note',id:'a'.repeat(32),operationId:'b'.repeat(32),action:'create',expectedRevision:0,payload:{title:'Note',body:'',state:'active',pinned:false}};
+ it('validates receipts and does not accept a different record',async()=>{
+  await store.signIn('user@example.test','password');
+  fetcher.mockResolvedValueOnce(json({operationId:op.operationId,id:op.id,kind:'note',revision:1,replay:false}));
+  await expect(store.sendWorkspace(owner,op,new AbortController().signal)).resolves.toBe(1);
+  fetcher.mockResolvedValueOnce(json({operationId:op.operationId,id:'wrong',kind:'note',revision:1,replay:false}));
+  await expect(store.sendWorkspace(owner,op,new AbortController().signal)).rejects.toThrow('doğrulanamadı');
+ });
+ it('rejects wrong owner and surfaces conflicts without silently retrying',async()=>{
+  await store.signIn('user@example.test','password');fetcher.mockClear();
+  await expect(store.sendWorkspace({...owner,userId:'other'},op,new AbortController().signal)).rejects.toThrow('Oturum');expect(fetcher).not.toHaveBeenCalled();
+  fetcher.mockResolvedValueOnce(json({},409));await expect(store.sendWorkspace(owner,op,new AbortController().signal)).rejects.toThrow('çatışma');expect(fetcher).toHaveBeenCalledTimes(1);
+ });
+});

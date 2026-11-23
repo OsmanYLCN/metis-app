@@ -25,6 +25,21 @@ export class LoginStore {
   constructor(private readonly config?: LoginConfig, private readonly vault?: SessionVault) { }
   canRemember = () => !!this.vault;
   getSnapshot = () => this.view;
+  async sendWorkspace(owner: {projectRef:string;userId:string}, op: {entity:string;id:string;operationId:string;action:string;expectedRevision:number;payload:unknown}, signal:AbortSignal):Promise<number> {
+    const token=this.accessToken, generation=this.generation;
+    const active=()=>!signal.aborted&&generation===this.generation&&token===this.accessToken&&!!token&&this.view.phase==='signedIn'&&this.view.expiresAt>Date.now()&&this.view.userId.toLowerCase()===owner.userId&&!!this.config&&new URL(this.config.url).hostname.split('.')[0]===owner.projectRef;
+    if(!active())throw new LoginError('Oturum değişti. Tekrar giriş yap.');
+    if(!['note','project','goal','event','finance','budget'].includes(op.entity)||!/^[a-f0-9]{32}$/.test(op.id)||!/^[a-f0-9]{32}$/.test(op.operationId)||!['create','update'].includes(op.action)||!Number.isSafeInteger(op.expectedRevision)||op.expectedRevision<0)throw new LoginError('Gönderim doğrulanamadı.');
+    try {
+      const response=await fetch(`${API_URL}/api/v1/workspace/${op.entity}/${op.id}/operations`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({operationId:op.operationId,action:op.action,expectedRevision:op.expectedRevision,payload:op.payload}),signal:AbortSignal.any([signal,AbortSignal.timeout(20000)]),credentials:'omit',cache:'no-store',redirect:'error'});
+      if(!active())throw new LoginError('Oturum değişti. Gönderim kaydı korundu.');
+      if(response.status===409)throw new LoginError('Bulut sürümüyle çatışma var. Gönderim kaydı korundu; otomatik üzerine yazılmadı.');
+      if(!response.ok)throw new LoginError('Gönderim tamamlanamadı. API ve SQL kurulumunu kontrol et; aynı kaydı tekrar deneyebilirsin.');
+      const result:unknown=await response.json();
+      if(!active()||!isObject(result)||result.operationId!==op.operationId||result.id!==op.id||result.kind!==op.entity||result.revision!==op.expectedRevision+1||typeof result.replay!=='boolean')throw new LoginError('Gönderim yanıtı doğrulanamadı. Aynı işlemle tekrar dene.');
+      return result.revision as number;
+    }catch(e){throw e instanceof LoginError?e:new LoginError('Bağlantı kesildi. Gönderim kaydı korundu; aynı düğmeyle yeniden dene.');}
+  }
   async readChanges(owner: { projectRef: string; userId: string }, cursor: string, signal: AbortSignal): Promise<unknown> {
     const token = this.accessToken, attempt = this.generation;
     const assertSession = () => {

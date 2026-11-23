@@ -9,9 +9,9 @@ Tauri 2 + React + TypeScript + Vite masaüstü; ASP.NET Core 10 API; yerel SQLit
 | Alan | Yerel çalışma | Merkezi veri |
 | --- | --- | --- |
 | Görevler | Oluşturma, düzenleme, tamamlanma, silme, proje/tarih/öncelik | Create/rename/complete/delete gönderimi ve kalıcı işlem kuyruğu var. Sunucuda değişiklik okuma ve masaüstünde ayrı bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var. Proje/tarih/öncelik merkezi modelde; masaüstü plan gönderimi henüz bağlı değil. |
-| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | Merkezi yazma API’si ve değişiklik günlüğü hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; gönderim henüz yok |
-| Takvim, hedefler | Gerçek kayıtlar ve planlama ekranları | Merkezi yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; gönderim yok |
-| Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | Merkezi doğrulamalı yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; gönderim yok |
+| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | Merkezi yazma API’si ve değişiklik günlüğü hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
+| Takvim, hedefler | Gerçek kayıtlar ve planlama ekranları | Merkezi yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
+| Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | Merkezi doğrulamalı yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
 | Bildirimler | Uygulama içi hatırlatmalar, erteleme ve filtreler | Sistem bildirimi / arka plan servisi yok |
 | Genel Bakış, analiz, arama | Yerel kayıtlardan hesaplanır | Bağımsız merkezi veri kaynağı değil |
 | Veri ve eşitleme | Hesap kapsamlı şifreli geri dönüş noktaları, önizlemeli geri yükleme, görev kuyruğu durumu | Geri yükleme sonrası gönderim kilitlenir; bulutla uzlaştırma henüz yok |
@@ -27,6 +27,7 @@ Proje/not sunucu kurulumu: [0007 kurulumu](docs/central-workspace.md).
 Hedef/takvim/finans/bütçe sunucu kurulumu: [0008 kurulumu](docs/central-domains.md).
 Görev planı ve proje bağlantısı: [0009 kurulumu](docs/central-task-planning.md).
 Masaüstünde bulut kayıtlarını indirme ve inceleme: [Bulut karşılaştırması](docs/cloud-inbox.md).
+Altı modülde elle buluta gönderim: [Kullanım ve sınırlar](docs/manual-cloud-upload.md).
 Geri yüklemenin kapsamı ve kullanımı: [Yerel yedekleme](docs/local-recovery.md).
 
 Şu anda yedekler aynı Windows profiline bağlıdır, taşınabilir felaket kurtarma yedeği değildir. Yedek dosyaları şifrelidir; canlı SQLite dosyası şifreli değildir. Oturum tokenları ve API/veritabanı parolaları yedeklere girmez. Geri yükleme mevcut hesabın yerel verisini değiştirir; bulutu eski hale döndürmez.

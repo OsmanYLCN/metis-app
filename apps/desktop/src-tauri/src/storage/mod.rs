@@ -9,6 +9,7 @@ pub mod calendar;
 pub mod notifications;
 pub mod backup;
 pub mod inbox;
+pub mod outbound;
 #[cfg(test)]
 mod tests;
 
