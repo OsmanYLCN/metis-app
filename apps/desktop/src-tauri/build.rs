@@ -1,7 +1,7 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
-            "outbound_list", "outbound_prepare", "outbound_ack", "inbox_apply", "inbox_status", "inbox_stage", "inbox_compare", "local_storage_status", "session_vault_read", "session_vault_write", "session_vault_clear",
+            "outbound_removed", "outbound_delete", "outbound_reject", "outbound_discard", "outbound_list", "outbound_prepare", "outbound_ack", "inbox_apply", "inbox_status", "inbox_stage", "inbox_compare", "local_storage_status", "session_vault_read", "session_vault_write", "session_vault_clear",
             "tasks_list", "tasks_create", "tasks_set_completed", "tasks_rename", "tasks_delete", "tasks_set_planning", "tasks_scheduled",
             "outbox_count", "outbox_statuses", "outbox_pending", "outbox_pending_for_task", "outbox_begin", "outbox_acknowledge",
             "task_actions_pending", "task_action_prepare", "task_action_begin", "task_action_acknowledge",

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-outbound-delete"
+description = "Enables the outbound_delete command without any pre-configured scope."
+commands.allow = ["outbound_delete"]
+
+[[permission]]
+identifier = "deny-outbound-delete"
+description = "Denies the outbound_delete command without any pre-configured scope."
+commands.deny = ["outbound_delete"]

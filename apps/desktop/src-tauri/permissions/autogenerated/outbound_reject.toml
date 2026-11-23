@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-outbound-reject"
+description = "Enables the outbound_reject command without any pre-configured scope."
+commands.allow = ["outbound_reject"]
+
+[[permission]]
+identifier = "deny-outbound-reject"
+description = "Denies the outbound_reject command without any pre-configured scope."
+commands.deny = ["outbound_reject"]

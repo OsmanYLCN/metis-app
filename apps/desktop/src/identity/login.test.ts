@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoginStore } from './login';
+import { LoginStore, WorkspaceConflictError } from './login';
 import { parseLoginSettings } from './config';
 
 const config = { url: 'https://test-project.supabase.co', issuer: 'https://test-project.supabase.co/auth/v1', publishableKey: 'sb_publishable_test' };
@@ -314,5 +314,35 @@ describe('workspace delivery',()=>{
   await store.signIn('user@example.test','password');fetcher.mockClear();
   await expect(store.sendWorkspace({...owner,userId:'other'},op,new AbortController().signal)).rejects.toThrow('Oturum');expect(fetcher).not.toHaveBeenCalled();
   fetcher.mockResolvedValueOnce(json({},409));await expect(store.sendWorkspace(owner,op,new AbortController().signal)).rejects.toThrow('çatışma');expect(fetcher).toHaveBeenCalledTimes(1);
+ });
+});
+
+describe('workspace deletion and rejection',()=>{
+ const owner={projectRef:'test-project',userId:session.user.id};
+ const op={entity:'note',id:'a'.repeat(32),operationId:'b'.repeat(32),action:'delete',expectedRevision:2,payload:{}};
+ it('sends a delete and validates its receipt',async()=>{
+  await store.signIn('user@example.test','password');fetcher.mockClear();
+  fetcher.mockResolvedValueOnce(json({operationId:op.operationId,id:op.id,kind:'note',revision:3,replay:true}));
+  await expect(store.sendWorkspace(owner,op,new AbortController().signal)).resolves.toBe(3);
+  expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({operationId:op.operationId,action:'delete',expectedRevision:2,payload:{}});
+ });
+ it('only marks an explicit revision conflict as safe to discard',async()=>{
+  await store.signIn('user@example.test','password');
+  fetcher.mockResolvedValueOnce(json({code:'workspace_conflict'},409));
+  await expect(store.sendWorkspace(owner,op,new AbortController().signal)).rejects.toBeInstanceOf(WorkspaceConflictError);
+  for(const body of [{code:'workspace_operation_conflict'},{}]){
+   fetcher.mockResolvedValueOnce(json(body,409));
+   const error=await store.sendWorkspace(owner,op,new AbortController().signal).catch(e=>e);
+   expect(error).toBeInstanceOf(Error);expect(error).not.toBeInstanceOf(WorkspaceConflictError);
+  }
+  fetcher.mockRejectedValueOnce(new TypeError('Network'));
+  const error=await store.sendWorkspace(owner,op,new AbortController().signal).catch(e=>e);
+  expect(error).toBeInstanceOf(Error);expect(error).not.toBeInstanceOf(WorkspaceConflictError);
+ });
+ it('does not classify a conflict after the session changed while reading the body',async()=>{
+  await store.signIn('user@example.test','password');
+  fetcher.mockResolvedValueOnce({status:409,json:async()=>{store.suspend();return {code:'workspace_conflict'};}});
+  const error=await store.sendWorkspace(owner,op,new AbortController().signal).catch(e=>e);
+  expect(error).not.toBeInstanceOf(WorkspaceConflictError);expect(error.message).toContain('Oturum');
  });
 });

@@ -399,6 +399,18 @@
           "markdownDescription": "Enables the outbound_ack command without any pre-configured scope."
         },
         {
+          "description": "Enables the outbound_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-delete",
+          "markdownDescription": "Enables the outbound_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbound_discard command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-discard",
+          "markdownDescription": "Enables the outbound_discard command without any pre-configured scope."
+        },
+        {
           "description": "Enables the outbound_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-outbound-list",
@@ -409,6 +421,18 @@
           "type": "string",
           "const": "allow-outbound-prepare",
           "markdownDescription": "Enables the outbound_prepare command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbound_reject command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-reject",
+          "markdownDescription": "Enables the outbound_reject command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the outbound_removed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-outbound-removed",
+          "markdownDescription": "Enables the outbound_removed command without any pre-configured scope."
         },
         {
           "description": "Enables the outbox_acknowledge command without any pre-configured scope.",
@@ -807,6 +831,18 @@
           "markdownDescription": "Denies the outbound_ack command without any pre-configured scope."
         },
         {
+          "description": "Denies the outbound_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-delete",
+          "markdownDescription": "Denies the outbound_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_discard command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-discard",
+          "markdownDescription": "Denies the outbound_discard command without any pre-configured scope."
+        },
+        {
           "description": "Denies the outbound_list command without any pre-configured scope.",
           "type": "string",
           "const": "deny-outbound-list",
@@ -817,6 +853,18 @@
           "type": "string",
           "const": "deny-outbound-prepare",
           "markdownDescription": "Denies the outbound_prepare command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_reject command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-reject",
+          "markdownDescription": "Denies the outbound_reject command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the outbound_removed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-outbound-removed",
+          "markdownDescription": "Denies the outbound_removed command without any pre-configured scope."
         },
         {
           "description": "Denies the outbox_acknowledge command without any pre-configured scope.",

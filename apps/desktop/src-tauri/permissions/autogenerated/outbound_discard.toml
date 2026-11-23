@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-outbound-discard"
+description = "Enables the outbound_discard command without any pre-configured scope."
+commands.allow = ["outbound_discard"]
+
+[[permission]]
+identifier = "deny-outbound-discard"
+description = "Denies the outbound_discard command without any pre-configured scope."
+commands.deny = ["outbound_discard"]

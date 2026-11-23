@@ -73,15 +73,24 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Diskte dondurulmuş işlem kimliği/payload; oturum bağlı HTTP, sıkı makbuz doğrulaması.
 - Makbuz yerel yeni düzenlemeyi ezmez; merkezi revision bağı güncellenir.
 - Inbox şema 2 artık outbound niyetlerini içerir; silinebilir önbellek değildir. Bu dosyanın yedek kapsamına dahil edilmesi kalan iştir.
-- Silme gönderimi, 409 çözümü ve otomatik eşitleme henüz yok. [Kullanım ve sınırlar](manual-cloud-upload.md).
+- Bu bölümün silme ve ret çözümü eksikleri aşağıdaki dokuzuncu bölümde ele alındı. [Kullanım ve sınırlar](manual-cloud-upload.md).
+
+## Tamamlanan dokuzuncu bölüm — onaylı silme ve kesin ret çözümü
+
+- Altı modülde bilinen merkezi sürümü olan yerel silmeleri listeleme; ayrı kullanıcı onayıyla delete gönderimi.
+- Silme isteğinin kalıcı kimlikle tekrarı; makbuz işlenirken yeniden oluşturulmuş yerel kayıt korunur.
+- Yalnızca oturum bağlı, doğrulanmış workspace_conflict yanıtından sonra isteği reddedildi olarak işaretleme ve kullanıcı seçimiyle kaldırma. Sonucu belirsiz istek iptal edilmez.
+- Ret kaldırma sonrası mevcut bulut karşılaştırma/uygulama yoluyla elle uzlaştırma; otomatik üzerine yazma veya birleştirme yok.
+- Inbox/outbound şema 3; eski kayıtların işlem kimliği korunur. Yeni Supabase SQL veya dağıtım EXE’si yok.
+- Doğrulama: 7 native inbox/outbound testi, 40 oturum/HTTP testi, TypeScript/Vite build. Canlı kullanıcı verisi kullanılmadı.
 
 ## Devam sırası — kalan işler
 
 1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
 2. Hedeflenen modüllerin merkezi modelleri, görev planı ve proje ilişkisi hazır. Sıradaki ana iş istemci entegrasyonu (aşağıdaki 3–6).
 3. Bu modüllerin yerel değişikliklerinin atomik outbox’a alınması. Yeni sürüme geçerken mevcut kayıtları kullanıcı/cihaz sahipliğiyle uzlaştırma; kör toplu yükleme yok.
-4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; otomatik uzlaştırma ve diğer modüllerin yükleme entegrasyonu kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
-5. Çakışma kaydı ve kullanıcı çözüm ekranı. Özellikle finans/not verileri sessizce ezilmemeli. Silme iki yönde de taşınmalı.
+4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; otomatik uzlaştırma ve manuel gönderimlerin arka plan kuyruğuna entegrasyonu kaldı. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
+5. Kesin ret için elle çözüm yolu ve onaylı silme iki yönde var. Otomatik birleştirme, silinmiş kimlikle yeniden oluşturma ve tüm hata türlerini kapsayan çatışma merkezi kaldı; finans/not verileri sessizce ezilmemeli.
 6. Recovery guard yalnızca yerel yedek ve mevcut sunucu durumu karşılaştırılıp çakışmalar çözüldüğünde kaldırılmalı. Şu anda kilidi elle açan komut YOK.
 7. Taşınabilir dışa aktarma, disk/profil kaybı ve bozuk SQLite için kurtarma; şu anki DPAPI snapshot bunun yerine geçmez.
 8. İki ayrı istemci veri dizininde uçtan uca test: offline değişiklik, yeniden deneme, silme, aynı kaydı iki tarafta değiştirme, tekrar başlatma ve güvenlik.

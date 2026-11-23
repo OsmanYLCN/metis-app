@@ -9,9 +9,9 @@ Tauri 2 + React + TypeScript + Vite masaüstü; ASP.NET Core 10 API; yerel SQLit
 | Alan | Yerel çalışma | Merkezi veri |
 | --- | --- | --- |
 | Görevler | Oluşturma, düzenleme, tamamlanma, silme, proje/tarih/öncelik | Create/rename/complete/delete gönderimi ve kalıcı işlem kuyruğu var. Sunucuda değişiklik okuma ve masaüstünde ayrı bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var. Proje/tarih/öncelik merkezi modelde; masaüstü plan gönderimi henüz bağlı değil. |
-| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | Merkezi yazma API’si ve değişiklik günlüğü hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
-| Takvim, hedefler | Gerçek kayıtlar ve planlama ekranları | Merkezi yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
-| Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | Merkezi doğrulamalı yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update gönderimi var |
+| Notlar, projeler | Gerçek kayıtlar, arama, önizleme, proje görevleri | Merkezi yazma API’si ve değişiklik günlüğü hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update/delete gönderimi ve kesin reddi kaldırma var |
+| Takvim, hedefler | Gerçek kayıtlar ve planlama ekranları | Merkezi yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update/delete gönderimi ve kesin reddi kaldırma var |
+| Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | Merkezi doğrulamalı yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle create/update/delete gönderimi ve kesin reddi kaldırma var |
 | Bildirimler | Uygulama içi hatırlatmalar, erteleme ve filtreler | Sistem bildirimi / arka plan servisi yok |
 | Genel Bakış, analiz, arama | Yerel kayıtlardan hesaplanır | Bağımsız merkezi veri kaynağı değil |
 | Veri ve eşitleme | Hesap kapsamlı şifreli geri dönüş noktaları, önizlemeli geri yükleme, görev kuyruğu durumu | Geri yükleme sonrası gönderim kilitlenir; bulutla uzlaştırma henüz yok |

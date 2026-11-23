@@ -1,4 +1,4 @@
-// A disposable remote mirror, never the authoritative local workspace.
+// Remote mirror and durable outbound journal. Never delete while requests are unresolved.
 use super::{sqlite::{Connection,Transaction},tasks::{TaskOwner,TaskError},StorageError};
 use serde::{Deserialize,Serialize};
 use serde_json::{Value,json};
@@ -36,8 +36,9 @@ pub(super) fn open(path:&Path)->Result<Connection,TaskError>{
   db.execute("CREATE TABLE inbox_state(project TEXT NOT NULL,user_id TEXT NOT NULL,cursor TEXT NOT NULL,PRIMARY KEY(project,user_id));
   CREATE TABLE inbox_records(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,deleted INTEGER NOT NULL,snapshot TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id));
   PRAGMA application_id=1296389193; PRAGMA user_version=1;")?;
- }else if !matches!(version.as_str(),"1"|"2")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
- if version!="2" {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
+ }else if !matches!(version.as_str(),"1"|"2"|"3")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
+ if !matches!(version.as_str(),"2"|"3") {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
+ if version!="3" {db.execute("ALTER TABLE outbound ADD COLUMN action TEXT NOT NULL DEFAULT 'update'; UPDATE outbound SET action='create' WHERE expected=0; ALTER TABLE outbound ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'; PRAGMA user_version=3;")?;}
  tx.commit()?;Ok(db)
 }
 fn state(db:&Connection,o:&TaskOwner)->Result<Status,TaskError>{
@@ -191,6 +192,70 @@ mod tests {
   crate::storage::outbound::acknowledge(&path,&o,"note",&key,&first.operation_id,1).unwrap();
   assert_eq!(crate::storage::workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"Second");
   let item=crate::storage::outbound::list(&path,&o,0).unwrap().remove(0);let next=crate::storage::outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();assert_eq!(next.action,"update");assert_eq!(next.expected_revision,1);assert_eq!(next.payload["title"],"Second");
+ }
+
+ #[test]
+ fn outbound_delete_requires_preview_and_preserves_recreated_local(){
+  use crate::storage::{outbound,workspace};
+  let t=Temp::new();let o=owner();let path=t.db();let key="c".repeat(32);
+  workspace::create(&path,&o,&key,"note","Original","Text","active",false).unwrap();
+  let item=outbound::list(&path,&o,0).unwrap().remove(0);
+  let op=outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();
+  outbound::acknowledge(&path,&o,"note",&key,&op.operation_id,1).unwrap();
+  assert!(outbound::removed(&path,&o,0).unwrap().is_empty());
+  workspace::delete(&path,&o,&key,"note",1).unwrap();
+  let removed=outbound::removed(&path,&o,0).unwrap().remove(0);
+  assert!(outbound::prepare_delete(&path,&o,"note",&key,"stale").is_err());
+  workspace::create(&path,&o,&key,"note","Recreated","Text","active",false).unwrap();
+  assert!(outbound::prepare_delete(&path,&o,"note",&key,&removed.digest).is_err());
+  workspace::delete(&path,&o,&key,"note",1).unwrap();
+  let deleted=outbound::prepare_delete(&path,&o,"note",&key,&removed.digest).unwrap();
+  assert_eq!(deleted.action,"delete");assert_eq!(deleted.expected_revision,1);assert_eq!(deleted.payload,json!({}));
+  assert!(outbound::removed(&path,&o,0).unwrap().is_empty());
+  let retry=outbound::prepare(&path,&o,"note",&key,"","","").unwrap();
+  assert_eq!(retry.operation_id,deleted.operation_id);assert_eq!(retry.action,"delete");
+  workspace::create(&path,&o,&key,"note","New local","Text","active",false).unwrap();
+  outbound::acknowledge(&path,&o,"note",&key,&deleted.operation_id,2).unwrap();
+  assert_eq!(workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"New local");
+  let (db,_)=crate::storage::connect(&path).unwrap();
+  let binding=db.query("SELECT revision,snapshot FROM cloud_bindings", &[]).unwrap();
+  assert_eq!(binding[0][0],"2");
+  let snapshot:Value=serde_json::from_str(&binding[0][1]).unwrap();assert!(snapshot["deletedAt"].is_string());
+  assert!(outbound::removed(&path,&o,0).unwrap().is_empty());
+ }
+ #[test]
+ fn outbound_only_exact_rejected_requests_can_be_discarded(){
+  use crate::storage::{outbound,workspace};
+  let t=Temp::new();let o=owner();let path=t.db();let key="d".repeat(32);
+  workspace::create(&path,&o,&key,"note","Keep me","Text","active",false).unwrap();
+  let item=outbound::list(&path,&o,0).unwrap().remove(0);
+  let op=outbound::prepare(&path,&o,"note",&key,&item.digest,"","").unwrap();
+  assert!(outbound::discard_rejected(&path,&o,"note",&key).is_err());
+  outbound::reject(&path,&o,"note",&key,&"e".repeat(32)).unwrap();
+  assert!(outbound::discard_rejected(&path,&o,"note",&key).is_err());
+  let mut other=owner();other.project_ref="other-project".into();
+  outbound::reject(&path,&other,"note",&key,&op.operation_id).unwrap();
+  assert!(outbound::discard_rejected(&path,&o,"note",&key).is_err());
+  outbound::reject(&path,&o,"note",&key,&op.operation_id).unwrap();
+  assert!(outbound::list(&path,&o,0).unwrap()[0].rejected);
+  assert!(outbound::prepare(&path,&o,"note",&key,&item.digest,"","").is_err());
+  outbound::discard_rejected(&path,&o,"note",&key).unwrap();
+  assert!(!outbound::list(&path,&o,0).unwrap()[0].pending);
+  assert_eq!(workspace::list(&path,&o,"note","",0).unwrap().items[0].title,"Keep me");
+ }
+ #[test]
+ fn outbound_schema_two_migrates_frozen_operations(){
+  let t=Temp::new();let path=t.db();
+  {
+   let db=Connection::open(&path.parent().unwrap().join("cloud-inbox.sqlite3")).unwrap();
+   db.execute("PRAGMA application_id=1296389193; PRAGMA user_version=2;
+    CREATE TABLE outbound(project TEXT,user_id TEXT,entity TEXT,id TEXT,operation TEXT,expected INTEGER,payload TEXT,PRIMARY KEY(project,user_id,entity,id));
+    INSERT INTO outbound VALUES('p','u','note','n','op1',0,'{}'),('p','u','note','m','op2',7,'{}');").unwrap();
+  }
+  let db=open(&path).unwrap();assert_eq!(db.scalar("PRAGMA user_version").unwrap(),"3");
+  let rows=db.query("SELECT operation,expected,payload,action,state FROM outbound ORDER BY expected",&[]).unwrap();
+  assert_eq!(rows[0],vec!["op1","0","{}","create","pending"]);
+  assert_eq!(rows[1],vec!["op2","7","{}","update","pending"]);
  }
 
 }
