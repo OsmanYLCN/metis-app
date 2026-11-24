@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-merge-conflicts"
+description = "Enables the merge_conflicts command without any pre-configured scope."
+commands.allow = ["merge_conflicts"]
+
+[[permission]]
+identifier = "deny-merge-conflicts"
+description = "Denies the merge_conflicts command without any pre-configured scope."
+commands.deny = ["merge_conflicts"]

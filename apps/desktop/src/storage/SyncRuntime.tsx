@@ -17,7 +17,7 @@ export function SyncRuntime(){
    if(stopped||busy)return;busy=true;
    try{
     const state=await native<SyncStatus>('sync_status',{owner});
-    if(!stopped&&state.enabled&&!state.paused&&navigator.onLine){
+    if(!stopped&&(state.enabled||state.receiving)&&!state.paused&&navigator.onLine){
      controller=new AbortController();await syncNow(owner,controller.signal,true);failures=0;
     }
    }catch{failures=Math.min(failures+1,4);}

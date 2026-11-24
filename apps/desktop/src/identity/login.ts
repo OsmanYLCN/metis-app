@@ -11,6 +11,14 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isObject(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null; }
 class LoginError extends Error { }
 export class WorkspaceConflictError extends LoginError { }
+export class TaskConflictError extends LoginError { }
+async function taskRejection(response:Response,active:()=>boolean):Promise<never>{
+ const error:unknown=await response.json();
+ if(!active())throw new LoginError('Oturum değişti. Gönderim korundu.');
+ if(isObject(error)&&((response.status===409&&error.code==='task_revision_conflict')||(response.status===404&&error.code==='task_not_found')))
+  throw new TaskConflictError('Görev değişmiş. İstek reddedildi; bulutla karşılaştırılacak.');
+ throw new LoginError('Görev işlemiyle çatışma var. Sonuç kesinleşmedi; aynı istek korunuyor.');
+}
 
 export class LoginStore {
   private view: LoginView = { phase: 'signedOut' };
@@ -192,7 +200,7 @@ export class LoginStore {
       });
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
       if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Yeniden giriş yap.');
-      if (response.status === 409) throw new LoginError('Buluttaki görevle çatışma var. Tekrar deneme.');
+      if (response.status === 409||response.status===404)await taskRejection(response,active);
       if (![200, 201].includes(response.status)) throw new LoginError('Gönderim doğrulanamadı. Bağlantıyı kontrol edip tekrar dene.');
       const value: unknown = await response.json();
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
@@ -224,7 +232,7 @@ export class LoginStore {
       });
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
       if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Yeniden giriş yap.');
-      if (response.status === 409) throw new LoginError('Bulutta sürüm çatışması var. Yerel başlık korundu; değişiklik gönderilmedi.');
+      if (response.status === 409||response.status===404)await taskRejection(response,active);
       if (response.status !== 200) throw new LoginError('Değişiklik doğrulanamadı. Bağlantıyı kontrol edip tekrar dene.');
       const value: unknown = await response.json();
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
@@ -261,7 +269,7 @@ export class LoginStore {
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');
       if (response.status === 401) throw new LoginError('Oturum doğrulanamadı. Yeniden giriş yap.');
       if (response.status === 409 || response.status === 404)
-        throw new LoginError('Buluttaki görev değişmiş. Bu işlem gönderilemedi; görev bu cihazda korunuyor.');
+        await taskRejection(response,active);
       if (response.status !== 200) throw new LoginError('İşlem doğrulanamadı. Bağlantıyı kontrol edip tekrar dene.');
       const value: unknown = await response.json();
       if (!active()) throw new LoginError('Oturum değişti. Tekrar giriş yap.');

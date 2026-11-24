@@ -375,6 +375,30 @@
           "markdownDescription": "Enables the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Enables the merge_conflicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-merge-conflicts",
+          "markdownDescription": "Enables the merge_conflicts command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the merge_receive command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-merge-receive",
+          "markdownDescription": "Enables the merge_receive command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the merge_resolve command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-merge-resolve",
+          "markdownDescription": "Enables the merge_resolve command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the merge_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-merge-run",
+          "markdownDescription": "Enables the merge_run command without any pre-configured scope."
+        },
+        {
           "description": "Enables the notifications_list command without any pre-configured scope.",
           "type": "string",
           "const": "allow-notifications-list",
@@ -565,6 +589,12 @@
           "type": "string",
           "const": "allow-task-actions-pending",
           "markdownDescription": "Enables the task_actions_pending command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the task_reject command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-task-reject",
+          "markdownDescription": "Enables the task_reject command without any pre-configured scope."
         },
         {
           "description": "Enables the tasks_create command without any pre-configured scope.",
@@ -855,6 +885,30 @@
           "markdownDescription": "Denies the local_storage_status command without any pre-configured scope."
         },
         {
+          "description": "Denies the merge_conflicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-merge-conflicts",
+          "markdownDescription": "Denies the merge_conflicts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the merge_receive command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-merge-receive",
+          "markdownDescription": "Denies the merge_receive command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the merge_resolve command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-merge-resolve",
+          "markdownDescription": "Denies the merge_resolve command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the merge_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-merge-run",
+          "markdownDescription": "Denies the merge_run command without any pre-configured scope."
+        },
+        {
           "description": "Denies the notifications_list command without any pre-configured scope.",
           "type": "string",
           "const": "deny-notifications-list",
@@ -1045,6 +1099,12 @@
           "type": "string",
           "const": "deny-task-actions-pending",
           "markdownDescription": "Denies the task_actions_pending command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the task_reject command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-task-reject",
+          "markdownDescription": "Denies the task_reject command without any pre-configured scope."
         },
         {
           "description": "Denies the tasks_create command without any pre-configured scope.",

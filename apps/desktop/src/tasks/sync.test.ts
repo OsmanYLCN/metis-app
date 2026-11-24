@@ -3,7 +3,7 @@ import { loginStore } from '../identity/login';
 import * as client from './client';
 import { syncPendingTasks } from './sync';
 
-vi.mock('../identity/login', () => ({ loginStore: {
+vi.mock('../identity/login', () => ({ TaskConflictError:class extends Error{},loginStore: {
   sendOneLocalCreate: vi.fn(), sendOneLocalRename: vi.fn(), sendOneLocalAction: vi.fn(),
 } }));
 vi.mock('./client', () => ({
@@ -31,7 +31,7 @@ beforeEach(() => {
 describe('outgoing task sync', () => {
   it('sends frozen operations in order and acknowledges only validated receipts', async () => {
     const result = await syncPendingTasks(owner, new AbortController().signal);
-    expect(result).toEqual({ sent: 3, remaining: 0 });
+    expect(result).toEqual({ sent: 3, attempted:3, remaining: 0 });
     expect(client.confirmLocalDelivery).toHaveBeenNthCalledWith(1, owner, create, 'applied', 1);
     expect(client.confirmLocalDelivery).toHaveBeenNthCalledWith(2, owner, rename, 'applied', 2);
     expect(client.confirmTaskAction).toHaveBeenCalledWith(owner, complete, 3);

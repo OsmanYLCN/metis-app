@@ -40,6 +40,8 @@ const modules = [
 ];
 
 export function App() {
+  const [remoteUpdate,setRemoteUpdate]=useState(false),[viewVersion,setViewVersion]=useState(0);
+  useEffect(()=>{const handler=()=>setRemoteUpdate(true);window.addEventListener('metis-workspace-updated',handler);return()=>window.removeEventListener('metis-workspace-updated',handler);},[]);
   const [selected, setSelected] = useState('Dashboard');
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchOpen(value => !value); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
@@ -128,7 +130,8 @@ export function App() {
           <div className="topbar-actions"><button className="secondary-button" onClick={()=>setSearchOpen(true)}>Ara · Ctrl+K</button><span className="preview-badge">Yerel önizleme</span><label className="theme-control"><Sun size={15} /><span className="sr-only">Görünüm</span><select aria-label="Görünüm" value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option></select></label></div>
         </header>
 
-        <main id="main" tabIndex={-1}>
+        <main id="main" tabIndex={-1} key={viewVersion}>
+          {remoteUpdate&&<p role="status">Buluttan güncel kayıtlar alındı. Açık düzenlemeni kaydettikten sonra <button className="text-button" onClick={()=>{if(document.querySelector('[data-workspace-dirty="true"]'))return;setRemoteUpdate(false);setViewVersion(v=>v+1);}}>görünümü yenile</button>.</p>}
           <div className="page-heading"><div><div className="eyebrow">METIS / FOUNDATION</div><h1 ref={pageTitle} tabIndex={-1}>{selected === 'Dashboard' ? 'Bugün, senin ritminde.' : current.label}</h1><p>{selected === 'Dashboard' ? 'Hayatının farklı parçaları, tek bir sakin çalışma alanında.' : selected === 'Tasks' ? 'Küçük adımlar, sana ait bir düzen.' : selected === 'Calendar' ? 'Zamanını ve yaklaşan işlerini tek bakışta gör.' : selected === 'Goals' ? 'Yönünü belirle, ilerlemeni görünür kıl.' : selected === 'Notes' ? 'Düşüncelerini sakla, aradığını kolayca bul.' : selected === 'Projects' ? 'Fikirlerini projeye dönüştür, ilerlemeyi görünür kıl.' : selected === 'Finance' ? 'Gelir, gider ve bütçeni tek yerde izle.' : selected === 'Analytics' ? 'Kayıtlarının sana gösterdiği resmi gör.' : selected === 'Data' ? 'Yedeklerin ve eşitleme durumun.' : selected === 'Notifications' ? 'Yaklaşan planlarını ve hatırlatmalarını takip et.' : 'Bu alan ürün planında yer alıyor; henüz geliştirilmedi.'}</p></div><span className="phase-label"><Circle size={13} /> M0 · Yerel temel</span></div>
 
           {selected === 'Dashboard' ? <>

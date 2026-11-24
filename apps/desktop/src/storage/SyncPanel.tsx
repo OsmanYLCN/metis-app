@@ -23,9 +23,12 @@ export function SyncPanel({owner,onChange}:{owner:TaskOwner;onChange:()=>Promise
  async function toggle(){await native('sync_enable',{owner,enabled:!status?.enabled});window.dispatchEvent(new Event('metis-sync-settings'));}
  return <article className="panel" aria-busy={busy}>
   <h3>Otomatik gönderim ve kurtarma</h3>
-  <p>Uygulama açıkken görevler, görevlerin proje/tarih/öncelik bilgisi ve diğer altı modüldeki değişiklikler sırayla gönderilir. Şimdi gönder düğmesi ve otomatik gönderim yerel silmeleri de buluta taşır. Bulut kayıtları otomatik olarak cihazdaki kayıtların üzerine yazılmaz.</p>
+  <p>Uygulama açıkken görevler, görevlerin proje/tarih/öncelik bilgisi ve diğer altı modüldeki değişiklikler sırayla gönderilir. Şimdi gönder düğmesi ve otomatik gönderim yerel silmeleri de buluta taşır. Buluttan almayı ayrıca açabilirsin. Bağımsız alan değişiklikleri birleşir; aynı alan veya silme çakışması kararını bekler.</p>
   <p>{status?.enabled?'Otomatik gönderim açık':'Otomatik gönderim kapalı'} · {status?.pending??0} kalıcı gönderim · {status?.rejected??0} karar bekleyen ret.</p>
+  <p>{status?.receiving?'Buluttan alma ve güvenli birleştirme açık':'Buluttan alma ve güvenli birleştirme kapalı'} · {status?.mergeConflicts??0} çözüm bekleyen çakışma.</p>
   <div className="workspace-quick-links">
+   <button className="secondary-button" disabled={busy||!status||status.paused} onClick={()=>void run(async()=>{await native('merge_receive',{owner,enabled:!status?.receiving});window.dispatchEvent(new Event('metis-sync-settings'));})}>{status?.receiving?'Otomatik almayı kapat':'Otomatik almayı aç'}</button>
+   <button className="secondary-button" disabled={busy||activity?.busy||!status||status.paused} onClick={()=>void run(async signal=>{const r=await syncNow(owner,signal,false,true);if(mounted.current)setMessage(r.received+' kayıt alındı/birleştirildi; '+r.conflicts+' çakışma kararını bekliyor.');})}>Bulutu al ve güvenle birleştir</button>
    <button className="secondary-button" disabled={busy||!status||status.paused} onClick={()=>void run(toggle)}>{status?.enabled?'Otomatik gönderimi kapat':'Otomatik gönderimi aç'}</button>
    <button className="secondary-button" disabled={busy||!status||status.paused} onClick={()=>void run(async signal=>{const r=await syncNow(owner,signal);if(mounted.current)setMessage(r.sent+' işlem gönderildi; '+r.rejected+' işlem inceleme bekliyor.');})}>Değişiklikleri şimdi gönder</button>
    {busy&&<button className="text-button" onClick={()=>network.current?.abort()}>Ağ işlemini durdur</button>}

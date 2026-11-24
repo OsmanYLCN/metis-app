@@ -2,9 +2,9 @@ import {loginStore,WorkspaceConflictError} from '../identity/login';
 import {syncPendingTasks} from '../tasks/sync';
 import type {TaskOwner} from '../tasks/client';
 
-export type SyncStatus={enabled:boolean;paused:boolean;pending:number;rejected:number;recovering:boolean};
+export type SyncStatus={enabled:boolean;receiving:boolean;mergeConflicts:number;paused:boolean;pending:number;rejected:number;recovering:boolean};
 export type Operation={entity:string;id:string;operationId:string;action:string;expectedRevision:number;payload:unknown};
-export type SyncReport={sent:number;rejected:number};
+export type SyncReport={sent:number;rejected:number;received:number;conflicts:number};
 export const syncEvent='metis-sync-status';
 export async function native<T>(command:string,args:Record<string,unknown>):Promise<T>{
  return await window.__TAURI__!.core.invoke(command,args) as T;
@@ -30,29 +30,43 @@ export function deliverWorkspace(owner:TaskOwner,op:Operation,signal:AbortSignal
 }
 const running=new Map<string,Promise<SyncReport>>();
 const offsets=new Map<string,number>();
-export function syncNow(owner:TaskOwner,signal:AbortSignal,automatic=false):Promise<SyncReport>{
+export function syncNow(owner:TaskOwner,signal:AbortSignal,automatic=false,receiveOnly=false):Promise<SyncReport>{
  const key=owner.projectRef+':'+owner.userId;
  const current=running.get(key);if(current)return current;
  activity.set(key,{busy:true,message:'Değişiklikler gönderiliyor…'});
  window.dispatchEvent(new Event(syncEvent));
- const job=perform(owner,signal,key,automatic).then(result=>{
-  activity.set(key,{busy:false,message:result.sent+' işlem gönderildi; '+result.rejected+' yeni ret. Son kontrol: '+new Date().toLocaleTimeString('tr-TR')});return result;
+ const job=perform(owner,signal,key,automatic,receiveOnly).then(result=>{
+  activity.set(key,{busy:false,message:result.sent+' işlem gönderildi; '+result.rejected+' yeni ret; '+result.received+' alınan/birleşen kayıt; '+result.conflicts+' çakışma. Son kontrol: '+new Date().toLocaleTimeString('tr-TR')});return result;
  },error=>{activity.set(key,{busy:false,message:error instanceof Error?error.message:'Gönderim durdu. Veri ve eşitleme ekranından bekleyen işlemleri kontrol et.'});throw error;}).finally(()=>{running.delete(key);window.dispatchEvent(new Event(syncEvent));});
  running.set(key,job);return job;
 }
-async function perform(owner:TaskOwner,signal:AbortSignal,key:string,automatic:boolean):Promise<SyncReport>{
- const active=async()=>{
+async function perform(owner:TaskOwner,signal:AbortSignal,key:string,automatic:boolean,receiveOnly:boolean):Promise<SyncReport>{
+ const active=async(kind?:'send'|'receive')=>{
   if(signal.aborted)throw new Error('Gönderim durduruldu; bekleyen işlemler korunuyor.');
   const state=await native<SyncStatus>('sync_status',{owner});
   if(state.paused)throw new Error('Yedekten dönüş sonrası önce uzlaştırmayı tamamla.');
-  if(automatic&&!state.enabled)throw new Error('Otomatik gönderim kapatıldı.');
+  if(automatic&&((kind==='send'&&!state.enabled)||(kind==='receive'&&!state.receiving)||(!state.enabled&&!state.receiving)))throw new Error('Otomatik gönderim kapatıldı.');
  };
- await active();let sent=0,rejected=0;
+ await active();let sent=0,rejected=0,received=0,conflicts=0,attempted=0;
+ const initial=await native<SyncStatus>('sync_status',{owner});
+ const pull=async()=>{
+  await downloadCloud(owner,signal);
+  let offset=0;conflicts=0;
+  do{
+   await active('receive');
+   const r=await native<{applied:number;conflicts:number;nextOffset:number}>('merge_run',{owner,offset});
+   received+=r.applied;conflicts+=r.conflicts;offset=r.nextOffset;
+  }while(offset!==0);
+  if(received>0)window.dispatchEvent(new Event('metis-workspace-updated'));
+ };
+ if(initial.receiving||receiveOnly)await pull();
+ if(receiveOnly||(automatic&&!initial.enabled))return {sent,rejected,received,conflicts};
  const deliver=async()=>{
   const pending=await native<Operation[]>('sync_pending',{owner});
   for(const op of pending){
-   if(sent+rejected>=100)break;
-   await active();
+   if(attempted>=100)break;
+   await active('send');
+   attempted++;
    try{
     await deliverWorkspace(owner,op,signal);sent++;
    }catch(e){
@@ -62,18 +76,19 @@ async function perform(owner:TaskOwner,signal:AbortSignal,key:string,automatic:b
   }
  };
  // Finish frozen planning before the task lifecycle can acquire the same revision.
- await deliver();await active();
- if(sent+rejected<100){const tasks=await syncPendingTasks(owner,signal,100-sent-rejected);sent+=tasks.sent;}
+ await deliver();await active('send');
+ if(attempted<100){const tasks=await syncPendingTasks(owner,signal,100-attempted);sent+=tasks.sent;attempted+=tasks.attempted??tasks.sent;}
  // Scan a bounded number of pages; the next run continues rather than starving later pages.
- for(let page=0;page<10&&sent+rejected<100;page++){
-  await active();
+ for(let page=0;page<10&&attempted<100;page++){
+  await active('send');
   const scan=await native<{nextOffset:number;queued:number}>('sync_scan',{owner,offset:offsets.get(key)??0});
   offsets.set(key,scan.nextOffset);
   await deliver();
-  if(sent+rejected<100){await active();const tasks=await syncPendingTasks(owner,signal,100-sent-rejected);sent+=tasks.sent;}
+  if(attempted<100){await active('send');const tasks=await syncPendingTasks(owner,signal,100-attempted);sent+=tasks.sent;attempted+=tasks.attempted??tasks.sent;}
   if(scan.nextOffset===0&&scan.queued===0)break;
  }
- return {sent,rejected};
+ if(initial.receiving)await pull();
+ return {sent,rejected,received,conflicts};
 }
 export async function downloadCloud(owner:TaskOwner,signal:AbortSignal,onProgress?:(count:number)=>void){
  let current=await native<{cursor:string}>('inbox_status',{owner});let count=0;

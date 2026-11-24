@@ -36,6 +36,7 @@ pub fn prepare(path:&Path,o:&TaskOwner,entity:&str,id:&str,expected_digest:&str,
  let cache=inbox::open(path)?;let ct=Transaction::begin(&cache)?;let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;super::backup::ensure_send_allowed(&db,o)?;
  let rows=cache.query("SELECT entity,id,operation,expected,payload,action,state FROM outbound WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,entity,id])?;
  if let Some(row)=rows.first(){if row[6]=="rejected"{return Err(TaskError::Conflict)}let op=unpack(row)?;tx.commit()?;ct.commit()?;return Ok(op)}
+ super::merge::ensure_clear(&cache,o,entity,id)?;
  let payload=inbox::local(&db,o,entity,id,&json!({"month":month,"category":category}))?.ok_or(TaskError::NotFound)?;
  if inbox::digest(&payload)?!=expected_digest{return Err(TaskError::Conflict)}if !inbox::import_valid(entity,&payload){return Err(TaskError::InvalidInput)}
  let binding=db.query("SELECT revision,snapshot FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,entity,id])?;
@@ -77,6 +78,7 @@ pub fn prepare_delete(path:&Path,o:&TaskOwner,entity:&str,id:&str,digest:&str)->
  o.validate()?;if !kind(entity)||entity=="taskPlan"{return Err(TaskError::InvalidInput)}let cache=inbox::open(path)?;let ct=Transaction::begin(&cache)?;let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;super::backup::ensure_send_allowed(&db,o)?;
  let pending=cache.query("SELECT entity,id,operation,expected,payload,action,state FROM outbound WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,entity,id])?;
  if !pending.is_empty(){return Err(TaskError::Conflict)}
+ super::merge::ensure_clear(&cache,o,entity,id)?;
  let rows=db.query("SELECT revision,snapshot FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,entity,id])?;let r=rows.first().ok_or(TaskError::NotFound)?;
  let payload:Value=serde_json::from_str(&r[1]).map_err(|_|TaskError::InvalidInput)?;
  if inbox::digest(&payload)?!=digest||!payload["deletedAt"].is_null()||inbox::local(&db,o,entity,id,&payload)?.is_some(){return Err(TaskError::Conflict)}
@@ -113,6 +115,7 @@ fn prepare_plan(path:&Path,o:&TaskOwner,id:&str,digest:&str)->Result<Operation,T
  let rows=cache.query("SELECT entity,id,operation,expected,payload,action,state FROM outbound WHERE project=?1 AND user_id=?2 AND entity='taskPlan' AND id=?3",&[&o.project_ref,&o.user_id,id])?;
  if let Some(r)=rows.first(){if r[6]=="rejected"{return Err(TaskError::Conflict)}let op=unpack(r)?;tx.commit()?;ct.commit()?;return Ok(op)}
  if !db.query("SELECT task_id FROM task_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged' UNION ALL SELECT task_id FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state<>'acknowledged'",&[&o.project_ref,&o.user_id,id])?.is_empty(){return Err(TaskError::Conflict)}
+ super::merge::ensure_clear(&cache,o,"task",id)?;
  let expected=super::outbox::latest_revision(&db,o,id)?.ok_or(TaskError::Conflict)?;
  if expected>=9007199254740991{return Err(TaskError::InvalidInput)}
  let p=payload(&db,o,"taskPlan",id,&json!({}))?.ok_or(TaskError::NotFound)?;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LoginStore, WorkspaceConflictError } from './login';
+import { LoginStore, WorkspaceConflictError,TaskConflictError } from './login';
 import { parseLoginSettings } from './config';
 
 const config = { url: 'https://test-project.supabase.co', issuer: 'https://test-project.supabase.co/auth/v1', publishableKey: 'sb_publishable_test' };
@@ -141,7 +141,7 @@ describe('one local title change delivery', () => {
   it('rejects a conflicting or mismatched receipt without acknowledging it', async () => {
     await store.signIn('user@example.test', 'password'); fetcher.mockClear();
     fetcher.mockResolvedValueOnce(json({ code: 'task_revision_conflict' }, 409));
-    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).rejects.toThrow('sürüm çatışması');
+    await expect(store.sendOneLocalRename(operation, new AbortController().signal)).rejects.toBeInstanceOf(TaskConflictError);
     fetcher.mockResolvedValueOnce(json({ outcome: 'applied', taskId: operation.taskId, revision: 3 }));
     await expect(store.sendOneLocalRename(operation, new AbortController().signal)).rejects.toThrow('yanıtı doğrulanamadı');
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -367,4 +367,15 @@ it('distinguishes definitive missing-record replies from an unknown 404',async()
  fetcher.mockResolvedValueOnce(json({code:'missing_route'},404));
  const error=await store.sendWorkspace(owner,op,new AbortController().signal).catch(e=>e);
  expect(error).not.toBeInstanceOf(WorkspaceConflictError);expect(error).toBeInstanceOf(Error);
+});
+
+it('does not treat an unknown task conflict or a changed session as a definitive rejection',async()=>{
+ await store.signIn('user@example.test','password');
+ const operation={operationId:'a'.repeat(32),taskId:'b'.repeat(32),title:'Title',kind:'rename',expectedRevision:1};
+ fetcher.mockResolvedValueOnce(json({code:'task_operation_conflict'},409));
+ const error=await store.sendOneLocalRename(operation,new AbortController().signal).catch(e=>e);
+ expect(error).toBeInstanceOf(Error);expect(error).not.toBeInstanceOf(TaskConflictError);
+ fetcher.mockResolvedValueOnce({status:409,json:async()=>{store.suspend();return {code:'task_revision_conflict'};}});
+ const expired=await store.sendOneLocalRename(operation,new AbortController().signal).catch(e=>e);
+ expect(expired).not.toBeInstanceOf(TaskConflictError);expect(expired.message).toContain('Oturum');
 });

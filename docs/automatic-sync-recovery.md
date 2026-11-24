@@ -17,7 +17,7 @@ Normal aralık 30 saniye; ağ geri geldiğinde veya uygulama odaklandığında t
 
 Bir tur en fazla 100 gönderim ve 10 yerel sayfa işler. Sayfa konumu sonraki tura taşınır; uygulama yeniden açıldığında tarama baştan başlar. Değişmemiş içerik doğrulanmış merkezi snapshot ile karşılaştırılıp atlanır. Her yerel tuş vuruşu ayrı bir ağ olayı değildir: SQLite’taki son kalıcı durum taranır, gönderim öncesi digest tekrar denetlenir ve istek diskte dondurulur. Başarı sonrası yerel yeni düzenlemeler korunur ve sonraki taramada alınır. İlk kez buluta gitmeden oluşturulup silinen bir kayıt için gereksiz bulut kaydı oluşturulmaz.
 
-Gönderim kuyruğu `cloud-inbox.sqlite3` içindedir; dosya silinebilir önbellek değildir. Şema 4, mevcut işlem kimliklerini değiştirmeden hesap ayarı ve indirme tamamlanma/kurtarma bilgisini ekler. Ana SQLite şeması 14’tür. Uygulama dışından dosya silme/disk kaybı kurtarması bu mekanizmanın kapsamı değildir.
+Gönderim kuyruğu `cloud-inbox.sqlite3` içindedir; dosya silinebilir önbellek değildir. Şema 5, mevcut işlem kimliklerini değiştirmeden hesap ayarı ve indirme tamamlanma/kurtarma bilgisini ekler. Ana SQLite şeması 14’tür. Uygulama dışından dosya silme/disk kaybı kurtarması bu mekanizmanın kapsamı değildir.
 
 ## Görev planı
 
@@ -41,4 +41,4 @@ Toplu bulut uygulamasından önce tek güvenlik yedeği alınır; proje/görev b
 
 61 native depolama testi geçti; değişiklik sonrası beş yeni akış testi ayrıca geçti. TypeScript/Vite build, 42 oturum/HTTP testi ve 7 koordinatör testi geçti. Testler geçici sentetik SQLite/DPAPI verisi ve mock HTTP kullanır; bu turda canlı Supabase veya iki gerçek cihaz üzerinde test yapılmadı.
 
-Bu üç akış tamamlandı; Paket 1’in tamamı ve ürünün bütün modülleri tamamlanmış sayılmaz. Otomatik bulut indirme/alan birleştirme, taşınabilir yedek, outbound dosyasını kapsayan disk/profil kaybı kurtarması ve iki gerçek istemcinin kabul doğrulaması ayrı kalan işlerdir. Mevcut DPAPI yedeği aynı Windows profiline bağlıdır.
+Bu üç akış tamamlandı; Paket 1’in tamamı ve ürünün bütün modülleri tamamlanmış sayılmaz. Otomatik bulut indirme ve bağımsız alan birleştirme sonraki bölümde eklendi: [Güncel rehber](incoming-merge.md). Taşınabilir yedek, outbound dosyasını kapsayan disk/profil kaybı kurtarması ve iki fiziksel cihaz/canlı Supabase kabul doğrulaması ayrı kalan işlerdir. Mevcut DPAPI yedeği aynı Windows profiline bağlıdır.

@@ -29,6 +29,7 @@ Görev planı ve proje bağlantısı: [0009 kurulumu](docs/central-task-planning
 Masaüstünde bulut kayıtlarını indirme ve inceleme: [Bulut karşılaştırması](docs/cloud-inbox.md).
 Altı modülde elle buluta gönderim: [Kullanım ve sınırlar](docs/manual-cloud-upload.md).
 Otomatik gönderim, görev planı ve geri yükleme sonrası uzlaştırma: [Kullanım rehberi](docs/automatic-sync-recovery.md).
+Güvenli gelen birleştirme ve iki izole istemci doğrulaması: [Kullanım ve kapsam](docs/incoming-merge.md).
 Geri yüklemenin kapsamı ve kullanımı: [Yerel yedekleme](docs/local-recovery.md).
 
 Şu anda yedekler aynı Windows profiline bağlıdır, taşınabilir felaket kurtarma yedeği değildir. Yedek dosyaları şifrelidir; canlı SQLite dosyası şifreli değildir. Oturum tokenları ve API/veritabanı parolaları yedeklere girmez. Geri yükleme mevcut hesabın yerel verisini değiştirir; bulutu eski hale döndürmez.

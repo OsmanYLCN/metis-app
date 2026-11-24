@@ -18,12 +18,12 @@ Görev planı ve isteğe bağlı otomatik gönderim de bağlıdır: [Güncel kul
 
 ## Kalıcılık
 
-`cloud-inbox.sqlite3` şema 4’e otomatik geçer; artık outbound tablosunda gönderim niyetleri de taşır. **Bu dosya artık silinebilir bir önbellek sayılmamalı**: sonucu belirsiz işlemlerin aynı kimlikle tekrarı için gereklidir. Eski şema 2 gönderimleri işlem kimliği ve içeriği korunarak create/update olarak taşınır; yeni kayıtlarda işlem türü ve reddedilme durumu saklanır. Ana SQLite şeması 14 değişmez. Bulut bağlantısı ana SQLite’a commit edilir, sonra outbound kaydı kaldırılır. Arada kesinti olursa aynı isteğin makbuzu tekrar işlenebilir. Yerel iş kayıtları bu makbuz işleminde değiştirilmez.
+`cloud-inbox.sqlite3` şema 5’e otomatik geçer; artık outbound tablosunda gönderim niyetleri de taşır. **Bu dosya artık silinebilir bir önbellek sayılmamalı**: sonucu belirsiz işlemlerin aynı kimlikle tekrarı için gereklidir. Eski şema 2 gönderimleri işlem kimliği ve içeriği korunarak create/update olarak taşınır; yeni kayıtlarda işlem türü ve reddedilme durumu saklanır. Ana SQLite şeması 14 değişmez. Bulut bağlantısı ana SQLite’a commit edilir, sonra outbound kaydı kaldırılır. Arada kesinti olursa aynı isteğin makbuzu tekrar işlenebilir. Yerel iş kayıtları bu makbuz işleminde değiştirilmez.
 
 Mevcut DPAPI yedek kapsamı outbound dosyasını içermez. Profil/disk kaybına dayanıklı bütünleşik gönderim günlüğü yedeklemesi ve kurtarma hâlâ açık iştir; dosyayı elle silmeyin. Canlı veriyle test yapılmadı.
 
 ## Base sürüm için kalan sınırlar
 
-Uygulama açıkken otomatik gönderim, görev planı gönderimi ve bulutu esas alan geri yükleme uzlaştırması eklendi. Otomatik iki yönlü alan birleştirme, silinmiş kimliğin yeniden kullanımı, disk/profil kaybı kurtarması ve iki gerçek cihaz uçtan uca kabulü henüz yok. Bu bölüm manuel create/update/delete ve doğrulanmış reddi kaldırma yolunu açar; üretime hazır tam eşitleme olarak sunulmaz.
+Uygulama açıkken otomatik gönderim, görev planı gönderimi ve bulutu esas alan geri yükleme uzlaştırması eklendi. Bağımsız alanlar için isteğe bağlı iki yönlü birleştirme eklendi; [güncel kurallar](incoming-merge.md). Silinmiş kimliğin yeniden kullanımı, disk/profil kaybı kurtarması ve iki fiziksel cihaz/canlı Supabase kabulü henüz yok. Bu bölüm manuel create/update/delete ve doğrulanmış reddi kaldırma yolunu açar; üretime hazır tam eşitleme olarak sunulmaz.
 
 Doğrulama: TypeScript/Vite build; 7 native inbox/outbound testi (eski şema geçişi, silme onayı için güncel kayıt kontrolü, yeniden deneme, yerel yeni kaydı koruma ve kesin ret dışındaki isteklerin iptal edilememesi dahil); 40 oturum/HTTP testi. Yeni dağıtım EXE’si oluşturulmadı.

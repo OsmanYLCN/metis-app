@@ -11,8 +11,11 @@ pub mod backup;
 pub mod inbox;
 pub mod outbound;
 pub mod sync;
+pub mod merge;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod dual_client;
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};

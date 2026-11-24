@@ -15,7 +15,7 @@ afterEach(()=>vi.unstubAllGlobals());
 describe('outgoing coordinator',()=>{
  it('delivers frozen requests before scanning and acknowledges exact receipts',async()=>{
   let reads=0;mocks.invoke.mockImplementation(async name=>name==='sync_status'?{enabled:true,paused:false}:name==='sync_pending'?(reads++===0?[op]:[]):name==='sync_scan'?{nextOffset:0,queued:0}:undefined);
-  await expect(syncNow(owner,new AbortController().signal)).resolves.toEqual({sent:1,rejected:0});
+  await expect(syncNow(owner,new AbortController().signal)).resolves.toEqual({sent:1,rejected:0,received:0,conflicts:0});
   expect(mocks.invoke).toHaveBeenCalledWith('outbound_ack',{owner,entity:'note',id:op.id,operation:op.operationId,revision:2});
   expect(mocks.tasks).toHaveBeenCalledTimes(2);
  });
@@ -28,7 +28,7 @@ describe('outgoing coordinator',()=>{
  it('marks only definitive rejection and continues the queue',async()=>{
   let reads=0;mocks.invoke.mockImplementation(async name=>name==='sync_status'?{enabled:true,paused:false}:name==='sync_pending'?(reads++===0?[op]:[]):name==='sync_scan'?{nextOffset:0,queued:0}:undefined);
   mocks.send.mockRejectedValue(new WorkspaceConflictError('revision'));
-  await expect(syncNow(owner,new AbortController().signal)).resolves.toEqual({sent:0,rejected:1});
+  await expect(syncNow(owner,new AbortController().signal)).resolves.toEqual({sent:0,rejected:1,received:0,conflicts:0});
   expect(mocks.invoke).toHaveBeenCalledWith('outbound_reject',{owner,entity:'note',id:op.id,operation:op.operationId});
  });
  it('does not run an automatic sweep when disabled or recovering',async()=>{
@@ -60,4 +60,25 @@ it('shares the same operation between a manual button and the background runner'
  release(2);await first;
  expect(mocks.send).toHaveBeenCalledTimes(1);
  expect(mocks.invoke.mock.calls.filter(c=>c[0]==='outbound_ack')).toHaveLength(1);
+});
+
+it('receives and merges before preparing any new outgoing operation',async()=>{
+ mocks.read.mockResolvedValue({items:[],nextCursor:'fresh',hasMore:false});
+ mocks.invoke.mockImplementation(async (name,args)=>{
+  if(name==='sync_status')return {enabled:true,receiving:true,paused:false};
+  if(name==='inbox_status')return {cursor:''};
+  if(name==='inbox_stage')return {cursor:args.page.nextCursor};
+  if(name==='merge_run')return {applied:1,conflicts:0,nextOffset:0};
+  if(name==='sync_pending')return [];
+  if(name==='sync_scan')return {nextOffset:0,queued:0};
+ });
+ await syncNow(owner,new AbortController().signal);
+ const calls=mocks.invoke.mock.calls.map(c=>c[0]);
+ expect(calls.indexOf('merge_run')).toBeLessThan(calls.indexOf('sync_scan'));
+});
+it('receive-only mode never sends or scans outgoing records',async()=>{
+ mocks.read.mockResolvedValue({items:[],nextCursor:'fresh',hasMore:false});
+ mocks.invoke.mockImplementation(async (name,args)=>name==='sync_status'?{enabled:false,receiving:true,paused:false}:name==='inbox_status'?{cursor:''}:name==='inbox_stage'?{cursor:args.page.nextCursor}:name==='merge_run'?{applied:2,conflicts:1,nextOffset:0}:undefined);
+ await expect(syncNow(owner,new AbortController().signal,true)).resolves.toEqual({sent:0,rejected:0,received:2,conflicts:1});
+ expect(mocks.tasks).not.toHaveBeenCalled();expect(mocks.send).not.toHaveBeenCalled();
 });

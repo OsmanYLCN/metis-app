@@ -36,10 +36,11 @@ pub(super) fn open(path:&Path)->Result<Connection,TaskError>{
   db.execute("CREATE TABLE inbox_state(project TEXT NOT NULL,user_id TEXT NOT NULL,cursor TEXT NOT NULL,PRIMARY KEY(project,user_id));
   CREATE TABLE inbox_records(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,deleted INTEGER NOT NULL,snapshot TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id));
   PRAGMA application_id=1296389193; PRAGMA user_version=1;")?;
- }else if !matches!(version.as_str(),"1"|"2"|"3"|"4")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
- if !matches!(version.as_str(),"2"|"3"|"4") {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
- if !matches!(version.as_str(),"3"|"4") {db.execute("ALTER TABLE outbound ADD COLUMN action TEXT NOT NULL DEFAULT 'update'; UPDATE outbound SET action='create' WHERE expected=0; ALTER TABLE outbound ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'; PRAGMA user_version=3;")?;}
- if version!="4" {db.execute("CREATE TABLE sync_control(project TEXT NOT NULL,user_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,caught_up INTEGER NOT NULL DEFAULT 0,recovering TEXT NOT NULL DEFAULT '',PRIMARY KEY(project,user_id)); PRAGMA user_version=4;")?;}
+ }else if !matches!(version.as_str(),"1"|"2"|"3"|"4"|"5")||app!="1296389193"{return Err(StorageError::InvalidSchema.into())}
+ if !matches!(version.as_str(),"2"|"3"|"4"|"5") {db.execute("CREATE TABLE outbound(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,operation TEXT NOT NULL,expected INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=2;")?;}
+ if !matches!(version.as_str(),"3"|"4"|"5") {db.execute("ALTER TABLE outbound ADD COLUMN action TEXT NOT NULL DEFAULT 'update'; UPDATE outbound SET action='create' WHERE expected=0; ALTER TABLE outbound ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'; PRAGMA user_version=3;")?;}
+ if !matches!(version.as_str(),"4"|"5") {db.execute("CREATE TABLE sync_control(project TEXT NOT NULL,user_id TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,caught_up INTEGER NOT NULL DEFAULT 0,recovering TEXT NOT NULL DEFAULT '',PRIMARY KEY(project,user_id)); PRAGMA user_version=4;")?;}
+ if version!="5"{db.execute("ALTER TABLE sync_control ADD COLUMN receiving INTEGER NOT NULL DEFAULT 0; ALTER TABLE sync_control ADD COLUMN merge_backup TEXT NOT NULL DEFAULT ''; CREATE TABLE sync_conflicts(project TEXT NOT NULL,user_id TEXT NOT NULL,entity TEXT NOT NULL,id TEXT NOT NULL,reason TEXT NOT NULL,PRIMARY KEY(project,user_id,entity,id)); PRAGMA user_version=5;")?;}
  tx.commit()?;Ok(db)
 }
 fn state(db:&Connection,o:&TaskOwner)->Result<Status,TaskError>{
@@ -254,7 +255,7 @@ mod tests {
     CREATE TABLE outbound(project TEXT,user_id TEXT,entity TEXT,id TEXT,operation TEXT,expected INTEGER,payload TEXT,PRIMARY KEY(project,user_id,entity,id));
     INSERT INTO outbound VALUES('p','u','note','n','op1',0,'{}'),('p','u','note','m','op2',7,'{}');").unwrap();
   }
-  let db=open(&path).unwrap();assert_eq!(db.scalar("PRAGMA user_version").unwrap(),"4");
+  let db=open(&path).unwrap();assert_eq!(db.scalar("PRAGMA user_version").unwrap(),"5");
   let rows=db.query("SELECT operation,expected,payload,action,state FROM outbound ORDER BY expected",&[]).unwrap();
   assert_eq!(rows[0],vec!["op1","0","{}","create","pending"]);
   assert_eq!(rows[1],vec!["op2","7","{}","update","pending"]);
@@ -425,6 +426,17 @@ pub(super) fn apply_record(path:&Path,db:&Connection,cache:&Connection,o:&TaskOw
  }
  // A safety snapshot must be written successfully before any business row changes.
  let safety=if take_backup{Some(super::backup::safety_copy(path,db,o)?.id)}else{None};
+ write_local(db,o,kind,key,&cloud,deleted,current.is_some())?;
+ db.query("INSERT INTO cloud_bindings VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(project_ref,user_id,entity,id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot",&[&o.project_ref,&o.user_id,kind,key,&revision.to_string(),&row[2]])?;
+ cache.query("DELETE FROM sync_conflicts WHERE project=?1 AND user_id=?2 AND entity=?3 AND id=?4",&[&o.project_ref,&o.user_id,kind,key])?;
+ Ok(Applied{safety_backup:safety})
+}
+
+
+pub(super) fn write_local(db:&Connection,o:&TaskOwner,kind:&str,key:&str,cloud:&Value,deleted:bool,exists:bool)->Result<(),TaskError>{
+ let normalized=canonical(kind,cloud)?;if !import_valid(kind,&normalized){return Err(bad())}
+ if kind=="task"&&!deleted{if let Some(project)=cloud["projectId"].as_str(){if db.query("SELECT id FROM workspace_entries WHERE project_ref=?1 AND user_id=?2 AND id=?3 AND kind='project'",&[&o.project_ref,&o.user_id,project])?.is_empty(){return Err(TaskError::Conflict)}}}
+ if kind=="project"&&deleted&&!db.query("SELECT task_id FROM task_attributes WHERE project_ref=?1 AND user_id=?2 AND project_id=?3",&[&o.project_ref,&o.user_id,key])?.is_empty(){return Err(TaskError::Conflict)}
  let(table,cols)=match kind{
  "task"=>("tasks",vec!["title","completed"]),"note"|"project"=>("workspace_entries",vec!["kind","title","body","state","pinned"]),
  "goal"=>("goals",vec!["title","description","state","target_date","progress"]),"event"=>("calendar_events",vec!["title","details","event_date","start_time","end_time"]),
@@ -434,7 +446,7 @@ pub(super) fn apply_record(path:&Path,db:&Connection,cache:&Connection,o:&TaskOw
  let where_clause=if kind=="budget"{"project_ref=?1 AND user_id=?2 AND month=?3 AND category=?4"}else{"project_ref=?1 AND user_id=?2 AND id=?3"};
  let mut params=vec![o.project_ref.as_str(),o.user_id.as_str()];if kind=="budget"{params.push(&vals[0]);params.push(&vals[1]);}else{params.push(key)}
  if deleted{db.query(&format!("DELETE FROM {table} WHERE {where_clause}"),&params)?;}
- else if current.is_some(){
+ else if exists{
   let start=params.len()+1;params.extend(vals.iter().map(String::as_str));
   let changes=cols.iter().enumerate().map(|(i,c)|format!("{c}={}",if matches!(*c,"target_date"|"start_time"|"end_time"){format!("NULLIF(?{},'')",i+start)}else{format!("?{}",i+start)})).collect::<Vec<_>>().join(",");
   let meta=if matches!(kind,"note"|"project"|"goal"|"event"){",revision=revision+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"}else if kind=="task"{",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"}else{""};
@@ -445,7 +457,6 @@ pub(super) fn apply_record(path:&Path,db:&Connection,cache:&Connection,o:&TaskOw
   db.query(&format!("INSERT INTO {table}(project_ref,user_id{identity},{}) VALUES(?1,?2{},{placeholders})",cols.join(","),if kind=="budget"{""}else{",?3"}),&insert_params)?;
  }
  if kind=="task"&&!deleted{db.query("INSERT INTO task_attributes(task_id,project_ref,user_id,project_id,due_date,priority) VALUES(?1,?2,?3,NULLIF(?4,''),NULLIF(?5,''),?6) ON CONFLICT(task_id) DO UPDATE SET project_id=excluded.project_id,due_date=excluded.due_date,priority=excluded.priority",&[key,&o.project_ref,&o.user_id,&text("projectId"),&text("dueDate"),&text("priority")])?;}
- let after=local(&db,o,kind,key,&cloud)?;if if deleted{after.is_some()}else{after.as_ref()!=Some(&cloud)}{return Err(TaskError::Conflict)}
- db.query("INSERT INTO cloud_bindings VALUES(?1,?2,?3,?4,?5,?6) ON CONFLICT(project_ref,user_id,entity,id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot",&[&o.project_ref,&o.user_id,kind,key,&revision.to_string(),&row[2]])?;
- Ok(Applied{safety_backup:safety})
+ let after=local(&db,o,kind,key,&cloud)?;if if deleted{after.is_some()}else{after.as_ref()!=Some(cloud)}{return Err(TaskError::Conflict)}
+ Ok(())
 }

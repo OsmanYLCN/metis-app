@@ -6,16 +6,17 @@ use std::path::Path;
 
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
-pub struct Status {pub enabled:bool,pub paused:bool,pub pending:usize,pub rejected:usize,pub recovering:bool}
+pub struct Status {pub enabled:bool,pub receiving:bool,pub merge_conflicts:usize,pub paused:bool,pub pending:usize,pub rejected:usize,pub recovering:bool}
 fn guard(db:&Connection,o:&TaskOwner)->Result<String,TaskError>{
  Ok(db.query("SELECT backup_id||':'||restored_at FROM recovery_guard WHERE project_ref=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?.first().map(|r|r[0].clone()).unwrap_or_default())
 }
 pub fn status(path:&Path,o:&TaskOwner)->Result<Status,TaskError>{
  o.validate()?;let cache=inbox::open(path)?;let ct=Transaction::begin(&cache)?;let(db,_)=connect(path)?;
  let token=guard(&db,o)?;
- let control=cache.query("SELECT enabled,recovering FROM sync_control WHERE project=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?;
+ let control=cache.query("SELECT enabled,recovering,receiving FROM sync_control WHERE project=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?;
  let rows=cache.query("SELECT state FROM outbound WHERE project=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?;
- let result=Status{enabled:control.first().is_some_and(|r|r[0]=="1"),paused:!token.is_empty(),recovering:!token.is_empty()&&control.first().is_some_and(|r|r[1]==token),pending:rows.iter().filter(|r|r[0]=="pending").count(),rejected:rows.iter().filter(|r|r[0]=="rejected").count()};
+ let merge_conflicts=cache.query("SELECT id FROM sync_conflicts WHERE project=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?.len();
+ let result=Status{receiving:control.first().is_some_and(|r|r[2]=="1"),merge_conflicts,enabled:control.first().is_some_and(|r|r[0]=="1"),paused:!token.is_empty(),recovering:!token.is_empty()&&control.first().is_some_and(|r|r[1]==token),pending:rows.iter().filter(|r|r[0]=="pending").count(),rejected:rows.iter().filter(|r|r[0]=="rejected").count()};
  ct.commit()?;Ok(result)
 }
 pub fn enable(path:&Path,o:&TaskOwner,enabled:bool)->Result<(),TaskError>{
@@ -73,8 +74,8 @@ pub fn recovery_begin(path:&Path,o:&TaskOwner)->Result<(),TaskError>{
  backup::safety_copy(path,&db,o)?;
  clear_task_journal(&db,o)?;
  db.query("DELETE FROM cloud_bindings WHERE project_ref=?1 AND user_id=?2",&[&o.project_ref,&o.user_id])?;
- for table in ["inbox_records","inbox_state"]{cache.query(&format!("DELETE FROM {table} WHERE project=?1 AND user_id=?2"),&[&o.project_ref,&o.user_id])?;}
- cache.query("INSERT INTO sync_control(project,user_id,enabled,caught_up,recovering) VALUES(?1,?2,0,0,?3) ON CONFLICT(project,user_id) DO UPDATE SET enabled=0,caught_up=0,recovering=excluded.recovering",&[&o.project_ref,&o.user_id,&token])?;
+ for table in ["inbox_records","inbox_state","sync_conflicts"]{cache.query(&format!("DELETE FROM {table} WHERE project=?1 AND user_id=?2"),&[&o.project_ref,&o.user_id])?;}
+ cache.query("INSERT INTO sync_control(project,user_id,enabled,caught_up,recovering) VALUES(?1,?2,0,0,?3) ON CONFLICT(project,user_id) DO UPDATE SET enabled=0,receiving=0,caught_up=0,recovering=excluded.recovering",&[&o.project_ref,&o.user_id,&token])?;
  tx.commit()?;ct.commit()?;Ok(())
 }
 fn ready(db:&Connection,cache:&Connection,o:&TaskOwner)->Result<(),TaskError>{

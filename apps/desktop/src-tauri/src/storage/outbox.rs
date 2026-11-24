@@ -23,6 +23,7 @@ pub fn begin_delivery(path: &Path, owner: &TaskOwner, sequence: i64) -> Result<P
     let r = rows.first().ok_or(TaskError::Conflict)?;
     let operation = PendingOperation { sequence, operation_id:r[1].clone(),task_id:r[2].clone(),kind:r[3].clone(),expected_revision:r[4].parse().map_err(|_| super::StorageError::InvalidSchema)?,title:r[5].clone() };
     super::outbound::ensure_no_plan(&plan_cache,owner,&operation.task_id)?;
+    super::merge::ensure_clear(&plan_cache,owner,"task",&operation.task_id)?;
     if operation.kind == "rename" && latest_revision(&db, owner, &operation.task_id)? != Some(operation.expected_revision) { return Err(TaskError::Conflict); }
     db.query("INSERT INTO outbox_delivery(sequence) VALUES(?1) ON CONFLICT(sequence) DO NOTHING", &[&sequence.to_string()])?;
     tx.commit()?;
@@ -52,10 +53,10 @@ pub fn acknowledge(path: &Path, owner: &TaskOwner, operation_id: &str, task_id: 
         if r[4]=="create"{snapshot["completed"]=serde_json::json!(false);}
         save_task_binding(&db,owner,task_id,revision,&snapshot)?;
     }
-    if r[1] == "pending" && r[4] == "create" {
+    if r[1] == "pending" {
         // The cloud create starts open. If the user finished the local task before
         // delivery, queue the matching completion in this same commit.
-        db.query("INSERT INTO task_action_outbox(project_ref,user_id,task_id,operation_id,kind,expected_revision,completed) SELECT t.project_ref,t.user_id,t.id,lower(hex(randomblob(16))),'complete',?4,1 FROM tasks t WHERE t.id=?1 AND t.project_ref=?2 AND t.user_id=?3 AND t.completed=1", &[task_id,&owner.project_ref,&owner.user_id,&revision.to_string()])?;
+        db.query("INSERT INTO task_action_outbox(project_ref,user_id,task_id,operation_id,kind,expected_revision,completed) SELECT t.project_ref,t.user_id,t.id,lower(hex(randomblob(16))),'complete',?4,t.completed FROM tasks t JOIN cloud_bindings b ON b.project_ref=t.project_ref AND b.user_id=t.user_id AND b.entity='task' AND b.id=t.id WHERE t.id=?1 AND t.project_ref=?2 AND t.user_id=?3 AND t.completed<>json_extract(b.snapshot,'$.completed')", &[task_id,&owner.project_ref,&owner.user_id,&revision.to_string()])?;
     }
     tx.commit()?;
     Ok(())
@@ -85,6 +86,7 @@ pub fn prepare_action(path: &Path, owner: &TaskOwner, task_id: &str, kind: &str,
     let tx=Transaction::begin(&db)?;
     super::backup::ensure_send_allowed(&db,owner)?;
     super::outbound::ensure_no_plan(&plan_cache,owner,task_id)?;
+    super::merge::ensure_clear(&plan_cache,owner,"task",task_id)?;
     let task=db.query("SELECT completed FROM tasks WHERE id=?1 AND project_ref=?2 AND user_id=?3", &[task_id,&owner.project_ref,&owner.user_id])?;
     if task.is_empty() { return Err(TaskError::NotFound); }
     let pending=db.query("SELECT operation_id,task_id,kind,expected_revision,COALESCE(CAST(completed AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND task_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,task_id])?;
@@ -113,6 +115,7 @@ pub fn begin_action(path: &Path, owner: &TaskOwner, operation_id: &str) -> Resul
     let rows=db.query("SELECT operation_id,task_id,kind,expected_revision,COALESCE(CAST(completed AS TEXT),'') FROM task_action_outbox WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,operation_id])?;
     let action=decode_action(rows.first().ok_or(TaskError::Conflict)?)?;
     super::outbound::ensure_no_plan(&plan_cache,owner,&action.task_id)?;
+    super::merge::ensure_clear(&plan_cache,owner,"task",&action.task_id)?;
     if latest_revision(&db,owner,&action.task_id)? != Some(action.expected_revision) { return Err(TaskError::Conflict); }
     db.query("UPDATE task_action_outbox SET started=1 WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND state='pending'", &[&owner.project_ref,&owner.user_id,operation_id])?;
     tx.commit()?; Ok(action)
@@ -223,4 +226,11 @@ pub fn pending(path: &Path, owner: &TaskOwner, after: i64) -> Result<Vec<Pending
 
 fn save_task_binding(db:&Connection,o:&TaskOwner,id:&str,revision:i64,snapshot:&serde_json::Value)->Result<(),TaskError>{
  db.query("INSERT INTO cloud_bindings VALUES(?1,?2,'task',?3,?4,?5) ON CONFLICT(project_ref,user_id,entity,id) DO UPDATE SET revision=excluded.revision,snapshot=excluded.snapshot",&[&o.project_ref,&o.user_id,id,&revision.to_string(),&snapshot.to_string()])?;Ok(())
+}
+
+pub fn reject(path:&Path,o:&TaskOwner,operation:&str,id:&str)->Result<(),TaskError>{
+ o.validate()?;let(db,_)=connect(path)?;let tx=Transaction::begin(&db)?;
+ db.query("UPDATE task_outbox SET state='conflict' WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND task_id=?4 AND state='pending'",&[&o.project_ref,&o.user_id,operation,id])?;
+ db.query("UPDATE task_action_outbox SET state='conflict' WHERE project_ref=?1 AND user_id=?2 AND operation_id=?3 AND task_id=?4 AND state='pending'",&[&o.project_ref,&o.user_id,operation,id])?;
+ tx.commit()?;Ok(())
 }
