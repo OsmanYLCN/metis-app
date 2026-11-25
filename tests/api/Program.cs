@@ -18,6 +18,8 @@ using Microsoft.IdentityModel.Tokens;
 using PersonalOS.Api.Modules.Identity;
 using PersonalOS.Api.Modules.Tasks;
 
+if (args.Contains("--check-live-package1")) { Environment.ExitCode=await LiveReadinessChecks.Run(); return; }
+
 // Real authentication + HTTP pipeline in memory. Only the remote JWKS transport is fake.
 // All signing keys are generated per run; no accounts, secrets or network ports are used.
 const string issuer = "https://test-project.supabase.co/auth/v1";
@@ -127,6 +129,21 @@ async Task<JsonElement> Request(HttpClient client, string path, HttpStatusCode e
     if (expected == HttpStatusCode.Unauthorized)
         Check(!json.GetProperty("authenticated").GetBoolean() && json.GetProperty("user").ValueKind == JsonValueKind.Null, "Unauthorized response exposed a user.");
     return json;
+}
+
+if (Environment.GetEnvironmentVariable("METIS_TEST_CONCURRENCY_PORT") is { } concurrencyPort)
+{
+    if(Environment.GetEnvironmentVariable("METIS_TEST_HTTP_BRIDGE")=="1")
+    {
+        await ConcurrencyChecks.Bridge(concurrencyPort,
+            settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
+            user => Token(d => d.Claims["sub"] = user));
+        return;
+    }
+    await ConcurrencyChecks.Run(concurrencyPort,
+        settings => Start("Supabase", new FakeKeys(jwks), settings, environment: Environments.Development),
+        user => Token(d => d.Claims["sub"] = user));
+    return;
 }
 
 var disabledKeys = new FakeKeys(jwks);

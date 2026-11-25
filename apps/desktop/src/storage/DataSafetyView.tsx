@@ -1,3 +1,4 @@
+import { PortableBackup } from './PortableBackup';
 import { ConflictPanel } from './ConflictPanel';
 import { SyncPanel } from './SyncPanel';
 import { CloudUpload } from './CloudUpload';
@@ -26,7 +27,7 @@ const when = (s: string) => new Date(s).toLocaleString('tr-TR');
 export function DataSafetyView({ onAccount }: { onAccount: () => void }) {
   const session = useSyncExternalStore(loginStore.subscribe, loginStore.getSnapshot);
   if (!window.__TAURI__ || session.phase !== 'signedIn' || session.expiresAt <= Date.now() || loginSettings.kind !== 'ready')
-    return <section className="empty-state"><Database size={32} /><h2>Veri alanın için giriş yap.</h2><p>Yedekler yalnızca seçili Metis hesabının yerel kayıtlarını içerir.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section>;
+    return <><section className="empty-state"><Database size={32} /><h2>Veri alanın için giriş yap.</h2><p>Yedekler yalnızca seçili Metis hesabının yerel kayıtlarını içerir.</p><button className="primary-button" onClick={onAccount}>Hesabıma git</button></section><PortableBackup /></>;
   const owner = { projectRef: new URL(loginSettings.config.url).hostname.split('.')[0], userId: session.userId.toLowerCase() };
   return <Board key={owner.projectRef + ':' + owner.userId} owner={owner} />;
 }
@@ -69,6 +70,7 @@ function Board({ owner }: { owner: TaskOwner }) {
     <div className="overview-columns"><article className="panel"><h3>Bu cihaz</h3><p>Görev, proje, not, hedef, takvim, finans ve bütçe kayıtları SQLite içinde tutulur.</p></article><article className="panel"><h3>Bulut kapsamı</h3><p>Görev başlığı, tamamlanma ve silme işlemleri gönderilebilir. Tüm desteklenen modüllerin bulut değişiklikleri aşağıda önbelleğe alınabilir. Seçilen bulut kaydı karşılaştırmadan sonra onayla uygulanabilir. Uygulama açıkken gönderim ve buluttan güvenli birleştirme ayrı ayrı açılabilir. Çakışmalar kararını bekler.</p></article></div>
     {data?.paused && <p className="workspace-error" role="status">Yedekten dönüş sonrası buluta gönderim duraklatıldı. Yerel verilerin açık kalır; bulutla bağlantılı görev işlemleri engellenir. Aşağıdaki kurtarma bölümünden güncel bulutla karşılaştırıp uzlaştırmayı tamamlayabilirsin.</p>}
     <article className="panel"><h3>Görev gönderim durumu</h3>{delivery?<><p>{delivery.pending} bekleyen · {delivery.conflicts} çakışan · {delivery.uncertain} sonucu henüz doğrulanmamış işlem.</p><button className="secondary-button" disabled={busy||delivery.paused||delivery.pending===0} onClick={()=>void run(send)}>Bekleyen görev işlemlerini gönder</button><p className="section-description">Bir seferde en fazla 100 işlem gönderilir. Bu düğme diğer modülleri eşitlemez ve buluttan veri indirmez.</p></>:<p>Gönderim durumu alınamadı.</p>}</article>
+    <PortableBackup />
     <SyncPanel owner={owner} onChange={refresh}/>
     <CloudUpload owner={owner} />
     <ConflictPanel owner={owner}/>

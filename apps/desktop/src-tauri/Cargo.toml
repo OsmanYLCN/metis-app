@@ -12,3 +12,17 @@ serde = { version = "1.0.229", features = ["derive"] }
 sha2 = "0.10.9"
 serde_json = "1.0.154"
 tauri = { version = "2", features = [] }
+aes-gcm = "0.10.3"
+pbkdf2 = "0.12.2"
+zeroize = "1"
+rfd = { version = "0.15", default-features = false }
+
+# Keep the password KDF responsive in development without producing release installers.
+[profile.dev.package.pbkdf2]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.hmac]
+opt-level = 3
+[profile.dev.package.aes-gcm]
+opt-level = 3

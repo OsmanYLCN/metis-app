@@ -22,3 +22,7 @@ playwright-report/
 # Local tools and release artifacts
 /work/
 /outputs/
+
+# Personal encrypted recovery archives
+*.metisbackup
+*.metisportable

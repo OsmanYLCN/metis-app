@@ -495,6 +495,24 @@
           "markdownDescription": "Enables the outbox_statuses command without any pre-configured scope."
         },
         {
+          "description": "Enables the portable_activate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-portable-activate",
+          "markdownDescription": "Enables the portable_activate command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the portable_export command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-portable-export",
+          "markdownDescription": "Enables the portable_export command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the portable_inspect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-portable-inspect",
+          "markdownDescription": "Enables the portable_inspect command without any pre-configured scope."
+        },
+        {
           "description": "Enables the project_progress command without any pre-configured scope.",
           "type": "string",
           "const": "allow-project-progress",
@@ -1003,6 +1021,24 @@
           "type": "string",
           "const": "deny-outbox-statuses",
           "markdownDescription": "Denies the outbox_statuses command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the portable_activate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-portable-activate",
+          "markdownDescription": "Denies the portable_activate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the portable_export command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-portable-export",
+          "markdownDescription": "Denies the portable_export command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the portable_inspect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-portable-inspect",
+          "markdownDescription": "Denies the portable_inspect command without any pre-configured scope."
         },
         {
           "description": "Denies the project_progress command without any pre-configured scope.",

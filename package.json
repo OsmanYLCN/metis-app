@@ -26,6 +26,8 @@
     "test:postgres": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-postgres-adapter.mjs",
     "test:task-planning": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-task-planning.mjs",
     "test:domains": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-domains.mjs",
+    "check:central": "dotnet run --project tests/api/PersonalOS.Api.Tests.csproj --configuration Release -- --check-live-package1",
+    "test:real-postgres": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-real-postgres.mjs",
     "test:two-clients": "node scripts/test-two-clients.mjs",
     "test:workspace": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-workspace.mjs",
     "test:change-feed": "dotnet build PersonalOS.slnx --configuration Release --no-restore -m:1 && node scripts/test-change-feed.mjs",

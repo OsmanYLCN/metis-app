@@ -22,8 +22,8 @@ async function build(){
  return artifacts.find(v=>v.reason==='compiler-artifact'&&v.profile?.test&&v.executable)?.executable??assert.fail('Native test executable missing');
 }
 const exe=await build();
-function client(directory){
- const child=spawn(exe,['--exact','storage::dual_client::isolated_client_bridge','--nocapture'],{cwd,env:{...env,METIS_DUAL_CLIENT_ROOT:directory},windowsHide:true,stdio:['pipe','pipe','pipe']});
+function client(directory,http=false){
+ const child=spawn(http?'dotnet':exe,http?['tests/api/bin/Release/net10.0/PersonalOS.Api.Tests.dll']:['--exact','storage::dual_client::isolated_client_bridge','--nocapture'],{cwd,env:{...env,METIS_DUAL_CLIENT_ROOT:directory,METIS_TEST_HTTP_BRIDGE:http?'1':''},windowsHide:true,stdio:['pipe','pipe','pipe']});
  let waiting=null,errors='';child.stderr.on('data',d=>errors+=d);
  createInterface({input:child.stdout}).on('line',line=>{
   const index=line.indexOf('METIS_RESULT:');if(index<0)return;
@@ -36,8 +36,10 @@ function client(directory){
  };
 }
 const account='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',id='a'.repeat(32);
-let a=client(aRoot),b=client(bRoot);const db=await PGlite.create(join(root,'postgres'));const checks=[];
+const useHttp=process.env.METIS_DUAL_HTTP==='1';
+let a=client(aRoot),b=client(bRoot);const bridge=useHttp?client(root,true):null;const db=useHttp?null:await PGlite.create(join(root,'postgres'));const checks=[];
 try{
+ if(!useHttp){
  await db.exec(`CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;
  CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
  CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
@@ -46,13 +48,14 @@ try{
  for(const f of ['0001_central_tasks.sql','0002_task_reader.sql','0003_task_writer.sql','0004_task_writer_claims.sql','0005_task_writer_lifecycle.sql','0006_change_feed.sql','0007_workspace.sql','0008_domain_records.sql','0009_task_planning.sql'])
   await db.exec(await readFile(resolve('services/api/Database/Migrations',f),'utf8'));
  await db.exec("INSERT INTO metis.installation VALUES(1,'test-project')");
- const epoch=(await db.query('SELECT epoch FROM metis.change_feed_config')).rows[0].epoch.replaceAll('-','');
+ }
+ const epoch=useHttp?null:(await db.query('SELECT epoch FROM metis.change_feed_config')).rows[0].epoch.replaceAll('-','');
  async function sql(role,user,fn){
   await db.exec('SET SESSION AUTHORIZATION '+role+'; BEGIN');
   try{await db.query("SELECT set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:user,role:'authenticated',is_anonymous:false})]);const result=await fn();await db.exec('COMMIT');return result;}
   catch(e){await db.exec('ROLLBACK');throw e;}finally{await db.exec('RESET SESSION AUTHORIZATION');}
  }
- async function write(op){return await sql('metis_writer',account,async()=>(
+ async function write(op){if(bridge)return await bridge.call('write',{operation:op});return await sql('metis_writer',account,async()=>(
   await db.query('SELECT * FROM metis.apply_workspace_write($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7::jsonb)',[account,op.operationId,op.id,op.entity,op.action,op.expectedRevision,JSON.stringify(op.payload)])
  ).rows[0]);}
  async function acknowledge(c,op,r){await c.call('ack',{id:op.id,operation:op.operationId,revision:Number(r.applied_revision??r.revision)});}
@@ -60,7 +63,9 @@ try{
   const op=await c.call(kind,{id});const r=await write(op);assert.ok(['applied','replay'].includes(r.outcome),JSON.stringify(r));await acknowledge(c,op,r);return op;
  }
  async function feed(c){
-  const st=await c.call('status');const position=st.cursor?st.cursor.split('.').at(-1):'0';
+  const st=await c.call('status');
+  if(bridge){const page=await bridge.call('feed',{cursor:st.cursor});await c.call('stage',{expected:st.cursor,page});return page;}
+  const position=st.cursor?st.cursor.split('.').at(-1):'0';
   const rows=await sql('metis_reader',account,async()=> (await db.query('SELECT position,entity,entity_id,revision,deleted,snapshot FROM metis.changes WHERE position>$1 ORDER BY position',[position])).rows);
   const next=rows.length?String(rows.at(-1).position):position;
   const page={contractVersion:1,items:rows.map(r=>({position:String(r.position),entity:r.entity,entityId:r.entity_id,revision:Number(r.revision),deleted:r.deleted,snapshot:r.snapshot})),nextCursor:epoch+'.'+account.replaceAll('-','')+'.'+next,hasMore:false};
@@ -92,8 +97,8 @@ try{
  const deleted=(await b.call('conflicts'))[0];assert.equal(deleted.canKeepLocal,false);await assert.rejects(b.call('resolve',{id,digest:deleted.digest,choice:'local'}));
  await b.call('resolve',{id,digest:deleted.digest,choice:'cloud'});assert.equal((await b.call('list')).items.length,0);checks.push('delete/edit conflict never silently deletes local edits');
  const cursor=(await b.call('status')).cursor;await b.close();b=client(bRoot);assert.equal((await b.call('status')).cursor,cursor);assert.equal((await b.call('list')).items.length,0);
- const others=await sql('metis_reader',other,async()=>(await db.query('SELECT * FROM metis.changes')).rows);assert.equal(others.length,0);checks.push('persistent cursor and account RLS');
- const report={checks,transport:'two native processes / SQLite + real migration SQL in PGlite; no physical second device or live Supabase',createdAt:new Date().toISOString()};
+ const others=bridge?(await bridge.call('feed',{cursor:'',other:true})).items:await sql('metis_reader',other,async()=>(await db.query('SELECT * FROM metis.changes')).rows);assert.ok(bridge?others.every(v=>v.entityId.replaceAll('-','')!==id):others.length===0);checks.push('persistent cursor and account RLS');
+ const report={checks,transport:useHttp?'two native processes / SQLite + actual ASP.NET HTTP pipeline + native PostgreSQL; synthetic JWT keys, same computer, no Supabase':'two native processes / SQLite + real migration SQL in PGlite; no physical second device or live Supabase',createdAt:new Date().toISOString()};
  await writeFile(join(root,'report.json'),JSON.stringify(report,null,2));
  console.log('PASS two isolated clients: '+checks.length+' scenarios');console.log('Report: '+join(root,'report.json'));
-}finally{await a.close();await b.close();await db.close();}
+}finally{await a.close();await b.close();if(bridge)await bridge.close();if(db)await db.close();}

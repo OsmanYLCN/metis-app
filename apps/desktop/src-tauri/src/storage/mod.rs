@@ -8,6 +8,7 @@ pub mod finance;
 pub mod calendar;
 pub mod notifications;
 pub mod backup;
+pub mod portable;
 pub mod inbox;
 pub mod outbound;
 pub mod sync;

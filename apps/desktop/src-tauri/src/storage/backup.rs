@@ -25,7 +25,7 @@ const TABLES:&[Table]=&[
 ];
 #[derive(Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Snapshot {format:u32,schema:u32,project:String,user:String,created_at:String,tables:Vec<Vec<Vec<String>>>,deliveries:Vec<Vec<String>>}
+pub(super) struct Snapshot {pub(super) format:u32,pub(super) schema:u32,pub(super) project:String,pub(super) user:String,pub(super) created_at:String,pub(super) tables:Vec<Vec<Vec<String>>>,pub(super) deliveries:Vec<Vec<String>>}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct Count {pub name:String,pub count:usize}
@@ -62,7 +62,7 @@ pub(super) fn collect(db:&Connection,owner:&TaskOwner)->Result<Snapshot,TaskErro
  let deliveries=db.query("SELECT o.operation_id,COALESCE(d.revision,''),d.started_at FROM outbox_delivery d JOIN task_outbox o ON o.sequence=d.sequence WHERE o.project_ref=?1 AND o.user_id=?2 ORDER BY o.operation_id",&[&owner.project_ref,&owner.user_id])?;
  Ok(Snapshot{format:1,schema:VERSION,project:owner.project_ref.clone(),user:owner.user_id.clone(),created_at:db.scalar("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')")?,tables,deliveries})
 }
-fn validate(s:&Snapshot,owner:&TaskOwner)->Result<(),TaskError>{
+pub(super) fn validate(s:&Snapshot,owner:&TaskOwner)->Result<(),TaskError>{
  if s.format!=1||s.schema!=VERSION||s.project!=owner.project_ref||s.user!=owner.user_id||s.tables.len()!=TABLES.len()||s.deliveries.len()>ROW_LIMIT{return Err(TaskError::InvalidInput)}
  for(t,rows)in TABLES.iter().zip(&s.tables){if rows.len()>ROW_LIMIT||rows.iter().any(|r|r.len()!=t.columns.len()){return Err(TaskError::InvalidInput)}}
  if s.deliveries.iter().any(|r|r.len()!=3){return Err(TaskError::InvalidInput)}Ok(())
@@ -118,22 +118,7 @@ pub fn restore(path:&Path,owner:&TaskOwner,id:&str,current_digest:&str,backup_di
   if candidate.tables[9].iter().any(|r|r[5]=="pending"&&r[6]=="1")||candidate.deliveries.iter().any(|r|r[1].is_empty()){return Err(TaskError::Conflict)}
  }
  let safety=write(path,&db,owner,&current)?;
- db.query("DELETE FROM outbox_delivery WHERE sequence IN (SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2)",&[&owner.project_ref,&owner.user_id])?;
- for t in TABLES.iter().rev(){db.query(&format!("DELETE FROM {} WHERE project_ref=?1 AND user_id=?2",t.name),&[&owner.project_ref,&owner.user_id])?;}
- let mut sequences=HashMap::new();
- for(index,t)in TABLES.iter().enumerate(){
-  let skip=if t.name=="task_outbox"{1}else{0};
-  let columns=&t.columns[skip..];
-  let values=(skip..t.columns.len()).map(|i|if t.nullable.contains(&i){format!("NULLIF(?{},'')",i-skip+3)}else{format!("?{}",i-skip+3)}).collect::<Vec<_>>().join(",");
-  let sql=format!("INSERT INTO {}(project_ref,user_id,{}) VALUES(?1,?2,{values})",t.name,columns.join(","));
-  for row in &s.tables[index]{
-   let mut params=vec![owner.project_ref.as_str(),owner.user_id.as_str()];params.extend(row[skip..].iter().map(String::as_str));db.query(&sql,&params)?;
-   if skip==1{sequences.insert(row[1].clone(),db.scalar("SELECT last_insert_rowid()")?);}
-  }
- }
- for row in &s.deliveries{let sequence=sequences.get(&row[0]).ok_or_else(err)?;db.query("INSERT INTO outbox_delivery(sequence,revision,started_at) VALUES(?1,NULLIF(?2,''),?3)",&[sequence,&row[1],&row[2]])?;}
- if !db.query("PRAGMA foreign_key_check",&[])?.is_empty(){return Err(err())}
- if !db.query("SELECT a.task_id FROM task_attributes a JOIN tasks t ON t.id=a.task_id WHERE a.project_ref<>t.project_ref OR a.user_id<>t.user_id LIMIT 1",&[])?.is_empty(){return Err(err())}
+ install(&db,owner,&s)?;
  db.query("INSERT INTO recovery_guard(project_ref,user_id,restored_at,backup_id) VALUES(?1,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?3) ON CONFLICT(project_ref,user_id) DO UPDATE SET restored_at=excluded.restored_at,backup_id=excluded.backup_id",&[&owner.project_ref,&owner.user_id,id])?;
  tx.commit()?;Ok(RestoreResult{safety_backup:safety,paused:true})
 }
@@ -159,4 +144,31 @@ fn recovery_schema13_snapshot_remains_readable(){
  let(db,_)=connect(&path).unwrap();let mut snapshot=collect(&db,&owner).unwrap();snapshot.schema=13;snapshot.tables.pop();let info=write(&path,&db,&owner,&snapshot).unwrap();drop(db);
  let normalized=read(&path,&owner,&info.id).unwrap().0;assert_eq!(normalized.schema,VERSION);assert_eq!(normalized.tables.len(),TABLES.len());assert!(normalized.tables.last().unwrap().is_empty());
  std::fs::remove_dir_all(&dir).unwrap();
+}
+
+// Static table allowlist; callers own the transaction. Never executes archive-supplied SQL.
+pub(super) fn install(db:&Connection,owner:&TaskOwner,s:&Snapshot)->Result<(),TaskError>{
+ validate(s,owner)?;
+ db.query("DELETE FROM outbox_delivery WHERE sequence IN (SELECT sequence FROM task_outbox WHERE project_ref=?1 AND user_id=?2)",&[&owner.project_ref,&owner.user_id])?;
+ for t in TABLES.iter().rev(){db.query(&format!("DELETE FROM {} WHERE project_ref=?1 AND user_id=?2",t.name),&[&owner.project_ref,&owner.user_id])?;}
+ let mut sequences=HashMap::new();
+ for(index,t)in TABLES.iter().enumerate(){
+  let skip=if t.name=="task_outbox"{1}else{0};
+  let columns=&t.columns[skip..];
+  let values=(skip..t.columns.len()).map(|i|if t.nullable.contains(&i){format!("NULLIF(?{},'')",i-skip+3)}else{format!("?{}",i-skip+3)}).collect::<Vec<_>>().join(",");
+  let sql=format!("INSERT INTO {}(project_ref,user_id,{}) VALUES(?1,?2,{values})",t.name,columns.join(","));
+  for row in &s.tables[index]{
+   let mut params=vec![owner.project_ref.as_str(),owner.user_id.as_str()];params.extend(row[skip..].iter().map(String::as_str));db.query(&sql,&params)?;
+   if skip==1{sequences.insert(row[1].clone(),db.scalar("SELECT last_insert_rowid()")?);}
+  }
+ }
+ for row in &s.deliveries{let sequence=sequences.get(&row[0]).ok_or_else(err)?;db.query("INSERT INTO outbox_delivery(sequence,revision,started_at) VALUES(?1,NULLIF(?2,''),?3)",&[sequence,&row[1],&row[2]])?;}
+ if !db.query("PRAGMA foreign_key_check",&[])?.is_empty(){return Err(err())}
+ if !db.query("SELECT a.task_id FROM task_attributes a JOIN tasks t ON t.id=a.task_id WHERE a.project_ref<>t.project_ref OR a.user_id<>t.user_id LIMIT 1",&[])?.is_empty(){return Err(err())}
+ Ok(())
+}
+
+pub(super) fn owners(db:&Connection)->Result<Vec<Vec<String>>,TaskError>{
+ let sql=TABLES.iter().map(|t|format!("SELECT project_ref,user_id FROM {}",t.name)).chain(std::iter::once("SELECT project_ref,user_id FROM recovery_guard".into())).collect::<Vec<_>>().join(" UNION ");
+ Ok(db.query(&sql,&[])?)
 }

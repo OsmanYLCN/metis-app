@@ -1,6 +1,6 @@
 # Paket 1 — Merkezi veri, eşitleme ve veri koruma
 
-Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun başlangıç noktasıdır; Paket 2’ye geçilmez.
+Durum (25 Kasım 2026): kod çalışmaları ve erişilen ortamdaki doğrulamalar tamamlandı. Canlı Supabase şema/yetki hazırlığı da doğrulandı. İki fiziksel cihazdaki uçtan uca kullanıcı kabulü yapılmadığından paket koşulsuz kapanmış sayılmaz. Paket 2’ye geçilmedi. Güncel kanıtlar: [kabul kaydı](package-1-acceptance.md). Aşağıdaki eski bölümler kendi tarihindeki durumu anlatır.
 
 ## Tamamlanan ilk bölüm — v0.49.0
 
@@ -101,16 +101,21 @@ Durum: devam ediyor. Kullanıcı paketi onayladı. Bu belge bir sonraki oturumun
 - Ayrı süreç ve SQLite klasörleriyle iki native istemci; gerçek migration SQL/PGlite üzerinde yedi senaryo geçti.
 - Bu doğrulama iki fiziksel cihaz veya canlı Supabase doğrulaması değildir. [Kullanım, kurallar ve test sınırları](incoming-merge.md).
 
-## Devam sırası — kalan işler
+## Tamamlanan on ikinci bölüm — taşınabilir kurtarma ve bütünleşik kabul
 
-1. Ortak akış görev/not/proje/hedef/takvim/finans/bütçeyi kapsıyor. Çok oturumlu PostgreSQL commit sırası doğrulaması kaldı.
-2. Hedeflenen modüllerin merkezi modelleri ve masaüstü görev planı gönderimi hazır; gerçek iki istemci kabulü kaldı.
-3. Son kalıcı yerel durumu tarayan otomatik gönderim hazır. Her iş değişikliğini ayrı olay olarak aynı ana transaction’da arşivleme ve outbound dosyasını bütünleşik yedekleme kapsamına alma ayrı iyileştirmedir.
-4. Delta indirme ve kalıcı cursor inbox için hazır. Seçilen kaydı onayla yerel çalışma tablolarına atomik uygulama hazır; arka plan gönderimi, otomatik indirme ve güvenli alan grubu birleştirmesi hazır. Finans ve gerçek çakışmalar kullanıcı seçimi gerektirir. Gelen değişiklik tekrar gönderim kuyruğuna alınmamalı.
-5. Kesin ret için elle çözüm yolu ve onaylı silme iki yönde var. Bağımsız alan birleştirmesi ve kalıcı çakışma ekranı hazır; silinmiş kimlikle yeniden oluşturma ve daha ayrıntılı alan seçimi kaldı; finans/not verileri sessizce ezilmemeli.
-6. Güncel bulutu esas alan recovery uzlaştırması ve doğrulanmış guard kaldırma hazır. Yerel içeriği alan bazında bulutla birleştirme alternatifi henüz yok.
-7. Taşınabilir dışa aktarma, disk/profil kaybı ve bozuk SQLite için kurtarma; şu anki DPAPI snapshot bunun yerine geçmez.
-8. İki ayrı native süreç/veri dizini + gerçek SQL ile offline değişiklik, yeniden deneme, silme, çakışma, tekrar başlatma ve hesap ayrımı geçti. Canlı HTTP/Supabase, iki fiziksel cihaz ve çok oturumlu PostgreSQL kabulü kaldı.
+- Parolalı taşınabilir yedek; tüm yerel hesaplar, ana SQLite ve ayrı inbox/outbound günlüğü, makbuzlar, sürüm bağlantıları ve çakışmalar birlikte korunur.
+- Önizleme, doğrulanan yeni veri alanı, yeniden başlatmada atomik seçim, eski dosyaları koruma; bozuk eski SQLite ve yeni Windows profili için kurtarma yolu.
+- Oturum ve servis parolaları yedeğe dahil değildir; otomatik alma/gönderme kapalı döner.
+- Gerçek PostgreSQL’de çok oturumlu commit sırası, rollback, eşzamanlı tekrar, revision çatışması ve RLS kontrolleri geçti.
+- Yedi modül iki HTTP istemcisinde; iki native SQLite süreci gerçek API ve PostgreSQL üzerinden yedi senaryoda doğrulandı.
+- Canlı Supabase’e yalnızca metadata okuması yapıldı: TLS, kısıtlı roller, kurulum eşleşmesi, 0001–0009 ve workspace/taskPlan yetkileri hazır. Yeni SQL uygulamak gerekmiyor.
+- [Taşınabilir kurtarma rehberi](portable-recovery.md), [kanıt ve kabul kaydı](package-1-acceptance.md).
+
+## Kapanışta kalan doğrulama ve tasarım sınırları
+
+İki fiziksel cihazla canlı Supabase üzerinden son kullanıcı kabulü bekleniyor. İki ayrı native süreç aynı bilgisayarda doğrulandı; bu, ikinci fiziksel cihazın ağı/Windows profili üzerinde test yapıldığı anlamına gelmez.
+
+Mevcut davranışlar: son kalıcı durum taranır; her tuş vuruşu ayrı olay olarak arşivlenmez. Çakışmada kayıt düzeyinde yerel/bulut seçimi vardır; daha ayrıntılı alan seçimi yoktur. Silinmiş kimlik diriltilmez, gerektiğinde yeni kayıt oluşturulur. Eski DPAPI yedeğinden dönüşte bulutu esas alan uzlaştırma kullanılır; yeni taşınabilir yedek iki günlüğü ve ortak snapshot’ı birlikte geri getirir. Bu sınırlar saklanmamalı veya tamamlanmış özellik gibi gösterilmemelidir.
 
 ## Paketin bitiş ölçütü
 
@@ -118,9 +123,9 @@ Tüm hedeflenen modüller iki istemci arasında veri kaybetmeden güncellenir; b
 
 ## Sınırlar ve doğrulama
 
-Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; onaylı yerel uygulama ve otomatik gönderim hazır; isteğe bağlı iki yönlü akış hazır; çakışmalar açık kullanıcı seçimi bekler. Sunucu değişiklik akışı için yeni 0006 SQL gerekir; yerel yedekleme bölümü için gerekmez. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
+Masaüstüne buluttan ayrı önbelleğe indirme ve karşılaştırma hazır; onaylı yerel uygulama ve otomatik gönderim hazır; isteğe bağlı iki yönlü akış hazır; çakışmalar açık kullanıcı seçimi bekler. Canlı kurulumda 0001–0009 bu oturumda doğrulandı; yeni SQL gerekmiyor. Canlı kullanıcı verisi üzerinde restore/sync testi yapılmaz; sentetik geçici veriler kullanılır. Dağıtım EXE’si yok.
 
-Mevcut yedek formatı 1, ana şema 14. Şema 13 yedekleri boş bulut bağlantılarıyla okunur. Sonraki şemalarda uyumluluk korunmalı. Taşınabilir ihracat gelecekte kullanıcı parolasıyla şifreleme gibi bağımsız anahtar yönetimi gerektirir.
+Mevcut yedek formatı 1, ana şema 14. Şema 13 yedekleri boş bulut bağlantılarıyla okunur. Sonraki şemalarda uyumluluk korunmalı. Ayrı taşınabilir format METISPB1, kullanıcı parolasıyla şifrelenir ve ana şema 14 / inbox şema 5 kapsamını birlikte taşır.
 
 Doğrulama (2026-11-19): TypeScript/Vite build geçti; native depolama + DPAPI 61 test geçti; storage bridge 6 test geçti. Tam native kontrolün nedeni veri değiştiren restore ve şema geçişidir. Testler yalnızca geçici sentetik veri kullandı; canlı hesap verisiyle geri yükleme yapılmadı.
 

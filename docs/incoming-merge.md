@@ -49,3 +49,7 @@ Geçen yedi senaryo:
 Sonuç `test-results/dual-client-run-*/report.json` dosyasındadır. Bu, aynı bilgisayarda iki bağımsız native istemci + gerçek SQL testidir. HTTP/Supabase ve iki fiziksel cihaz testi değildir; PGlite çok oturumlu PostgreSQL yarış davranışını kanıtlamaz. İki fiziksel cihaz ve canlı Supabase kabulü ayrıca yapılmalıdır. Kullanıcının gerçek verileri, profili veya anahtarları kullanılmadı.
 
 Ek doğrulama: native depolama/geri yükleme kontrolleri; ilişkili finans/saat alanlarının birleştirilmemesi; görev planı korunarak başlık kuyruğunu yeniden kurma; sonucu belirsiz görev isteğine dokunmama; HTTP oturum/ret ve koordinatör kontrolleri; TypeScript/Vite build. Dağıtım EXE’si oluşturulmadı.
+
+## Sonraki doğrulama — 25 Kasım 2026
+
+Aynı yedi senaryo artık iki native süreç → gerçek ASP.NET HTTP pipeline → çok oturumlu yerel PostgreSQL yolunda da geçti. Taşınabilir yedek iki günlüğü birlikte kapsıyor. Ayrıntılar: [Paket 1 kabul kaydı](package-1-acceptance.md), [taşınabilir kurtarma](portable-recovery.md).

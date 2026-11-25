@@ -1,6 +1,6 @@
 # Metis
 
-Windows masaüstü v0.49.0 · SQLite şema 14 · **Paket 1 sürüyor; tamamlanmadı.**
+Windows masaüstü v0.49.0 · SQLite şema 14 · **Paket 1 kod/doğrulama çalışmaları tamam; iki fiziksel cihaz kabulü bekliyor.**
 
 Tauri 2 + React + TypeScript + Vite masaüstü; ASP.NET Core 10 API; yerel SQLite ve merkezi PostgreSQL/Supabase. Android ve web henüz uygulanmadı.
 
@@ -14,10 +14,10 @@ Tauri 2 + React + TypeScript + Vite masaüstü; ASP.NET Core 10 API; yerel SQLit
 | Finans, bütçeler | TRY kayıtları, düzenleme, bütçe ve aylık analiz | Merkezi doğrulamalı yazma ve değişiklik akışı hazır; bulut önbelleği/karşılaştırma var; onaylı yerel uygulama var; elle/otomatik create/update/delete gönderimi ve kesin reddi kaldırma var |
 | Bildirimler | Uygulama içi hatırlatmalar, erteleme ve filtreler | Sistem bildirimi / arka plan servisi yok |
 | Genel Bakış, analiz, arama | Yerel kayıtlardan hesaplanır | Bağımsız merkezi veri kaynağı değil |
-| Veri ve eşitleme | Hesap kapsamlı şifreli geri dönüş noktaları, önizlemeli geri yükleme, görev kuyruğu durumu | Geri yükleme sonrası gönderim kilitlenir; bulutla uzlaştırma henüz yok |
+| Veri ve eşitleme | Hesap bazlı yerel yedekler ve tüm cihazı kapsayan parolalı taşınabilir yedek; iki gönderim günlüğüyle güvenli kurtarma | İsteğe bağlı alma/gönderme, ortak snapshot ile birleştirme, görünür çakışma çözümü ve geri yükleme sonrası uzlaştırma |
 | Dosyalar, Otomasyonlar, Asistan | Gezinme iskeleti | Uygulanmadı |
 
-Gerçek Supabase oturumu ve görev reader/writer bağlantısı önceki çalışmalarda kullanıcı tarafından doğrulandı. Bu sürümde canlı bağlantı yeniden denenmedi. Health yalnızca API sürecinin canlılığını gösterir. UI testlerinin bazıları mock sağlayıcı/IPC kullanır; native SQLite ve DPAPI testleri gerçek Windows bileşenleriyle sentetik geçici veride çalışır.
+Gerçek Supabase oturumu ve görev reader/writer bağlantısı önceki çalışmalarda kullanıcı tarafından doğrulandı. 25 Kasım 2026’da canlı Supabase TLS/rol/kurulum ve 0001–0009 hazırlığı yalnızca metadata okuyarak tekrar doğrulandı; canlı hesap üzerinde yazma testi yapılmadı. Health yalnızca API sürecinin canlılığını gösterir. UI testlerinin bazıları mock sağlayıcı/IPC kullanır; native SQLite ve DPAPI testleri gerçek Windows bileşenleriyle sentetik geçici veride çalışır.
 
 ## Paket 1: veri koruma ve eşitleme
 
@@ -32,7 +32,7 @@ Otomatik gönderim, görev planı ve geri yükleme sonrası uzlaştırma: [Kulla
 Güvenli gelen birleştirme ve iki izole istemci doğrulaması: [Kullanım ve kapsam](docs/incoming-merge.md).
 Geri yüklemenin kapsamı ve kullanımı: [Yerel yedekleme](docs/local-recovery.md).
 
-Şu anda yedekler aynı Windows profiline bağlıdır, taşınabilir felaket kurtarma yedeği değildir. Yedek dosyaları şifrelidir; canlı SQLite dosyası şifreli değildir. Oturum tokenları ve API/veritabanı parolaları yedeklere girmez. Geri yükleme mevcut hesabın yerel verisini değiştirir; bulutu eski hale döndürmez.
+İki yedek türü vardır: `.metisbackup` aynı Windows profiline bağlı hesap yedeğidir; `.metisportable` parola ile korunan ve tüm yerel hesaplarla iki gönderim günlüğünü taşıyan cihaz yedeğidir. Canlı SQLite dosyası şifreli değildir. Oturum tokenları ve API/veritabanı parolaları yedeklere girmez. Taşınabilir geri yükleme tüm yerel veri alanını değiştirir ve eski dosyaları korur; bulutu eski hale döndürmez. [Taşınabilir kurtarma](docs/portable-recovery.md), [Paket 1 kabul kaydı](docs/package-1-acceptance.md).
 
 ## Yerel geliştirme (Windows / PowerShell)
 

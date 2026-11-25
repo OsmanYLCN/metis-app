@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-portable-inspect"
+description = "Enables the portable_inspect command without any pre-configured scope."
+commands.allow = ["portable_inspect"]
+
+[[permission]]
+identifier = "deny-portable-inspect"
+description = "Denies the portable_inspect command without any pre-configured scope."
+commands.deny = ["portable_inspect"]

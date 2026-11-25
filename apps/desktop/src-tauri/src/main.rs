@@ -35,93 +35,93 @@ fn with_vault<T>(app: &tauri::AppHandle, project_ref: &str, action: impl FnOnce(
 
 
 #[tauri::command]
-async fn merge_receive(app:tauri::AppHandle,owner:TaskOwner,enabled:bool)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::merge::receive(&path,&owner,enabled)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn merge_receive(app:tauri::AppHandle,owner:TaskOwner,enabled:bool)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::merge::receive(&path,&owner,enabled)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn merge_run(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::merge::Report,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::merge::run(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn merge_run(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::merge::Report,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::merge::run(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn merge_conflicts(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::merge::Conflict>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::merge::conflicts(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn merge_conflicts(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::merge::Conflict>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::merge::conflicts(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn merge_resolve(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,digest:String,choice:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::merge::resolve(&path,&owner,&entity,&id,&digest,&choice)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn merge_resolve(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,digest:String,choice:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::merge::resolve(&path,&owner,&entity,&id,&digest,&choice)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn task_reject(app:tauri::AppHandle,owner:TaskOwner,operation:String,id:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbox::reject(&path,&owner,&operation,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn task_reject(app:tauri::AppHandle,owner:TaskOwner,operation:String,id:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbox::reject(&path,&owner,&operation,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn sync_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::sync::Status,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn sync_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::sync::Status,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn sync_enable(app:tauri::AppHandle,owner:TaskOwner,enabled:bool)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::enable(&path,&owner,enabled)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn sync_enable(app:tauri::AppHandle,owner:TaskOwner,enabled:bool)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::enable(&path,&owner,enabled)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn sync_pending(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<storage::outbound::Operation>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::pending(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn sync_pending(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<storage::outbound::Operation>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::pending(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn sync_scan(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::sync::Scan,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::scan(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn sync_scan(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::sync::Scan,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::scan(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn recovery_begin(app:tauri::AppHandle,owner:TaskOwner)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_begin(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn recovery_begin(app:tauri::AppHandle,owner:TaskOwner)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_begin(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn recovery_preview(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::sync::RecoveryPreview,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_preview(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn recovery_preview(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::sync::RecoveryPreview,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_preview(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn recovery_apply(app:tauri::AppHandle,owner:TaskOwner,digest:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_apply(&path,&owner,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn recovery_apply(app:tauri::AppHandle,owner:TaskOwner,digest:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_apply(&path,&owner,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn recovery_finish(app:tauri::AppHandle,owner:TaskOwner,digest:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_finish(&path,&owner,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn recovery_finish(app:tauri::AppHandle,owner:TaskOwner,digest:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::sync::recovery_finish(&path,&owner,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_removed(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::outbound::Removed>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::removed(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_removed(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::outbound::Removed>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::removed(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_delete(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,digest:String)->Result<storage::outbound::Operation,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::prepare_delete(&path,&owner,&entity,&id,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_delete(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,digest:String)->Result<storage::outbound::Operation,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::prepare_delete(&path,&owner,&entity,&id,&digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_reject(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,operation:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::reject(&path,&owner,&entity,&id,&operation)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_reject(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,operation:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::reject(&path,&owner,&entity,&id,&operation)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_discard(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::discard_rejected(&path,&owner,&entity,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_discard(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::discard_rejected(&path,&owner,&entity,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_list(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::outbound::Candidate>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::list(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_list(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<Vec<storage::outbound::Candidate>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::list(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_prepare(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,expected_digest:String,month:String,category:String)->Result<storage::outbound::Operation,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::prepare(&path,&owner,&entity,&id,&expected_digest,&month,&category)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_prepare(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,expected_digest:String,month:String,category:String)->Result<storage::outbound::Operation,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::prepare(&path,&owner,&entity,&id,&expected_digest,&month,&category)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn outbound_ack(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,operation:String,revision:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::outbound::acknowledge(&path,&owner,&entity,&id,&operation,revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn outbound_ack(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,operation:String,revision:i64)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::outbound::acknowledge(&path,&owner,&entity,&id,&operation,revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn inbox_apply(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,local_digest:String,cloud_digest:String)->Result<storage::inbox::Applied,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::apply(&path,&owner,&entity,&id,&local_digest,&cloud_digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn inbox_apply(app:tauri::AppHandle,owner:TaskOwner,entity:String,id:String,local_digest:String,cloud_digest:String)->Result<storage::inbox::Applied,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::inbox::apply(&path,&owner,&entity,&id,&local_digest,&cloud_digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn inbox_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::inbox::Status,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn inbox_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::inbox::Status,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::inbox::status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn inbox_stage(app:tauri::AppHandle,owner:TaskOwner,expected:String,page:storage::inbox::Page)->Result<storage::inbox::Status,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::stage(&path,&owner,&expected,page)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn inbox_stage(app:tauri::AppHandle,owner:TaskOwner,expected:String,page:storage::inbox::Page)->Result<storage::inbox::Status,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::inbox::stage(&path,&owner,&expected,page)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn inbox_compare(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::inbox::Comparison,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::inbox::compare(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn inbox_compare(app:tauri::AppHandle,owner:TaskOwner,offset:u32)->Result<storage::inbox::Comparison,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::inbox::compare(&path,&owner,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn delivery_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::DeliveryStatus,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::delivery_status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn delivery_status(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::DeliveryStatus,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::backup::delivery_status(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn backup_create(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::BackupInfo,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::create(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn backup_create(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::BackupInfo,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::backup::create(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn backup_list(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::BackupList,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn backup_list(app:tauri::AppHandle,owner:TaskOwner)->Result<storage::backup::BackupList,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::backup::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn backup_preview(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<storage::backup::RestorePreview,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::preview(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn backup_preview(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<storage::backup::RestorePreview,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::backup::preview(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn backup_restore(app:tauri::AppHandle,owner:TaskOwner,id:String,current_digest:String,backup_digest:String)->Result<storage::backup::RestoreResult,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::backup::restore(&path,&owner,&id,&current_digest,&backup_digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn backup_restore(app:tauri::AppHandle,owner:TaskOwner,id:String,current_digest:String,backup_digest:String)->Result<storage::backup::RestoreResult,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::backup::restore(&path,&owner,&id,&current_digest,&backup_digest)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn notifications_page(app:tauri::AppHandle,owner:TaskOwner,today:String,to:String,query:String,kind:String,mode:String,offset:u32)->Result<storage::notifications::ReminderPage,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::notifications::page(&path,&owner,&today,&to,&query,&kind,&mode,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn notifications_page(app:tauri::AppHandle,owner:TaskOwner,today:String,to:String,query:String,kind:String,mode:String,offset:u32)->Result<storage::notifications::ReminderPage,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::notifications::page(&path,&owner,&today,&to,&query,&kind,&mode,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<storage::finance::FinanceEntry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<storage::finance::FinanceEntry,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_save(app:tauri::AppHandle,owner:TaskOwner,expected:storage::finance::FinanceEntry,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<storage::finance::FinanceEntry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::save(&path,&owner,&expected,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_save(app:tauri::AppHandle,owner:TaskOwner,expected:storage::finance::FinanceEntry,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<storage::finance::FinanceEntry,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::save(&path,&owner,&expected,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_categories(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<String>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::categories(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_categories(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<String>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::categories(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_overlaps(app:tauri::AppHandle,owner:TaskOwner,id:String,day:String,start:String,end:String)->Result<u64,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::overlaps(&path,&owner,&id,&day,&start,&end)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_overlaps(app:tauri::AppHandle,owner:TaskOwner,id:String,day:String,start:String,end:String)->Result<u64,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::overlaps(&path,&owner,&id,&day,&start,&end)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
 #[tauri::command]
-async fn tasks_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Task,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::tasks::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn tasks_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Task,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::tasks::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
 #[tauri::command]
-async fn workspace_summary(app:tauri::AppHandle,owner:TaskOwner,today:String,week:String)->Result<storage::tasks::WorkspaceSummary,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::tasks::summary(&path,&owner,&today,&week)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn workspace_summary(app:tauri::AppHandle,owner:TaskOwner,today:String,week:String)->Result<storage::tasks::WorkspaceSummary,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::tasks::summary(&path,&owner,&today,&week)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
 #[tauri::command]
-async fn goals_summary(app:tauri::AppHandle,owner:TaskOwner,today:String)->Result<storage::goals::GoalSummary,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::summary(&path,&owner,&today)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_summary(app:tauri::AppHandle,owner:TaskOwner,today:String)->Result<storage::goals::GoalSummary,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::summary(&path,&owner,&today)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
 #[tauri::command]
-async fn goals_page(app:tauri::AppHandle,owner:TaskOwner,query:String,state:String,sort:String,offset:u32)->Result<storage::goals::GoalPage,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::page(&path,&owner,&query,&state,&sort,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_page(app:tauri::AppHandle,owner:TaskOwner,query:String,state:String,sort:String,offset:u32)->Result<storage::goals::GoalPage,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::page(&path,&owner,&query,&state,&sort,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn goals_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Goal,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Goal,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Event,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_get(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<Event,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::get_record(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn workspace_get(app:tauri::AppHandle,owner:TaskOwner,kind:String,id:String)->Result<Entry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::workspace::get_entry(&path,&owner,&kind,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn workspace_get(app:tauri::AppHandle,owner:TaskOwner,kind:String,id:String)->Result<Entry,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::workspace::get_entry(&path,&owner,&kind,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn workspace_search(app:tauri::AppHandle,owner:TaskOwner,query:String,kind:String,offset:u32)->Result<storage::search::SearchPage,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::search::search(&path,&owner,&query,&kind,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn workspace_search(app:tauri::AppHandle,owner:TaskOwner,query:String,kind:String,offset:u32)->Result<storage::search::SearchPage,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::search::search(&path,&owner,&query,&kind,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
 async fn session_vault_read(app: tauri::AppHandle, project_ref: String) -> Result<Option<String>, VaultError> {
     tauri::async_runtime::spawn_blocking(move || with_vault(&app, &project_ref, |vault| {
@@ -152,7 +152,7 @@ fn storage_directory(app: &tauri::AppHandle) -> Result<PathBuf, storage::Storage
 
 #[tauri::command]
 async fn local_storage_status(app: tauri::AppHandle) -> Result<storage::StorageStatus, storage::StorageError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     // SQLite handles stay entirely on one blocking worker. No disk IO on the webview thread.
     tauri::async_runtime::spawn_blocking(move || storage::open_storage(&path))
         .await.map_err(|_| storage::StorageError::Unavailable)?
@@ -160,179 +160,203 @@ async fn local_storage_status(app: tauri::AppHandle) -> Result<storage::StorageS
 
 #[tauri::command]
 async fn tasks_list(app: tauri::AppHandle, owner: TaskOwner, offset: u32, project_filter: Option<String>, filters: Option<storage::tasks::TaskFilters>) -> Result<TaskPage, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || if filters.is_some() { storage::tasks::list_filtered(&path,&owner,offset,project_filter.as_deref(),filters.as_ref()) } else { match project_filter { Some(project) => storage::tasks::list_for_project(&path,&owner,offset,Some(&project)), None => storage::tasks::list(&path,&owner,offset) } })
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn tasks_create(app: tauri::AppHandle, owner: TaskOwner, id: String, title: String) -> Result<Task, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::create(&path, &owner, &id, &title))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn tasks_set_completed(app: tauri::AppHandle, owner: TaskOwner, id: String, completed: bool) -> Result<Task, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::set_completed(&path, &owner, &id, completed))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn tasks_rename(app: tauri::AppHandle, owner: TaskOwner, id: String, title: String, expected_title: String) -> Result<Task, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::rename(&path, &owner, &id, &title, &expected_title))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn tasks_delete(app: tauri::AppHandle, owner: TaskOwner, id: String, expected_title: String) -> Result<(), TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::delete(&path, &owner, &id, &expected_title))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn tasks_set_planning(app: tauri::AppHandle, owner: TaskOwner, id: String, project_id: Option<String>, due_date: Option<String>, priority: u8) -> Result<Task, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::set_planning(&path,&owner,&id,project_id.as_deref(),due_date.as_deref(),priority))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn tasks_scheduled(app: tauri::AppHandle, owner: TaskOwner, from: String, to: String) -> Result<Vec<Task>, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::tasks::scheduled(&path,&owner,&from,&to))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
-async fn project_progress(app:tauri::AppHandle,owner:TaskOwner,today:String)->Result<Vec<ProjectProgress>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::tasks::project_progress(&path,&owner,&today)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn project_progress(app:tauri::AppHandle,owner:TaskOwner,today:String)->Result<Vec<ProjectProgress>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::tasks::project_progress(&path,&owner,&today)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn goals_list(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<Goal>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_list(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<Goal>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn goals_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:String,description:String,state:String,target_date:Option<String>,progress:u8)->Result<Goal,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::create(&path,&owner,&id,&title,&description,&state,target_date.as_deref(),progress)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:String,description:String,state:String,target_date:Option<String>,progress:u8)->Result<Goal,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::create(&path,&owner,&id,&title,&description,&state,target_date.as_deref(),progress)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn goals_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,description:String,state:String,target_date:Option<String>,progress:u8)->Result<Goal,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::save(&path,&owner,&id,expected_revision,&title,&description,&state,target_date.as_deref(),progress)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,description:String,state:String,target_date:Option<String>,progress:u8)->Result<Goal,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::save(&path,&owner,&id,expected_revision,&title,&description,&state,target_date.as_deref(),progress)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn goals_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::goals::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn goals_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::goals::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_page(app:tauri::AppHandle,owner:TaskOwner,month:String,query:String,kind:String,offset:u32)->Result<storage::finance::FinancePage,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::page(&path,&owner,&month,&query,&kind,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_page(app:tauri::AppHandle,owner:TaskOwner,month:String,query:String,kind:String,offset:u32)->Result<storage::finance::FinancePage,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::page(&path,&owner,&month,&query,&kind,offset)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<FinanceEntry>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::list(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<FinanceEntry>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::list(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_totals(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<storage::finance::FinanceTotal>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::totals(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_totals(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<storage::finance::FinanceTotal>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::totals(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_create(app:tauri::AppHandle,owner:TaskOwner,id:String,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<FinanceEntry,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::create(&path,&owner,&id,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_create(app:tauri::AppHandle,owner:TaskOwner,id:String,kind:String,title:String,category:String,amount_cents:i64,entry_date:String)->Result<FinanceEntry,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::create(&path,&owner,&id,&kind,&title,&category,amount_cents,&entry_date)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn finance_delete(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::delete(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn finance_delete(app:tauri::AppHandle,owner:TaskOwner,id:String)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::delete(&path,&owner,&id)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_list(app:tauri::AppHandle,owner:TaskOwner,from:String,to:String)->Result<Vec<Event>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::list(&path,&owner,&from,&to)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_list(app:tauri::AppHandle,owner:TaskOwner,from:String,to:String)->Result<Vec<Event>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::list(&path,&owner,&from,&to)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::create(&path,&owner,&id,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_create(app:tauri::AppHandle,owner:TaskOwner,id:String,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::create(&path,&owner,&id,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::save(&path,&owner,&id,expected_revision,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_save(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64,title:String,details:String,event_date:String,start_time:Option<String>,end_time:Option<String>)->Result<Event,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::save(&path,&owner,&id,expected_revision,&title,&details,&event_date,start_time.as_deref(),end_time.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn events_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::calendar::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn events_delete(app:tauri::AppHandle,owner:TaskOwner,id:String,expected_revision:i64)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::calendar::delete(&path,&owner,&id,expected_revision)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn notifications_list(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<NotificationState>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::notifications::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn notifications_list(app:tauri::AppHandle,owner:TaskOwner)->Result<Vec<NotificationState>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::notifications::list(&path,&owner)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn notifications_set(app:tauri::AppHandle,owner:TaskOwner,source_kind:String,source_id:String,due_date:String,is_read:bool,snoozed_until:Option<String>)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::notifications::set(&path,&owner,&source_kind,&source_id,&due_date,is_read,snoozed_until.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn notifications_set(app:tauri::AppHandle,owner:TaskOwner,source_kind:String,source_id:String,due_date:String,is_read:bool,snoozed_until:Option<String>)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::notifications::set(&path,&owner,&source_kind,&source_id,&due_date,is_read,snoozed_until.as_deref())).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn budgets_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<Budget>,TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::budgets(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn budgets_list(app:tauri::AppHandle,owner:TaskOwner,month:String)->Result<Vec<Budget>,TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::budgets(&path,&owner,&month)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 #[tauri::command]
-async fn budgets_set(app:tauri::AppHandle,owner:TaskOwner,month:String,category:String,limit_cents:i64)->Result<(),TaskError>{let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");tauri::async_runtime::spawn_blocking(move||storage::finance::set_budget(&path,&owner,&month,&category,limit_cents)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
+async fn budgets_set(app:tauri::AppHandle,owner:TaskOwner,month:String,category:String,limit_cents:i64)->Result<(),TaskError>{let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::finance::set_budget(&path,&owner,&month,&category,limit_cents)).await.map_err(|_|TaskError::from(storage::StorageError::Unavailable))?}
 
+struct DeviceStorage { path:PathBuf, _lock:std::fs::File }
+fn data_path(app:&tauri::AppHandle)->Result<PathBuf,storage::StorageError>{Ok(app.state::<DeviceStorage>().path.clone())}
+
+#[tauri::command]
+async fn portable_export(app:tauri::AppHandle,password:String)->Result<Option<String>,TaskError>{
+ let path=data_path(&app)?;tauri::async_runtime::spawn_blocking(move||storage::portable::export_dialog(&path,password)).await.map_err(|_|storage::StorageError::Unavailable)?
+}
+#[tauri::command]
+async fn portable_inspect(app:tauri::AppHandle,password:String)->Result<Option<storage::portable::Preview>,TaskError>{
+ let root=storage_directory(&app)?;tauri::async_runtime::spawn_blocking(move||storage::portable::inspect_dialog(&root,password)).await.map_err(|_|storage::StorageError::Unavailable)?
+}
+#[tauri::command]
+async fn portable_activate(app:tauri::AppHandle,ticket:String)->Result<(),TaskError>{
+ let root=storage_directory(&app)?;tauri::async_runtime::spawn_blocking(move||storage::portable::schedule(&root,&ticket)).await.map_err(|_|storage::StorageError::Unavailable)??;
+ app.request_restart(); Ok(())
+}
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![merge_receive, merge_run, merge_conflicts, merge_resolve, task_reject, sync_status, sync_enable, sync_pending, sync_scan, recovery_begin, recovery_preview, recovery_apply, recovery_finish, outbound_removed, outbound_delete, outbound_reject, outbound_discard, outbound_list, outbound_prepare, outbound_ack, inbox_apply, inbox_status, inbox_stage, inbox_compare, delivery_status, backup_create, backup_list, backup_preview, backup_restore, notifications_page, finance_get, finance_save, finance_categories, events_overlaps, tasks_get, workspace_summary, goals_summary, goals_page, goals_get, events_get, workspace_get, workspace_search, workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_page, finance_list, finance_totals, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
+        .setup(|app| {
+            let root=storage_directory(app.handle()).map_err(|_|std::io::Error::other("Metis veri klasörü açılamadı"))?;
+            std::fs::create_dir_all(&root)?;
+            let lock=storage::portable::device_lock(&root)?;
+            let path=storage::portable::startup(&root).map_err(|_|std::io::Error::other("Metis kurtarma kopyası doğrulanamadı; mevcut veriler korunuyor"))?;
+            app.manage(DeviceStorage{path,_lock:lock});
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![portable_export, portable_inspect, portable_activate, merge_receive, merge_run, merge_conflicts, merge_resolve, task_reject, sync_status, sync_enable, sync_pending, sync_scan, recovery_begin, recovery_preview, recovery_apply, recovery_finish, outbound_removed, outbound_delete, outbound_reject, outbound_discard, outbound_list, outbound_prepare, outbound_ack, inbox_apply, inbox_status, inbox_stage, inbox_compare, delivery_status, backup_create, backup_list, backup_preview, backup_restore, notifications_page, finance_get, finance_save, finance_categories, events_overlaps, tasks_get, workspace_summary, goals_summary, goals_page, goals_get, events_get, workspace_get, workspace_search, workspace_list, workspace_create, workspace_save, workspace_delete, outbox_count, outbox_statuses, outbox_pending, outbox_pending_for_task, outbox_begin, outbox_acknowledge, task_actions_pending, task_action_prepare, task_action_begin, task_action_acknowledge, local_storage_status, session_vault_read, session_vault_write, session_vault_clear, tasks_list, tasks_create, tasks_set_completed, tasks_rename, tasks_delete, tasks_set_planning, tasks_scheduled, project_progress, goals_list, goals_create, goals_save, goals_delete, finance_page, finance_list, finance_totals, finance_create, finance_delete, events_list, events_create, events_save, events_delete, notifications_list, notifications_set, budgets_list, budgets_set])
         .run(tauri::generate_context!())
         .expect("Metis could not start");
 }
 
 #[tauri::command]
 async fn workspace_list(app: tauri::AppHandle, owner: TaskOwner, kind: String, query: String, offset: u32, filter: Option<String>, sort: Option<String>) -> Result<EntryPage, TaskError> {
-    let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path=data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || if filter.is_none()&&sort.is_none(){storage::workspace::list(&path,&owner,&kind,&query,offset)}else{storage::workspace::list_filtered(&path,&owner,&kind,&query,offset,filter.as_deref().unwrap_or("all"),sort.as_deref().unwrap_or("updated"))})
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn workspace_create(app: tauri::AppHandle, owner: TaskOwner, id: String, kind: String, title: String, body: String, state: String, pinned: bool) -> Result<Entry, TaskError> {
-    let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path=data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::workspace::create(&path,&owner,&id,&kind,&title,&body,&state,pinned))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn workspace_save(app: tauri::AppHandle, owner: TaskOwner, id: String, kind: String, expected_revision: i64, title: String, body: String, state: String, pinned: bool) -> Result<Entry, TaskError> {
-    let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path=data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::workspace::save(&path,&owner,&id,&kind,expected_revision,&title,&body,&state,pinned))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 #[tauri::command]
 async fn workspace_delete(app: tauri::AppHandle, owner: TaskOwner, id: String, kind: String, expected_revision: i64) -> Result<(), TaskError> {
-    let path=storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path=data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::workspace::delete(&path,&owner,&id,&kind,expected_revision))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_count(app: tauri::AppHandle, owner: TaskOwner) -> Result<u32, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::count(&path, &owner))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_statuses(app: tauri::AppHandle, owner: TaskOwner, task_ids: Vec<String>) -> Result<Vec<TaskCloudStatus>, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::statuses(&path, &owner, &task_ids))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_pending(app: tauri::AppHandle, owner: TaskOwner, after: i64) -> Result<Vec<PendingOperation>, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::pending(&path, &owner, after))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn task_actions_pending(app: tauri::AppHandle, owner: TaskOwner) -> Result<Vec<PendingAction>, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::pending_actions(&path, &owner))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn task_action_prepare(app: tauri::AppHandle, owner: TaskOwner, task_id: String, kind: String, completed: Option<bool>) -> Result<PendingAction, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::prepare_action(&path,&owner,&task_id,&kind,completed))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn task_action_begin(app: tauri::AppHandle, owner: TaskOwner, operation_id: String) -> Result<PendingAction, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::begin_action(&path,&owner,&operation_id))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn task_action_acknowledge(app: tauri::AppHandle, owner: TaskOwner, operation_id: String, task_id: String, revision: i64) -> Result<(), TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::acknowledge_action(&path,&owner,&operation_id,&task_id,revision))
         .await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_pending_for_task(app: tauri::AppHandle, owner: TaskOwner, task_id: String) -> Result<Option<PendingOperation>, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::pending_for_task(&path, &owner, &task_id)).await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_begin(app: tauri::AppHandle, owner: TaskOwner, sequence: i64) -> Result<PendingOperation, TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::begin_delivery(&path, &owner, sequence)).await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
 
 #[tauri::command]
 async fn outbox_acknowledge(app: tauri::AppHandle, owner: TaskOwner, operation_id: String, task_id: String, revision: i64, outcome: String) -> Result<(), TaskError> {
-    let path = storage_directory(&app)?.join("storage").join("personal-os.sqlite3");
+    let path = data_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || storage::outbox::acknowledge(&path, &owner, &operation_id, &task_id, revision, &outcome)).await.map_err(|_| TaskError::from(storage::StorageError::Unavailable))?
 }
